@@ -584,9 +584,9 @@ func (hash Hash) Algorithm() (uint64, error) {
 	if err != nil {
 		return 0, err
 	}
-	if !multihash.ValidCode(mh.Code) {
+	/* if !multihash.ValidCode(mh.Code) {
 		return 0, errors.New("unknown multihash algorithm")
-	}
+	} */
 	if err = checkHashAlg(mh.Code); err != nil {
 		return 0, err
 	}
