@@ -1,4 +1,4 @@
-module github.com/privacybydesign/gabi
+module github.com/BeardOfDoom/pq-gabi
 
 go 1.18
 

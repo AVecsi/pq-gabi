@@ -3,7 +3,7 @@ package zkproof
 import (
 	"testing"
 
-	"github.com/privacybydesign/gabi/big"
+	"github.com/BeardOfDoom/pq-gabi/big"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

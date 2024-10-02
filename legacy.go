@@ -1,8 +1,8 @@
 package gabi
 
 import (
-	"github.com/privacybydesign/gabi/big"
-	"github.com/privacybydesign/gabi/gabikeys"
+	"github.com/BeardOfDoom/pq-gabi/big"
+	"github.com/BeardOfDoom/pq-gabi/gabikeys"
 )
 
 // KeyshareResponseLegacy generates the keyshare response for a given challenge and commit, given a secret,

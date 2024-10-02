@@ -1,8 +1,8 @@
 package rangeproof
 
 import (
-	"github.com/privacybydesign/gabi/big"
-	"github.com/privacybydesign/gabi/internal/common"
+	"github.com/BeardOfDoom/pq-gabi/big"
+	"github.com/BeardOfDoom/pq-gabi/internal/common"
 
 	"github.com/go-errors/errors"
 )

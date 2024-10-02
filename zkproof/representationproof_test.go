@@ -4,10 +4,10 @@ import (
 	"sync/atomic"
 	"testing"
 
-	"github.com/privacybydesign/gabi/big"
-	"github.com/privacybydesign/gabi/gabikeys"
-	"github.com/privacybydesign/gabi/keyproof"
-	"github.com/privacybydesign/gabi/zkproof"
+	"github.com/BeardOfDoom/pq-gabi/big"
+	"github.com/BeardOfDoom/pq-gabi/gabikeys"
+	"github.com/BeardOfDoom/pq-gabi/keyproof"
+	"github.com/BeardOfDoom/pq-gabi/zkproof"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

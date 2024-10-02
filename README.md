@@ -1,7 +1,7 @@
 Gabi
 &nbsp;
-[![Go Reference](https://pkg.go.dev/badge/github.com/privacybydesign/gabi.svg)](https://pkg.go.dev/github.com/privacybydesign/gabi)
-[![Go Report Card](https://goreportcard.com/badge/github.com/privacybydesign/gabi)](https://goreportcard.com/report/github.com/privacybydesign/gabi)
+[![Go Reference](https://pkg.go.dev/badge/github.com/BeardOfDoom/pq-gabi.svg)](https://pkg.go.dev/github.com/BeardOfDoom/pq-gabi)
+[![Go Report Card](https://goreportcard.com/badge/github.com/BeardOfDoom/pq-gabi)](https://goreportcard.com/report/github.com/BeardOfDoom/pq-gabi)
 ====
 
 `gabi` is a Go implementation of the [IRMA](https://irma.app) approach to the Idemix attribute based credential system. Check out the [Privacy by Design Foundation](https://privacybydesign.foundation/irma-en) website to learn more on this great alternative to traditional identity management. 
@@ -15,7 +15,7 @@ Install
 
 To install:
 
-    go get github.com/privacybydesign/gabi
+    go get github.com/BeardOfDoom/pq-gabi
 
 Test
 ----

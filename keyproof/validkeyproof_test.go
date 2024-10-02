@@ -4,8 +4,8 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/privacybydesign/gabi/big"
-	"github.com/privacybydesign/gabi/safeprime"
+	"github.com/BeardOfDoom/pq-gabi/big"
+	"github.com/BeardOfDoom/pq-gabi/safeprime"
 	"github.com/stretchr/testify/assert"
 )
 

@@ -4,11 +4,11 @@ import (
 	"crypto/sha256"
 	"crypto/subtle"
 
+	"github.com/BeardOfDoom/pq-gabi/big"
+	"github.com/BeardOfDoom/pq-gabi/gabikeys"
+	"github.com/BeardOfDoom/pq-gabi/internal/common"
 	"github.com/fxamacker/cbor"
 	"github.com/go-errors/errors"
-	"github.com/privacybydesign/gabi/big"
-	"github.com/privacybydesign/gabi/gabikeys"
-	"github.com/privacybydesign/gabi/internal/common"
 )
 
 var bigOne = big.NewInt(1)

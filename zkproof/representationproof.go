@@ -1,8 +1,8 @@
 package zkproof
 
 import (
-	"github.com/privacybydesign/gabi/big"
-	"github.com/privacybydesign/gabi/gabikeys"
+	"github.com/BeardOfDoom/pq-gabi/big"
+	"github.com/BeardOfDoom/pq-gabi/gabikeys"
 )
 
 type (

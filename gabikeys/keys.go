@@ -10,10 +10,10 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/privacybydesign/gabi/big"
-	"github.com/privacybydesign/gabi/internal/common"
-	"github.com/privacybydesign/gabi/safeprime"
-	"github.com/privacybydesign/gabi/signed"
+	"github.com/BeardOfDoom/pq-gabi/big"
+	"github.com/BeardOfDoom/pq-gabi/internal/common"
+	"github.com/BeardOfDoom/pq-gabi/safeprime"
+	"github.com/BeardOfDoom/pq-gabi/signed"
 
 	"github.com/go-errors/errors"
 )

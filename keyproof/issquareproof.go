@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/privacybydesign/gabi/big"
-	"github.com/privacybydesign/gabi/internal/common"
-	"github.com/privacybydesign/gabi/zkproof"
+	"github.com/BeardOfDoom/pq-gabi/big"
+	"github.com/BeardOfDoom/pq-gabi/internal/common"
+	"github.com/BeardOfDoom/pq-gabi/zkproof"
 )
 
 type (

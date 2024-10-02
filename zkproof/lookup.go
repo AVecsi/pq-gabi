@@ -1,6 +1,6 @@
 package zkproof
 
-import "github.com/privacybydesign/gabi/big"
+import "github.com/BeardOfDoom/pq-gabi/big"
 
 type (
 	BaseLookup interface {

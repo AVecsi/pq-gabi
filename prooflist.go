@@ -5,10 +5,10 @@
 package gabi
 
 import (
+	"github.com/BeardOfDoom/pq-gabi/big"
+	"github.com/BeardOfDoom/pq-gabi/gabikeys"
+	"github.com/BeardOfDoom/pq-gabi/internal/common"
 	"github.com/go-errors/errors"
-	"github.com/privacybydesign/gabi/big"
-	"github.com/privacybydesign/gabi/gabikeys"
-	"github.com/privacybydesign/gabi/internal/common"
 )
 
 // ProofBuilder is an interface for a proof builder. That is, an object to hold

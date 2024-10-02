@@ -4,7 +4,7 @@ import (
 	"encoding/xml"
 	"strconv"
 
-	"github.com/privacybydesign/gabi/big"
+	"github.com/BeardOfDoom/pq-gabi/big"
 )
 
 // Helper structs for (un)marshaling

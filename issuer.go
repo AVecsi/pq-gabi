@@ -9,10 +9,10 @@ import (
 
 	"github.com/go-errors/errors"
 
-	"github.com/privacybydesign/gabi/big"
-	"github.com/privacybydesign/gabi/gabikeys"
-	"github.com/privacybydesign/gabi/internal/common"
-	"github.com/privacybydesign/gabi/revocation"
+	"github.com/BeardOfDoom/pq-gabi/big"
+	"github.com/BeardOfDoom/pq-gabi/gabikeys"
+	"github.com/BeardOfDoom/pq-gabi/internal/common"
+	"github.com/BeardOfDoom/pq-gabi/revocation"
 )
 
 // Issuer holds the key material for a credential issuer.

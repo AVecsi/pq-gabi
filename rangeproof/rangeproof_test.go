@@ -3,10 +3,10 @@ package rangeproof_test
 import (
 	"testing"
 
-	"github.com/privacybydesign/gabi/big"
-	"github.com/privacybydesign/gabi/gabikeys"
-	"github.com/privacybydesign/gabi/internal/common"
-	"github.com/privacybydesign/gabi/rangeproof"
+	"github.com/BeardOfDoom/pq-gabi/big"
+	"github.com/BeardOfDoom/pq-gabi/gabikeys"
+	"github.com/BeardOfDoom/pq-gabi/internal/common"
+	"github.com/BeardOfDoom/pq-gabi/rangeproof"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 

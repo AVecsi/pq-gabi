@@ -4,7 +4,7 @@
 package safeprime
 
 import (
-	"github.com/privacybydesign/gabi/big"
+	"github.com/BeardOfDoom/pq-gabi/big"
 )
 
 func Generate(int, chan struct{}) (*big.Int, error) {

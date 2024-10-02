@@ -4,7 +4,7 @@ import (
 	"crypto/sha256"
 	"encoding/asn1"
 
-	"github.com/privacybydesign/gabi/big"
+	"github.com/BeardOfDoom/pq-gabi/big"
 
 	gobig "math/big"
 )

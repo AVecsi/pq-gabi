@@ -1,6 +1,6 @@
 package keyproof
 
-import "github.com/privacybydesign/gabi/big"
+import "github.com/BeardOfDoom/pq-gabi/big"
 
 type (
 	quasiSafePrimeProductCommit struct {

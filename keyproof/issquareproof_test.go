@@ -3,8 +3,8 @@ package keyproof
 import (
 	"testing"
 
-	"github.com/privacybydesign/gabi/big"
-	"github.com/privacybydesign/gabi/zkproof"
+	"github.com/BeardOfDoom/pq-gabi/big"
+	"github.com/BeardOfDoom/pq-gabi/zkproof"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

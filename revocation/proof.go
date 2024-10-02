@@ -4,11 +4,11 @@ import (
 	"crypto/rand"
 	"time"
 
+	"github.com/BeardOfDoom/pq-gabi/big"
+	"github.com/BeardOfDoom/pq-gabi/gabikeys"
+	"github.com/BeardOfDoom/pq-gabi/internal/common"
+	"github.com/BeardOfDoom/pq-gabi/zkproof"
 	"github.com/go-errors/errors"
-	"github.com/privacybydesign/gabi/big"
-	"github.com/privacybydesign/gabi/gabikeys"
-	"github.com/privacybydesign/gabi/internal/common"
-	"github.com/privacybydesign/gabi/zkproof"
 )
 
 /*

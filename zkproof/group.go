@@ -3,9 +3,9 @@ package zkproof
 import (
 	"fmt"
 
+	"github.com/BeardOfDoom/pq-gabi/big"
+	"github.com/BeardOfDoom/pq-gabi/internal/common"
 	"github.com/bwesterb/go-exptable"
-	"github.com/privacybydesign/gabi/big"
-	"github.com/privacybydesign/gabi/internal/common"
 )
 
 type Group struct {

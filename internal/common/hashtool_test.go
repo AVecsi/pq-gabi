@@ -3,7 +3,7 @@ package common
 import (
 	"testing"
 
-	"github.com/privacybydesign/gabi/big"
+	"github.com/BeardOfDoom/pq-gabi/big"
 )
 
 func TestHashCommit(t *testing.T) {

@@ -1,10 +1,10 @@
 package keyproof
 
 import (
-	"github.com/privacybydesign/gabi/big"
-	"github.com/privacybydesign/gabi/internal/common"
-	"github.com/privacybydesign/gabi/safeprime"
-	"github.com/privacybydesign/gabi/zkproof"
+	"github.com/BeardOfDoom/pq-gabi/big"
+	"github.com/BeardOfDoom/pq-gabi/internal/common"
+	"github.com/BeardOfDoom/pq-gabi/safeprime"
+	"github.com/BeardOfDoom/pq-gabi/zkproof"
 )
 
 type (
