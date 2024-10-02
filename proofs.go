@@ -16,7 +16,7 @@ import (
 
 // Proof represents a non-interactive zero-knowledge proof
 type Proof interface {
-	VerifyWithChallenge(pk *gabikeys.PublicKey, reconstructedChallenge *big.Int) bool
+	VerifyWithChallengee(pk *gabikeys.PublicKey, reconstructedChallenge *big.Int) bool
 	SecretKeyResponse() *big.Int
 	ChallengeContribution(pk *gabikeys.PublicKey) ([]*big.Int, error)
 	MergeProofP(proofP *ProofP, pk *gabikeys.PublicKey)
