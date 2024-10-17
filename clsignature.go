@@ -25,6 +25,7 @@ func RepresentToPublicKey(pk *gabikeys.PublicKey, exps []*big.Int) (*big.Int, er
 }
 
 // CLSignature is a data structure for holding a Camenisch-Lysyanskaya signature.
+// TODO remake it into a DILITHIUM structure
 type CLSignature struct {
 	A         *big.Int
 	E         *big.Int `json:"e"`
@@ -34,6 +35,7 @@ type CLSignature struct {
 
 // SignMessageBlock signs a message block (ms) and a commitment (U) using the
 // Camenisch-Lysyanskaya signature scheme as used in the Idemix system.
+// TODO we only need to sign commitments, nothing else.
 func signMessageBlockAndCommitment(sk *gabikeys.PrivateKey, pk *gabikeys.PublicKey, U *big.Int, ms []*big.Int) (
 	*CLSignature, error) {
 	R, err := RepresentToPublicKey(pk, ms)
@@ -84,6 +86,7 @@ func SignMessageBlock(sk *gabikeys.PrivateKey, pk *gabikeys.PublicKey, ms []*big
 
 // Verify checks whether the signature is correct while being given a public key
 // and the messages.
+// remake to the standard DILITHIUM verification
 func (s *CLSignature) Verify(pk *gabikeys.PublicKey, ms []*big.Int) bool {
 	// First check that e is in the range [2^{l_e - 1}, 2^{l_e - 1} + 2^{l_e_prime - 1}]
 	start := new(big.Int).Lsh(big.NewInt(1), pk.Params.Le-1)
@@ -118,6 +121,7 @@ func (s *CLSignature) Verify(pk *gabikeys.PublicKey, ms []*big.Int) bool {
 }
 
 // Randomize returns a randomized copy of the signature.
+// TODO do we need this in the PoC?
 func (s *CLSignature) Randomize(pk *gabikeys.PublicKey) (*CLSignature, error) {
 	r, err := common.RandomBigInt(pk.Params.LRA)
 	if err != nil {
