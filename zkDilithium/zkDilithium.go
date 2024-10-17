@@ -74,24 +74,24 @@ func Gen(seed []byte) (pk []byte, sk []byte) {
 }
 
 func sampleInBall(h *Poseidon) *Poly {
-	signs := []uint64{}
-	ret := [256]uint64{}
+	signs := []int64{}
+	ret := [256]int64{}
 	signsPerFe := 8                                                   // number of signs to extract per field element
 	NTAU := (TAU + POS_CYCLE_LEN - 1) / POS_CYCLE_LEN * POS_CYCLE_LEN // instead of ceil, add first then divide
-	swaps := []uint64{}
+	swaps := []int64{}
 
 	//TAU is forced to be a multiple of POS_CYCLE_LEN to simplify AIR
 	for i := 0; i < (TAU+POS_CYCLE_LEN-1)/POS_CYCLE_LEN; i++ {
 		h.poseidonPerm(POS_RF, POS_T, Q)
-		swaps = []uint64{}
-		signs = []uint64{}
+		swaps = []int64{}
+		signs = []int64{}
 
 		//In each cycle
 		//Read one field element and extract POS_CYCLE_LEN bits
 		fes, _ := h.ReadNoMod(9, POS_RATE)
-		fe := uint64(fes[8])
+		fe := int64(fes[8])
 
-		twoPowerSignsPerFe := uint64(1 << signsPerFe)
+		twoPowerSignsPerFe := int64(1 << signsPerFe)
 
 		q := fe / twoPowerSignsPerFe
 		r := fe % twoPowerSignsPerFe
@@ -111,15 +111,15 @@ func sampleInBall(h *Poseidon) *Poly {
 
 		for j := 0; j < POS_CYCLE_LEN; j++ {
 			base := 256 - NTAU + i*POS_CYCLE_LEN + j
-			fe := uint64(fes[j])
-			q := fe / uint64(base+1)
-			r := fe % uint64(base+1)
+			fe := int64(fes[j])
+			q := fe / int64(base+1)
+			r := fe % int64(base+1)
 
-			if q == Q/uint64(base+1) {
+			if q == Q/int64(base+1) {
 				return nil
 			}
 
-			swaps = append(swaps, uint64(r))
+			swaps = append(swaps, int64(r))
 			ret[base] = ret[r]
 			ret[r] = signs[j]
 		}

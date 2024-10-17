@@ -11,12 +11,12 @@ const L = 4
 
 // TODO check
 func sampleUniform(stream *bytes.Reader) *Poly {
-	cs := new([256]uint64)
+	cs := new([256]int64)
 	i := 0
 	for {
 		b := make([]byte, 3)
 		stream.Read(b)
-		d := uint64(b[0]) + (uint64(b[1]) << 8) + (uint64(b[2]) << 16)
+		d := int64(b[0]) + (int64(b[1]) << 8) + (int64(b[2]) << 16)
 		d &= 0x7fffff
 		if d >= Q {
 			continue
@@ -30,7 +30,7 @@ func sampleUniform(stream *bytes.Reader) *Poly {
 }
 
 func sampleLeqEta(stream *bytes.Reader) *Poly {
-	cs := new([256]uint64)
+	cs := new([256]int64)
 	i := 0
 	for {
 		b := make([]byte, 3)
@@ -47,9 +47,9 @@ func sampleLeqEta(stream *bytes.Reader) *Poly {
 		for _, d := range ds {
 			if d <= 14 {
 				if 2-(d%5) < 0 {
-					cs[i] = uint64(2 - (d % 5) + Q)
+					cs[i] = int64(2 - (d % 5) + Q)
 				} else {
-					cs[i] = uint64(2 - (d % 5))
+					cs[i] = int64(2 - (d % 5))
 				}
 				i++
 			}

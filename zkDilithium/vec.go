@@ -37,7 +37,7 @@ func (v *Vec) InvNTT() *Vec {
 
 // DotNTT computes the dot product of two Vecs in the NTT domain
 func (v *Vec) DotNTT(other *Vec) *Poly {
-	sum := NewPoly(make([]uint64, N)) // TODO Assuming zero-initialized Poly
+	sum := NewPoly(make([]int64, N)) // TODO Assuming zero-initialized Poly
 	for i := range v.ps {
 		sum = sum.Add(v.ps[i].MulNTT(other.ps[i]))
 	}
@@ -46,8 +46,8 @@ func (v *Vec) DotNTT(other *Vec) *Poly {
 
 // SchoolbookDot computes the dot product of two Vecs using Schoolbook multiplication
 func (v *Vec) SchoolbookDot(other *Vec) (*Poly, *Poly) {
-	retr := NewPoly(make([]uint64, N))
-	retq := NewPoly(make([]uint64, N))
+	retr := NewPoly(make([]int64, N))
+	retq := NewPoly(make([]int64, N))
 	for i := range v.ps {
 		q, r := v.ps[i].SchoolbookMul(other.ps[i])
 		retr = retr.Add(r)
@@ -196,8 +196,8 @@ func (v *Vec) Decompose() (*Vec, *Vec) {
 }
 
 // Norm computes the maximum norm of the Polys in the Vec
-func (v *Vec) Norm() uint64 {
-	maxNorm := uint64(0)
+func (v *Vec) Norm() int64 {
+	maxNorm := int64(0)
 	for _, p := range v.ps {
 		norm := p.Norm()
 		if norm > maxNorm {

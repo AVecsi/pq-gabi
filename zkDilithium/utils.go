@@ -21,7 +21,7 @@ func min(a, b int) int {
 	return b
 }
 
-func decompose(r uint64) (uint64, uint64) {
+func decompose(r int64) (int64, int64) {
 	// Calculate r0
 	r0 := r % (2 * GAMMA2)
 	if r0 > GAMMA2 {
@@ -47,7 +47,7 @@ func packFesInt(fes []int) []byte {
 	return ret.Bytes()
 }
 
-func packFes(fes []uint64) []byte {
+func packFes(fes []int64) []byte {
 	var ret bytes.Buffer
 	for _, fe := range fes {
 		ret.WriteByte(byte(fe & 255))
@@ -58,13 +58,13 @@ func packFes(fes []uint64) []byte {
 }
 
 // unpackFes unpacks a byte array into a slice of integers
-func unpackFes(bs []byte, Q uint64) []uint64 {
-	cs := make([]uint64, 0)
+func unpackFes(bs []byte, Q int64) []int64 {
+	cs := make([]int64, 0)
 	if len(bs)%3 != 0 {
 		panic("invalid byte array length")
 	}
 	for i := 0; i < len(bs); i += 3 {
-		fe := (uint64(bs[i]) | (uint64(bs[i+1]) << 8) | (uint64(bs[i+2]) << 16)) % Q
+		fe := (int64(bs[i]) | (int64(bs[i+1]) << 8) | (int64(bs[i+2]) << 16)) % Q
 		cs = append(cs, fe)
 	}
 	return cs
