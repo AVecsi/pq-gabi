@@ -275,7 +275,7 @@ func Verify(pk []byte, msg []byte, sig []byte) bool {
 	return true
 }
 
-func main() {
+/*func main() {
 	seed := make([]byte, 32)
 	fmt.Println("seed: ", seed)
 
@@ -293,4 +293,4 @@ func main() {
 	} else {
 		fmt.Println("Signature verification failed.")
 	}
-}
+}*/
