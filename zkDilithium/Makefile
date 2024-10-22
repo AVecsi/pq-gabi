@@ -31,7 +31,7 @@ run-static: build-static
 # This is just for running the Rust lib tests natively via cargo
 .PHONY: test-rust-lib
 test-rust-lib:
-	@cd lib/zkDilithiumProof && cargo test -- --nocapture
+	@cd lib/zkDilithiumProof && cargo test --release -- --nocapture
 
 .PHONY: clean
 clean:

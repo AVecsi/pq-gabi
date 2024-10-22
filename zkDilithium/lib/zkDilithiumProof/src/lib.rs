@@ -13,11 +13,10 @@ use crate::starkpf::{N, K};
 use std::ffi::CStr;
 use std::ptr;
 use std::slice;
+use std::time::{Duration, Instant};
 
 #[no_mangle]
 pub extern "C" fn prove(zBytes: *const libc::c_uint, wBytes: *const libc::c_uint, qwBytes: *const libc::c_uint, ctildeBytes: *const libc::c_uint, mBytes: *const libc::c_uint, comrBytes: *const libc::c_uint, out_len: *mut libc::c_int) -> *const libc::c_uchar {
-
-    println!("I was here\n\n\n\n\n\n\n\n");
 
     //For now lets just assume that the input's length is ok
     //Convert from the C bytes to something rust readable
@@ -78,11 +77,6 @@ pub extern "C" fn prove(zBytes: *const libc::c_uint, wBytes: *const libc::c_uint
 pub extern "C" fn verify(proofBytes: *const libc::c_uchar, len: *const libc::c_int, mBytes: *const libc::c_uint) -> libc::c_int {
 
     let proofSlice: &[u8] = unsafe {slice::from_raw_parts(proofBytes, (*len) as usize)};
-
-    unsafe{
-    println!("veri proof/first {}", proofSlice[0]);
-    println!("veri proof/last {}", proofSlice[(*len-1) as usize]);
-    println!("veri len {}", *len);}
 
     let proof = StarkProof::from_bytes(proofSlice).unwrap();
     let mut m: [BaseElement; 12] = [BaseElement::new(0); 12];
@@ -145,13 +139,12 @@ pub mod test {
 
         let mut len: i32 = 0;
 
+        let start = Instant::now();
+
         let proof_bytes_ptr = prove(zbytes.as_ptr(), wbytes.as_ptr(), qwbytes.as_ptr(), ctildebytes.as_ptr(), mbytes.as_ptr(), com_rbytes.as_ptr(), &mut len);
-        println!("{}", HASH_DIGEST_WIDTH);
-        
+    
         println!("{}", verify(proof_bytes_ptr, &len, mbytes.as_ptr()));
+
+        println!("{:?}", start.elapsed());
     }
 }
-
-//TODO implement a merkle tree
-//TODO test on a merkle tree
-//TODO start implementing into irma

@@ -15,6 +15,8 @@ import "github.com/cbergoon/merkletree"
 import "crypto/sha256"
 import "log"
 
+import "time"
+
 // TestContent implements the Content interface provided by merkletree and represents the content stored in the tree.
 type TestContent struct {
 	s string
@@ -109,14 +111,13 @@ func main() {
 
 	len := 0
 
+	start := time.Now()
+
 	proof := C.prove((*C.uint32_t)(z.IntArray()), (*C.uint32_t)(w.IntArray()), (*C.uint32_t)(qw.IntArray()), (*C.uint32_t)(&cTildeUint32[0]), (*C.uint32_t)(&msgUint32[0]), (*C.uint32_t)(&comr[0]), (*C.int)(unsafe.Pointer(&len)))
 
-	p5 := (*byte)(unsafe.Add(unsafe.Pointer(proof), (len - 1)))
-
-	fmt.Println("proof/first ", *proof, "\n")
-	fmt.Println("proof/last ", *p5, "\n")
-
 	result := C.verify(proof, (*C.int)(unsafe.Pointer(&len)), (*C.uint32_t)(&msgUint32[0]))
+
+	fmt.Println(time.Since(start))
 
 	fmt.Println("Result ", result, "\n")
 	//println!("{}", unsafe{*verify(proof_bytes_ptr, &len, mbytes.as_ptr())});
