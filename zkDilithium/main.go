@@ -10,6 +10,31 @@ import "C"
 import "unsafe"
 import "fmt"
 
+import "github.com/cbergoon/merkletree"
+
+import "crypto/sha256"
+import "log"
+
+// TestContent implements the Content interface provided by merkletree and represents the content stored in the tree.
+type TestContent struct {
+	s string
+}
+
+// CalculateHash hashes the values of a TestContent
+func (t TestContent) CalculateHash() ([]byte, error) {
+	h := sha256.New()
+	if _, err := h.Write([]byte(t.s)); err != nil {
+		return nil, err
+	}
+
+	return h.Sum(nil), nil
+}
+
+// Equals tests for equality of two Contents
+func (t TestContent) Equals(other merkletree.Content) (bool, error) {
+	return t.s == other.(TestContent).s, nil
+}
+
 func main() {
 	/* str1 := C.CString("world")
 	str2 := C.CString("this is code from the dynamic library")
@@ -19,10 +44,21 @@ func main() {
 	C.hello(str1)
 	C.whisper(str2)*/
 
+	var list []merkletree.Content
+	list = append(list, TestContent{s: "attr1"})
+	list = append(list, TestContent{s: "attr2"})
+	list = append(list, TestContent{s: "attr3"})
+	list = append(list, TestContent{s: "attr4"})
+
+	merkleTree, err := merkletree.NewTree(list)
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	seed := make([]byte, 32)
 
 	pk, sk := Gen(seed)
-	msg := []byte("test")
+	msg := merkleTree.MerkleRoot()
 
 	// Sign the message
 	sig := Sign(sk, msg)
@@ -60,7 +96,16 @@ func main() {
 	// 	msgUint32[i] = uint32(msg[i])
 	// }
 
-	msgUint32 := []uint32{26331, 30185, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
+	msgUint32 := make([]uint32, 12)
+
+	msgFes := unpackFes22Bit(msg)
+	fmt.Println(msgFes)
+
+	for i := range msgFes {
+		msgUint32[i] = uint32(msgFes[i])
+	}
+
+	//msgUint32 := []uint32{26331, 30185, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
 
 	len := 0
 

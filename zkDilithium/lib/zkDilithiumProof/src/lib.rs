@@ -26,12 +26,11 @@ pub extern "C" fn prove(zBytes: *const libc::c_uint, wBytes: *const libc::c_uint
     let mut qw: [[BaseElement; N]; K] = [[BaseElement::new(0); N]; K];
     let mut ctilde: [BaseElement; HASH_DIGEST_WIDTH] = [BaseElement::new(0); HASH_DIGEST_WIDTH];
     let mut m: [BaseElement; 12] = [BaseElement::new(0); 12];
-    let mut com_r: [BaseElement; 12] = [BaseElement::new(0); 12];
+    let mut com_r: [BaseElement; HASH_DIGEST_WIDTH] = [BaseElement::new(0); HASH_DIGEST_WIDTH];
 
     unsafe {
         for i in 0..K {
             for j in 0..N {
-                println!("{} {}", i*N+j, *(wBytes.add(i*N+j)));
                 z[i][j] = BaseElement::new(*(zBytes.add(i*N+j)));
                 w[i][j] = BaseElement::new(*(wBytes.add(i*N+j)));
                 qw[i][j] = BaseElement::new(*(qwBytes.add(i*N+j)));
@@ -44,15 +43,15 @@ pub extern "C" fn prove(zBytes: *const libc::c_uint, wBytes: *const libc::c_uint
 
         for i in 0..12 {
             m[i] = BaseElement::new(*(mBytes.add(i)));
+        }
+
+        for i in 0..HASH_DIGEST_WIDTH {
             com_r[i] = BaseElement::new(*(comrBytes.add(i)));
         }
     }
     let proof_bytes = starkpf::prove(z, w, qw, ctilde, m, com_r).to_bytes();
 
-    println!("proof/first {}", proof_bytes[0]);
     let len = proof_bytes.len();
-    println!("proof/last {}", proof_bytes[len-1]);
-    println!("len {}", len);
 
     let ptr = &proof_bytes[0];
 
@@ -153,8 +152,6 @@ pub mod test {
     }
 }
 
-//TODO test call it from go
-//TODO return the length from the prove fun.
 //TODO implement a merkle tree
 //TODO test on a merkle tree
 //TODO start implementing into irma

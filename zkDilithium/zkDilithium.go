@@ -145,7 +145,7 @@ func Sign(sk []byte, msg []byte) []byte {
 	h := NewPoseidon([]int{0}, POS_RF, POS_T, POS_RATE, Q)
 	h.Write(unpackFesLoose(tr), POS_RF, POS_T, POS_RATE, Q)
 	h.Permute(POS_RF, POS_T, Q)
-	h.Write(unpackFesLoose(msg), POS_RF, POS_T, POS_RATE, Q)
+	h.Write(unpackFes22Bit(msg), POS_RF, POS_T, POS_RATE, Q)
 	mu, _ := h.Read(MUSIZE, POS_RF, POS_T, POS_RATE, Q)
 
 	// Apply NTT
@@ -226,7 +226,7 @@ func Verify(pk []byte, msg []byte, sig []byte) bool {
 	h := NewPoseidon([]int{0}, POS_RF, POS_T, POS_RATE, Q)
 	h.Write(unpackFesLoose(tr), POS_RF, POS_T, POS_RATE, Q)
 	h.Permute(POS_RF, POS_T, Q)
-	h.Write(unpackFesLoose(msg), POS_RF, POS_T, POS_RATE, Q)
+	h.Write(unpackFes22Bit(msg), POS_RF, POS_T, POS_RATE, Q)
 	mu, _ := h.Read(MUSIZE, POS_RF, POS_T, POS_RATE, Q)
 
 	// Sample challenge c

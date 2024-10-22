@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"github.com/BeardOfDoom/pq-gabi/big"
 )
 
 const GAMMA2 = 65536
@@ -104,4 +105,34 @@ func unpackFesLoose(bs []byte) []int {
 	}
 
 	return ret
+}
+
+// This function unpacks 256 bit to 12 field elements, making sure the output is unique for every input.
+
+func unpackFes22Bit(bs []byte) []int {
+	if len(bs) != 32 {
+		panic("invalid byte array length")
+	}
+
+	// Combine all 32 bytes into a single big integer to easily extract 22-bit chunks
+	bigInt := new(big.Int).SetBytes(bs)
+
+	// Initialize an array to store the 12 field elements
+	fieldElements := make([]int, 12)
+
+	// Mask to extract 22 bits
+	mask := big.NewInt((1 << 22) - 1)
+
+	// Extract the first 11 elements, each using 22 bits
+	for i := 0; i < 11; i++ {
+		// Extract the least significant 22 bits
+		fieldElements[i] = int(new(big.Int).And(bigInt, mask).Int64())
+		// Right shift the big integer by 22 bits
+		bigInt.Rsh(bigInt, 22)
+	}
+
+	// Extract the last 14 bits (as the remaining bits)
+	fieldElements[11] = int(bigInt.Int64()) // The remaining bits are 14 bits
+
+	return fieldElements
 }
