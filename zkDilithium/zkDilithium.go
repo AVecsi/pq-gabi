@@ -37,10 +37,6 @@ func Gen(seed []byte) (pk []byte, sk []byte) {
 	s1, s2 := sampleSecret(rho2)
 
 	// Compute t = InvNTT(Ahat * NTT(s1) + NTT(s2))
-	test := s1.NTT()
-	fmt.Println(test)
-	test = s1.NTT().InvNTT()
-	fmt.Println(test)
 	t := Ahat.MulNTT(s1.NTT()).Add(s2.NTT()).InvNTT()
 
 	// Pack t
@@ -49,8 +45,6 @@ func Gen(seed []byte) (pk []byte, sk []byte) {
 	// Compute tr = H(rho + tPacked, 32)
 	tr := H(append(rho, tPacked...), 32)
 
-	test = unpackVecLeqEta(s2.PackLeqEta(), K)
-	fmt.Println(test)
 	// Assertions
 	if !unpackVecLeqEta(s2.PackLeqEta(), K).Equal(s2) {
 		panic("Assertion failed: unpackVecLeqEta(s2.PackLeqEta(), K) != s2")
@@ -275,7 +269,7 @@ func Verify(pk []byte, msg []byte, sig []byte) bool {
 	return true
 }
 
-/*func main() {
+/* func main() {
 	seed := make([]byte, 32)
 	fmt.Println("seed: ", seed)
 
@@ -293,4 +287,4 @@ func Verify(pk []byte, msg []byte, sig []byte) bool {
 	} else {
 		fmt.Println("Signature verification failed.")
 	}
-}*/
+} */

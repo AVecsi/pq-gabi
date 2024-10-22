@@ -1,5 +1,5 @@
 [package]
-name = "zk_dilithium"
+name = "zkDilithium"
 version = "0.1.0"
 edition = "2021"
 
@@ -7,6 +7,14 @@ edition = "2021"
 concurrent = ["winterfell/concurrent", "std"]
 default = ["std"]
 std = ["hex/std", "winterfell/std"]
+
+[lib]
+# If you only wanted dynamic library, you'd use only "cdylib".
+# If you only wanted static library, you'd use only "staticlib".
+# This demo shows both. See https://doc.rust-lang.org/reference/linkage.html
+# for more information.
+crate-type = ["cdylib", "staticlib"]
+
 
 [dependencies]
 winterfell = {git = "https://github.com/bwesterb/winterfell", branch = "f23"}

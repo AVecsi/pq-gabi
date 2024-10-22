@@ -7,7 +7,7 @@ package main
 */
 import "C"
 
-//import "unsafe"
+import "unsafe"
 import "fmt"
 
 func main() {
@@ -20,15 +20,12 @@ func main() {
 	C.whisper(str2)*/
 
 	seed := make([]byte, 32)
-	fmt.Println("seed: ", seed)
 
 	pk, sk := Gen(seed)
-	fmt.Println("pk: ", pk, "\nsk: ", sk)
-	msg := []byte("test") //nincs megadva k-l0n hogz 12 byte
+	msg := []byte("test")
 
 	// Sign the message
 	sig := Sign(sk, msg)
-	fmt.Println("sig: ", sig)
 
 	packedCTilde, packedZ := sig[:CSIZE*3], sig[CSIZE*3:]
 	z := unpackVecLeGamma1(packedZ, L)
@@ -48,13 +45,42 @@ func main() {
 	qw := Azq.Sub(Tq)
 	w := Azr.Sub(Tr)
 
-	comrBytes := make([]uint32, 12)
+	comr := make([]uint32, 12)
+
+	//(*C.uint32_t)(unsafe.Pointer(&comr[0]))
+	//(*C.uint32_t)(unsafe.Pointer(z.IntArray()))
+
+	cTildeUint32 := make([]uint32, (len(cTilde)))
+	for i := range cTilde {
+		cTildeUint32[i] = uint32(cTilde[i])
+	}
+
+	// msgUint32 := make([]uint32, 12)
+	// for i := range msg {
+	// 	msgUint32[i] = uint32(msg[i])
+	// }
+
+	msgUint32 := []uint32{26331, 30185, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
+
+	len := 0
+
+	proof := C.prove((*C.uint32_t)(z.IntArray()), (*C.uint32_t)(w.IntArray()), (*C.uint32_t)(qw.IntArray()), (*C.uint32_t)(&cTildeUint32[0]), (*C.uint32_t)(&msgUint32[0]), (*C.uint32_t)(&comr[0]), (*C.int)(unsafe.Pointer(&len)))
+
+	p5 := (*byte)(unsafe.Add(unsafe.Pointer(proof), (len - 1)))
+
+	fmt.Println("proof/first ", *proof, "\n")
+	fmt.Println("proof/last ", *p5, "\n")
+
+	result := C.verify(proof, (*C.int)(unsafe.Pointer(&len)), (*C.uint32_t)(&msgUint32[0]))
+
+	fmt.Println("Result ", result, "\n")
+	//println!("{}", unsafe{*verify(proof_bytes_ptr, &len, mbytes.as_ptr())});
 
 	//unsigned char* zBytes, unsigned char*  wBytes, unsigned char*  qwBytes, unsigned char*  ctildeBytes, unsigned char*  mBytes, unsigned char*  comrBytes
 
 	// Verify the signature
 	if Verify(pk, msg, sig) {
-		fmt.Println("Signature verified successfully!", cTilde, qw, w, comrBytes)
+		fmt.Println("Signature verified successfully!")
 	} else {
 		fmt.Println("Signature verification failed.")
 	}

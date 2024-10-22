@@ -207,6 +207,16 @@ func (v *Vec) Norm() int64 {
 	return maxNorm
 }
 
+func (v *Vec) IntArray() *uint32 {
+	intPs := make([]uint32, len(v.ps)*len(v.ps[0].cs))
+	for i, p := range v.ps {
+		for j := range p.cs {
+			intPs[i*len(p.cs)+j] = uint32(p.cs[j])
+		}
+	}
+	return &intPs[0]
+}
+
 // String returns a string representation of the Vec
 func (v *Vec) String() string {
 	strPs := make([]string, len(v.ps))

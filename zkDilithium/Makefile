@@ -12,21 +12,21 @@ run-all: run-dynamic run-static
 build-dynamic:
 	@cd lib/zkDilithiumProof && cargo build --release
 	@cp lib/zkDilithiumProof/target/release/libzkDilithium.dylib lib/zkDilithiumProof
-	go build -ldflags="-r $(ROOT_DIR)lib" main_dynamic.go
+	go build -ldflags="-r $(ROOT_DIR)lib"
 
 .PHONY: build-static
 build-static:
 	@cd lib/zkDilithiumProof && cargo build --release
 	@cp lib/zkDilithiumProof/target/release/libzkDilithium.a lib/
-	go build main_static.go
+	go build
 
 .PHONY: run-dynamic
 run-dynamic: build-dynamic
-	@./main_dynamic
+	@./main
 
 .PHONY: run-static
 run-static: build-static
-	@./main_static
+	@./main
 
 # This is just for running the Rust lib tests natively via cargo
 .PHONY: test-rust-lib
@@ -35,4 +35,4 @@ test-rust-lib:
 
 .PHONY: clean
 clean:
-	rm -rf main_dynamic main_static lib/libzkDilithium.dylib lib/libzkDilithium.a lib/zkDilithiumProof/target
+	rm -rf main lib/libzkDilithium.dylib lib/libzkDilithium.a lib/zkDilithiumProof/target

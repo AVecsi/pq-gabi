@@ -1,5 +1,5 @@
 #include <stdint.h>
 
-unsigned char* prove(uint32_t* zBytes, uint32_t*  wBytes, uint32_t*  qwBytes, uint32_t*  ctildeBytes, uint32_t*  mBytes, uint32_t*  comrBytes);
+unsigned char* prove(uint32_t* zBytes, uint32_t*  wBytes, uint32_t*  qwBytes, uint32_t*  ctildeBytes, uint32_t*  mBytes, uint32_t*  comrBytes, int* out_len);
 
-int verify(unsigned char* proofBytes, unsigned char* mBytes);
+int verify(unsigned char* proofBytes, int* len, uint32_t* mBytes);

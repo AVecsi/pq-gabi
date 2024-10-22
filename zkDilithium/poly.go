@@ -146,7 +146,12 @@ func (p *Poly) SchoolbookMul(other *Poly) (*Poly, *Poly) {
 	q := NewPoly(s[256:])
 	r := make([]int64, 256)
 	for i := 0; i < 256; i++ {
-		r[i] = (s[i] - s[256+i]) % Q
+		if s[i] < s[256+i] {
+			r[i] = s[i] + Q - s[256+i]
+		} else {
+			r[i] = s[i] - s[256+i]
+		}
+
 	}
 	return q, NewPoly(r)
 }
@@ -254,8 +259,6 @@ func unpackPolyLeGamma1(bs []byte) *Poly {
 		}
 	}
 	poly := NewPoly(ret)
-	asd := poly.Norm()
-	fmt.Println(asd)
 	if poly.Norm() > GAMMA1 {
 		panic(fmt.Sprintf("Poly norm %i exceeds GAMMA1 %i", poly.Norm(), GAMMA1))
 	}

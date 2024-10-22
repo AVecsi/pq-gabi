@@ -2,7 +2,7 @@ package main
 
 import (
 	"bytes"
-	"fmt"
+	//"fmt"
 	"golang.org/x/crypto/sha3"
 )
 
@@ -79,8 +79,6 @@ func sampleSecret(rho []byte) (*Vec, *Vec) {
 	copy(rhoCopy, rho)
 	ps := make([]*Poly, K+L)
 	for i := 0; i < K+L; i++ {
-		test := XOF256(rho, i)
-		fmt.Println(test)
 		ps[i] = sampleLeqEta(XOF256(rhoCopy, i))
 	}
 	return &Vec{ps[:L]}, &Vec{ps[L:]}
