@@ -3,24 +3,25 @@ package algebra
 import (
 	"bytes"
 	"fmt"
-)
 
-const POLY_LE_GAMMA1_SIZE = 576
+	"github.com/BeardOfDoom/pq-gabi/internal/common"
+	"golang.org/x/crypto/sha3"
+)
 
 // Vec represents a vector of Polys
 type Vec struct {
-	ps []*Poly
+	Ps []*Poly
 }
 
 // NewVec creates a new Vec from a slice of Polys
-func NewVec(ps []*Poly) *Vec {
-	return &Vec{ps: ps}
+func NewVec(Ps []*Poly) *Vec {
+	return &Vec{Ps: Ps}
 }
 
 // NTT applies NTT to each Poly in the Vec
 func (v *Vec) NTT() *Vec {
-	newPs := make([]*Poly, len(v.ps))
-	for i, p := range v.ps {
+	newPs := make([]*Poly, len(v.Ps))
+	for i, p := range v.Ps {
 		newPs[i] = p.NTT()
 	}
 	return NewVec(newPs)
@@ -28,8 +29,8 @@ func (v *Vec) NTT() *Vec {
 
 // InvNTT applies Inverse NTT to each Poly in the Vec
 func (v *Vec) InvNTT() *Vec {
-	newPs := make([]*Poly, len(v.ps))
-	for i, p := range v.ps {
+	newPs := make([]*Poly, len(v.Ps))
+	for i, p := range v.Ps {
 		newPs[i] = p.InvNTT()
 	}
 	return NewVec(newPs)
@@ -37,19 +38,19 @@ func (v *Vec) InvNTT() *Vec {
 
 // DotNTT computes the dot product of two Vecs in the NTT domain
 func (v *Vec) DotNTT(other *Vec) *Poly {
-	sum := NewPoly(make([]int64, N)) // TODO Assuming zero-initialized Poly
-	for i := range v.ps {
-		sum = sum.Add(v.ps[i].MulNTT(other.ps[i]))
+	sum := NewPoly(make([]int64, common.N)) // TODO Assuming zero-initialized Poly
+	for i := range v.Ps {
+		sum = sum.Add(v.Ps[i].MulNTT(other.Ps[i]))
 	}
 	return sum
 }
 
 // SchoolbookDot computes the dot product of two Vecs using Schoolbook multiplication
 func (v *Vec) SchoolbookDot(other *Vec) (*Poly, *Poly) {
-	retr := NewPoly(make([]int64, N))
-	retq := NewPoly(make([]int64, N))
-	for i := range v.ps {
-		q, r := v.ps[i].SchoolbookMul(other.ps[i])
+	retr := NewPoly(make([]int64, common.N))
+	retq := NewPoly(make([]int64, common.N))
+	for i := range v.Ps {
+		q, r := v.Ps[i].SchoolbookMul(other.Ps[i])
 		retr = retr.Add(r)
 		retq = retq.Add(q)
 	}
@@ -63,29 +64,29 @@ func (v *Vec) SchoolbookDotDebug(other *Vec) (*Poly, *Poly) {
 
 // Add adds two Vecs component-wise
 func (v *Vec) Add(other *Vec) *Vec {
-	newPs := make([]*Poly, len(v.ps))
-	for i := range v.ps {
-		newPs[i] = v.ps[i].Add(other.ps[i])
+	newPs := make([]*Poly, len(v.Ps))
+	for i := range v.Ps {
+		newPs[i] = v.Ps[i].Add(other.Ps[i])
 	}
 	return NewVec(newPs)
 }
 
 // Sub subtracts two Vecs component-wise
 func (v *Vec) Sub(other *Vec) *Vec {
-	newPs := make([]*Poly, len(v.ps))
-	for i := range v.ps {
-		newPs[i] = v.ps[i].Sub(other.ps[i])
+	newPs := make([]*Poly, len(v.Ps))
+	for i := range v.Ps {
+		newPs[i] = v.Ps[i].Sub(other.Ps[i])
 	}
 	return NewVec(newPs)
 }
 
 // Equals checks if two Vecs are equal
 func (v *Vec) Equal(other *Vec) bool {
-	if len(v.ps) != len(other.ps) {
+	if len(v.Ps) != len(other.Ps) {
 		return false
 	}
-	for i := range v.ps {
-		if !v.ps[i].Equal(other.ps[i]) {
+	for i := range v.Ps {
+		if !v.Ps[i].Equal(other.Ps[i]) {
 			return false
 		}
 	}
@@ -94,8 +95,8 @@ func (v *Vec) Equal(other *Vec) bool {
 
 // ScalarMulNTT multiplies each Poly in the Vec by a scalar in the NTT domain
 func (v *Vec) ScalarMulNTT(sc *Poly) *Vec {
-	newPs := make([]*Poly, len(v.ps))
-	for i, p := range v.ps {
+	newPs := make([]*Poly, len(v.Ps))
+	for i, p := range v.Ps {
 		newPs[i] = p.MulNTT(sc)
 	}
 	return NewVec(newPs)
@@ -103,8 +104,8 @@ func (v *Vec) ScalarMulNTT(sc *Poly) *Vec {
 
 // SchoolbookScalarMul multiplies each Poly by a scalar using Schoolbook multiplication
 func (v *Vec) SchoolbookScalarMul(sc *Poly) *Vec {
-	newPs := make([]*Poly, len(v.ps))
-	for i, p := range v.ps {
+	newPs := make([]*Poly, len(v.Ps))
+	for i, p := range v.Ps {
 		_, r := p.SchoolbookMul(sc)
 		newPs[i] = r
 	}
@@ -113,9 +114,9 @@ func (v *Vec) SchoolbookScalarMul(sc *Poly) *Vec {
 
 // SchoolbookScalarMulDebug is a debug version of SchoolbookScalarMul
 func (v *Vec) SchoolbookScalarMulDebug(sc *Poly) (*Vec, *Vec) {
-	retr := make([]*Poly, len(v.ps))
-	retq := make([]*Poly, len(v.ps))
-	for i, p := range v.ps {
+	retr := make([]*Poly, len(v.Ps))
+	retq := make([]*Poly, len(v.Ps))
+	for i, p := range v.Ps {
 		q, r := p.SchoolbookMul(sc)
 		retr[i] = r
 		retq[i] = q
@@ -126,68 +127,68 @@ func (v *Vec) SchoolbookScalarMulDebug(sc *Poly) (*Vec, *Vec) {
 // Pack packs the Vec into a byte slice
 func (v *Vec) Pack() []byte {
 	var buffer bytes.Buffer
-	for _, p := range v.ps {
+	for _, p := range v.Ps {
 		buffer.Write(p.Pack())
 	}
 	return buffer.Bytes()
 }
 
 // unpackVec unpacks a byte slice into a Vec of length l.
-func unpackVec(bs []byte, l int) *Vec {
+func UnpackVec(bs []byte, l int) *Vec {
 	if len(bs) != l*256*3 {
 		panic("invalid byte array length for Vec")
 	}
-	ps := make([]*Poly, l)
+	Ps := make([]*Poly, l)
 	for i := 0; i < l; i++ {
-		ps[i] = unpackPoly(bs[256*3*i : 256*3*(i+1)])
+		Ps[i] = UnpackPoly(bs[256*3*i : 256*3*(i+1)])
 	}
-	return NewVec(ps)
+	return NewVec(Ps)
 }
 
 // PackLeqEta packs the Vec with elements bounded by Eta
 func (v *Vec) PackLeqEta() []byte {
 	var buffer bytes.Buffer
-	for _, p := range v.ps {
+	for _, p := range v.Ps {
 		buffer.Write(p.PackLeqEta())
 	}
 	return buffer.Bytes()
 }
 
 // unpackVecLeqEta unpacks a byte slice into a Vec of length l, assuming each Poly is packed with elements bounded by Eta.
-func unpackVecLeqEta(bs []byte, l int) *Vec {
-	ps := make([]*Poly, l)
+func UnpackVecLeqEta(bs []byte, l int) *Vec {
+	Ps := make([]*Poly, l)
 	for i := 0; i < l; i++ {
-		ps[i] = unpackPolyLeqEta(bs[i*256/8*3:])
+		Ps[i] = UnpackPolyLeqEta(bs[i*256/8*3:])
 	}
-	return NewVec(ps)
+	return NewVec(Ps)
 }
 
 // PackLeGamma1 packs the Vec with elements bounded by Gamma1
 func (v *Vec) PackLeGamma1() []byte {
 	var buffer bytes.Buffer
-	for _, p := range v.ps {
+	for _, p := range v.Ps {
 		buffer.Write(p.PackLeGamma1())
 	}
 	return buffer.Bytes()
 }
 
 // unpackVecLeGamma1 unpacks a byte slice into a Vec of length l, assuming each Poly is packed with elements bounded by Gamma1.
-func unpackVecLeGamma1(bs []byte, l int) *Vec {
-	if len(bs) != l*POLY_LE_GAMMA1_SIZE {
+func UnpackVecLeGamma1(bs []byte, l int) *Vec {
+	if len(bs) != l*common.POLY_LE_GAMMA1_SIZE {
 		panic("invalid byte array length for Vec gamma1")
 	}
-	ps := make([]*Poly, l)
+	Ps := make([]*Poly, l)
 	for i := 0; i < l; i++ {
-		ps[i] = unpackPolyLeGamma1(bs[POLY_LE_GAMMA1_SIZE*i : POLY_LE_GAMMA1_SIZE*(i+1)])
+		Ps[i] = UnpackPolyLeGamma1(bs[common.POLY_LE_GAMMA1_SIZE*i : common.POLY_LE_GAMMA1_SIZE*(i+1)])
 	}
-	return NewVec(ps)
+	return NewVec(Ps)
 }
 
 // Decompose decomposes each Poly in the Vec into two Vecs
 func (v *Vec) Decompose() (*Vec, *Vec) {
-	v0 := make([]*Poly, len(v.ps))
-	v1 := make([]*Poly, len(v.ps))
-	for i, p := range v.ps {
+	v0 := make([]*Poly, len(v.Ps))
+	v1 := make([]*Poly, len(v.Ps))
+	for i, p := range v.Ps {
 		p0, p1 := p.Decompose()
 		v0[i] = p0
 		v1[i] = p1
@@ -198,7 +199,7 @@ func (v *Vec) Decompose() (*Vec, *Vec) {
 // Norm computes the maximum norm of the Polys in the Vec
 func (v *Vec) Norm() int64 {
 	maxNorm := int64(0)
-	for _, p := range v.ps {
+	for _, p := range v.Ps {
 		norm := p.Norm()
 		if norm > maxNorm {
 			maxNorm = norm
@@ -208,10 +209,10 @@ func (v *Vec) Norm() int64 {
 }
 
 func (v *Vec) IntArray() *uint32 {
-	intPs := make([]uint32, len(v.ps)*len(v.ps[0].cs))
-	for i, p := range v.ps {
-		for j := range p.cs {
-			intPs[i*len(p.cs)+j] = uint32(p.cs[j])
+	intPs := make([]uint32, len(v.Ps)*len(v.Ps[0].Cs))
+	for i, p := range v.Ps {
+		for j := range p.Cs {
+			intPs[i*len(p.Cs)+j] = uint32(p.Cs[j])
 		}
 	}
 	return &intPs[0]
@@ -219,9 +220,29 @@ func (v *Vec) IntArray() *uint32 {
 
 // String returns a string representation of the Vec
 func (v *Vec) String() string {
-	strPs := make([]string, len(v.ps))
-	for i, p := range v.ps {
+	strPs := make([]string, len(v.Ps))
+	for i, p := range v.Ps {
 		strPs[i] = p.String()
 	}
 	return fmt.Sprintf("Vec%v", strPs)
+}
+
+func SampleSecret(rho []byte) (*Vec, *Vec) {
+	rhoCopy := make([]byte, len(rho))
+	copy(rhoCopy, rho)
+	Ps := make([]*Poly, common.K+common.L)
+	for i := 0; i < common.K+common.L; i++ {
+		Ps[i] = SampleLeqEta(common.XOF256(rhoCopy, i))
+	}
+	return &Vec{Ps[:common.L]}, &Vec{Ps[common.L:]}
+}
+
+func SampleY(rho []byte, nonce int) *Vec {
+	Ps := make([]*Poly, common.L)
+	for i := 0; i < common.L; i++ {
+		h := make([]byte, 576)
+		sha3.ShakeSum256(h, append(rho, []byte{byte((nonce + i) & 255), byte((nonce + i) >> 8)}...))
+		Ps[i] = UnpackPolyLeGamma1(h[:])
+	}
+	return &Vec{Ps}
 }

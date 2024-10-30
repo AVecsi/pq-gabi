@@ -1,51 +1,65 @@
 package algebra
 
-/* import (
-	"fmt"
-) */
+import (
+	"github.com/BeardOfDoom/pq-gabi/internal/common"
+)
 
 type Matrix struct {
-	cs [][]*Poly
+	Cs [][]*Poly
 }
 
 // Constructor for Matrix
 // TODO does it work?
-func NewMatrix(cs [][]*Poly) *Matrix {
-	rows := make([][]*Poly, len(cs))
-	for i, row := range cs {
+func NewMatrix(Cs [][]*Poly) *Matrix {
+	rows := make([][]*Poly, len(Cs))
+	for i, row := range Cs {
 		rows[i] = append([]*Poly(nil), row...)
 	}
-	return &Matrix{cs: rows}
+	return &Matrix{Cs: rows}
 }
 
 // MulNTT performs matrix-vector multiplication in the NTT domain
 func (m *Matrix) MulNTT(vec *Vec) *Vec {
-	result := make([]*Poly, len(m.cs))
-	for i, row := range m.cs {
-		result[i] = (&Vec{ps: row}).DotNTT(vec)
+	result := make([]*Poly, len(m.Cs))
+	for i, row := range m.Cs {
+		result[i] = (&Vec{Ps: row}).DotNTT(vec)
 	}
-	return &Vec{ps: result}
+	return &Vec{Ps: result}
 }
 
 // SchoolbookMul performs matrix-vector multiplication with InvNTT
 func (m *Matrix) SchoolbookMul(vec *Vec) *Vec {
-	result := make([]*Poly, len(m.cs))
-	for i, row := range m.cs {
-		_, result[i] = (&Vec{ps: row}).InvNTT().SchoolbookDot(vec)
+	result := make([]*Poly, len(m.Cs))
+	for i, row := range m.Cs {
+		_, result[i] = (&Vec{Ps: row}).InvNTT().SchoolbookDot(vec)
 	}
-	return &Vec{ps: result}
+	return &Vec{Ps: result}
 }
 
 // SchoolbookMulDebug performs matrix-vector multiplication with debugging
 func (m *Matrix) SchoolbookMulDebug(vec *Vec) (*Vec, *Vec) {
-	quotients := make([]*Poly, len(m.cs))
-	remainders := make([]*Poly, len(m.cs))
+	quotients := make([]*Poly, len(m.Cs))
+	remainders := make([]*Poly, len(m.Cs))
 
-	for i, row := range m.cs {
-		quotients[i], remainders[i] = (&Vec{ps: row}).InvNTT().SchoolbookDotDebug(vec)
+	for i, row := range m.Cs {
+		quotients[i], remainders[i] = (&Vec{Ps: row}).InvNTT().SchoolbookDotDebug(vec)
 	}
 
-	return &Vec{ps: quotients}, &Vec{ps: remainders}
+	return &Vec{Ps: quotients}, &Vec{Ps: remainders}
+}
+
+func SampleMatrix(rho []byte) *Matrix {
+	rhoCopy := make([]byte, len(rho))
+	copy(rhoCopy, rho)
+	matrix := make([][]*Poly, common.K)
+	for i := 0; i < common.K; i++ {
+		row := make([]*Poly, common.L)
+		for j := 0; j < common.L; j++ {
+			row[j] = sampleUniform(common.XOF128(rhoCopy, 256*i+j))
+		}
+		matrix[i] = row
+	}
+	return &Matrix{matrix}
 }
 
 /* func main() {
@@ -64,7 +78,7 @@ func (m *Matrix) SchoolbookMulDebug(vec *Vec) (*Vec, *Vec) {
 	matrix := NewMatrix([][]*Poly{row1, row2})
 
 	// Initialize a Vec with example Poly objects
-	vec := &Vec{ps: []*Poly{
+	vec := &Vec{Ps: []*Poly{
 		NewPoly([]uint64{1, 2, 3}),
 		NewPoly([]uint64{4, 5, 6}),
 	}}

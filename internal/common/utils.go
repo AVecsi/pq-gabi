@@ -4,26 +4,27 @@ import (
 	"bytes"
 
 	"github.com/BeardOfDoom/pq-gabi/big"
+	"golang.org/x/crypto/sha3"
 )
 
 const GAMMA2 = 65536
 
 // Helper functions
-func max(a, b int) int {
+func Max(a, b int) int {
 	if a > b {
 		return a
 	}
 	return b
 }
 
-func min(a, b int) int {
+func Min(a, b int) int {
 	if a < b {
 		return a
 	}
 	return b
 }
 
-func decompose(r int64) (int64, int64) {
+func Decompose(r int64) (int64, int64) {
 	// Calculate r0
 	r0 := r % (2 * GAMMA2)
 	if r0 > GAMMA2 {
@@ -39,7 +40,7 @@ func decompose(r int64) (int64, int64) {
 
 // packFes packs a slice of integers into a byte array
 // TODO Ugly, code redundancy...
-func packFesInt(fes []int) []byte {
+func PackFesInt(fes []int) []byte {
 	var ret bytes.Buffer
 	for _, fe := range fes {
 		ret.WriteByte(byte(fe & 255))
@@ -49,7 +50,7 @@ func packFesInt(fes []int) []byte {
 	return ret.Bytes()
 }
 
-func packFes(fes []int64) []byte {
+func PackFes(fes []int64) []byte {
 	var ret bytes.Buffer
 	for _, fe := range fes {
 		ret.WriteByte(byte(fe & 255))
@@ -60,7 +61,7 @@ func packFes(fes []int64) []byte {
 }
 
 // unpackFes unpacks a byte array into a slice of integers
-func unpackFes(bs []byte, Q int64) []int64 {
+func UnpackFes(bs []byte, Q int64) []int64 {
 	cs := make([]int64, 0)
 	if len(bs)%3 != 0 {
 		panic("invalid byte array length")
@@ -73,7 +74,7 @@ func unpackFes(bs []byte, Q int64) []int64 {
 }
 
 // TODO meh
-func unpackFesInt(bs []byte, Q int) []int {
+func UnpackFesInt(bs []byte, Q int) []int {
 	cs := make([]int, 0)
 	if len(bs)%3 != 0 {
 		panic("invalid byte array length")
@@ -86,7 +87,7 @@ func unpackFesInt(bs []byte, Q int) []int {
 }
 
 // unpackFesLoose processes the byte slice `bs` by adding 1 to each byte and combining pairs into integers.
-func unpackFesLoose(bs []byte) []int {
+func UnpackFesLoose(bs []byte) []int {
 	bsCopy := make([]byte, len(bs))
 	copy(bsCopy, bs)
 	// Add 1 to each byte to differentiate between b'h' and b'h\0'
@@ -110,7 +111,7 @@ func unpackFesLoose(bs []byte) []int {
 
 // This function unpacks 256 bit to 12 field elements, making sure the output is unique for every input.
 
-func unpackFes22Bit(bs []byte) []int {
+func UnpackFes22Bit(bs []byte) []int {
 	if len(bs) != 32 {
 		panic("invalid byte array length")
 	}
@@ -136,4 +137,24 @@ func unpackFes22Bit(bs []byte) []int {
 	fieldElements[11] = int(bigInt.Int64()) // The remaining bits are 14 bits
 
 	return fieldElements
+}
+
+func XOF128(seed []byte, nonce int) *bytes.Reader {
+	packedNonce := []byte{byte(nonce & 255), byte(nonce >> 8)}
+	h := make([]byte, 1344) // TODO Magic number, based on measurements??? no idea yet
+	sha3.ShakeSum128(h, append(seed, packedNonce...))
+	return bytes.NewReader(h[:])
+}
+
+func XOF256(seed []byte, nonce int) *bytes.Reader {
+	packedNonce := []byte{byte(nonce & 255), byte(nonce >> 8)}
+	h := make([]byte, 272) // TODO Magic number, based on measurements??? no idea yet
+	sha3.ShakeSum256(h, append(seed, packedNonce...))
+	return bytes.NewReader(h[:])
+}
+
+func H(msg []byte, length int) []byte {
+	h := make([]byte, length)
+	sha3.ShakeSum256(h, msg)
+	return h[:]
 }

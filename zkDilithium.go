@@ -3,6 +3,10 @@ package gabi
 import (
 	"fmt"
 	"slices"
+
+	"github.com/BeardOfDoom/pq-gabi/algebra"
+	"github.com/BeardOfDoom/pq-gabi/internal/common"
+	"github.com/BeardOfDoom/pq-gabi/poseidon"
 )
 
 const POS_T = 35
@@ -74,7 +78,7 @@ func Gen(seed []byte) (pk []byte, sk []byte) {
 	return pk, sk
 }
 
-func sampleInBall(h *Poseidon) *Poly {
+func sampleInBall(h *poseidon.Poseidon) *algebra.Poly {
 	signs := []int64{}
 	ret := [256]int64{}
 	signsPerFe := 8                                                   // number of signs to extract per field element
@@ -129,7 +133,7 @@ func sampleInBall(h *Poseidon) *Poly {
 	return &Poly{ret}
 }
 
-func Sign(sk []byte, msg []byte) []byte {
+func Sign(sk []byte, msg []byte) zkDilSignature {
 	// Unpack the secret key
 	rho := make([]byte, 32)
 	copy(rho, sk[:32])
@@ -138,22 +142,22 @@ func Sign(sk []byte, msg []byte) []byte {
 	tr := make([]byte, 32)
 	copy(tr, sk[64:96])
 
-	s1Bytes := make([]byte, 96*L)
-	copy(s1Bytes, sk[96:96+96*L])
-	s2Bytes := make([]byte, 96*K)
-	copy(s2Bytes, sk[96+96*L:96+96*(K+L)])
-	s1 := unpackVecLeqEta(s1Bytes, L)
-	s2 := unpackVecLeqEta(s2Bytes, K)
+	s1Bytes := make([]byte, 96*common.L)
+	copy(s1Bytes, sk[96:96+96*common.L])
+	s2Bytes := make([]byte, 96*common.K)
+	copy(s2Bytes, sk[96+96*common.L:96+96*(common.K+common.L)])
+	s1 := algebra.UnpackVecLeqEta(s1Bytes, common.L)
+	s2 := algebra.UnpackVecLeqEta(s2Bytes, common.K)
 
 	// Sample matrix Ahat
-	Ahat := sampleMatrix(rho)
+	Ahat := algebra.SampleMatrix(rho)
 
 	// Poseidon hash of message
-	h := NewPoseidon([]int{0}, POS_RF, POS_T, POS_RATE, Q)
-	h.Write(unpackFesLoose(tr), POS_RF, POS_T, POS_RATE, Q)
-	h.Permute(POS_RF, POS_T, Q)
-	h.Write(unpackFes22Bit(msg), POS_RF, POS_T, POS_RATE, Q)
-	mu, _ := h.Read(MUSIZE, POS_RF, POS_T, POS_RATE, Q)
+	h := poseidon.NewPoseidon([]int{0}, POS_RF, POS_T, POS_RATE, common.Q)
+	h.Write(common.UnpackFesLoose(tr), POS_RF, POS_T, POS_RATE, common.Q)
+	h.Permute(POS_RF, POS_T, common.Q)
+	h.Write(common.UnpackFes22Bit(msg), POS_RF, POS_T, POS_RATE, common.Q)
+	mu, _ := h.Read(MUSIZE, POS_RF, POS_T, POS_RATE, common.Q)
 
 	// Apply NTT
 	s1Hat := s1.NTT()
@@ -161,27 +165,27 @@ func Sign(sk []byte, msg []byte) []byte {
 
 	// Challenge generation loop
 	yNonce := 0
-	rho2 := H(append(key, H(append(tr, msg...), 64)...), 64)
+	rho2 := common.H(append(key, common.H(append(tr, msg...), 64)...), 64)
 	for {
 		// Sample Y and compute w
-		y := sampleY(rho2, yNonce)
-		yNonce += L
+		y := algebra.SampleY(rho2, yNonce)
+		yNonce += common.L
 		w := Ahat.MulNTT(y.NTT()).InvNTT()
 		_, w1 := w.Decompose()
 
 		// Poseidon hash of mu and w
-		h = NewPoseidon(nil, POS_RF, POS_T, POS_RATE, Q)
-		h.Write(mu, POS_RF, POS_T, POS_RATE, Q)
-		for i := 0; i < N; i++ {
-			for j := 0; j < K; j++ {
-				h.Write([]int{int(w1.ps[j].cs[i])}, POS_RF, POS_T, POS_RATE, Q)
+		h = poseidon.NewPoseidon(nil, POS_RF, POS_T, POS_RATE, common.Q)
+		h.Write(mu, POS_RF, POS_T, POS_RATE, common.Q)
+		for i := 0; i < common.N; i++ {
+			for j := 0; j < common.K; j++ {
+				h.Write([]int{int(w1.Ps[j].Cs[i])}, POS_RF, POS_T, POS_RATE, common.Q)
 			}
 		}
-		cTilde, _ := h.Read(CSIZE, POS_RF, POS_T, POS_RATE, Q)
+		cTilde, _ := h.Read(CSIZE, POS_RF, POS_T, POS_RATE, common.Q)
 
 		// Sample challenge c
-		h = NewPoseidon([]int{2}, POS_RF, POS_T, POS_RATE, Q)
-		h.Write(cTilde, POS_RF, POS_T, POS_RATE, Q)
+		h = poseidon.NewPoseidon([]int{2}, POS_RF, POS_T, POS_RATE, common.Q)
+		h.Write(cTilde, POS_RF, POS_T, POS_RATE, common.Q)
 		c := sampleInBall(h)
 		if c == nil {
 			fmt.Println("Retrying because of challenge")
@@ -194,62 +198,62 @@ func Sign(sk []byte, msg []byte) []byte {
 
 		// Compute r0 and check norm
 		r0, _ := (w.Sub(cs2)).Decompose()
-		if r0.Norm() >= GAMMA2-BETA {
+		if r0.Norm() >= common.GAMMA2-BETA {
 			fmt.Println("Retrying because of r0 check")
 			continue
 		}
 
 		// Compute z and check norm
 		z := y.Add(s1Hat.ScalarMulNTT(cHat).InvNTT())
-		if z.Norm() >= GAMMA1-BETA {
+		if z.Norm() >= common.GAMMA1-BETA {
 			fmt.Println("Retrying because of z check")
 			continue
 		}
 
 		// Return the signature
-		return append(packFesInt(cTilde), z.PackLeGamma1()...)
+		return zkDilSignature{Signature: append(common.PackFesInt(cTilde), z.PackLeGamma1()...)}
 	}
 }
 
 func Verify(pk []byte, msg []byte, sig []byte) bool {
 	// Check the signature length
-	if len(sig) != CSIZE*3+POLY_LE_GAMMA1_SIZE*L {
+	if len(sig) != CSIZE*3+common.POLY_LE_GAMMA1_SIZE*common.L {
 		return false
 	}
 
 	// Unpack signature
 	packedCTilde, packedZ := sig[:CSIZE*3], sig[CSIZE*3:]
-	z := unpackVecLeGamma1(packedZ, L)
-	cTilde := unpackFesInt(packedCTilde, Q)
+	z := algebra.UnpackVecLeGamma1(packedZ, common.L)
+	cTilde := common.UnpackFesInt(packedCTilde, common.Q)
 
 	// Unpack public key
 	rho := pk[:32]
 	tPacked := pk[32:]
 
-	t := unpackVec(tPacked, K)
-	tr := H(append(rho, tPacked...), 32)
+	t := algebra.UnpackVec(tPacked, common.K)
+	tr := common.H(append(rho, tPacked...), 32)
 
 	// Poseidon hash of message
-	h := NewPoseidon([]int{0}, POS_RF, POS_T, POS_RATE, Q)
-	h.Write(unpackFesLoose(tr), POS_RF, POS_T, POS_RATE, Q)
-	h.Permute(POS_RF, POS_T, Q)
-	h.Write(unpackFes22Bit(msg), POS_RF, POS_T, POS_RATE, Q)
-	mu, _ := h.Read(MUSIZE, POS_RF, POS_T, POS_RATE, Q)
+	h := poseidon.NewPoseidon([]int{0}, POS_RF, POS_T, POS_RATE, common.Q)
+	h.Write(common.UnpackFesLoose(tr), POS_RF, POS_T, POS_RATE, common.Q)
+	h.Permute(POS_RF, POS_T, common.Q)
+	h.Write(common.UnpackFes22Bit(msg), POS_RF, POS_T, POS_RATE, common.Q)
+	mu, _ := h.Read(MUSIZE, POS_RF, POS_T, POS_RATE, common.Q)
 
 	// Sample challenge c
-	c := sampleInBall(NewPoseidon(append([]int{2}, cTilde...), POS_RF, POS_T, POS_RATE, Q))
+	c := sampleInBall(poseidon.NewPoseidon(append([]int{2}, cTilde...), POS_RF, POS_T, POS_RATE, common.Q))
 	if c == nil {
 		return false
 	}
 
 	// Apply NTT to challenge
 	cHat := c.NTT()
-	if z.Norm() >= GAMMA1-BETA {
+	if z.Norm() >= common.GAMMA1-BETA {
 		return false
 	}
 
 	// Sample Ahat matrix
-	Ahat := sampleMatrix(rho)
+	Ahat := algebra.SampleMatrix(rho)
 	zHat := z.NTT()
 	tHat := t.NTT()
 
@@ -257,14 +261,14 @@ func Verify(pk []byte, msg []byte, sig []byte) bool {
 	_, w1 := (Ahat.MulNTT(zHat).Sub(tHat.ScalarMulNTT(cHat))).InvNTT().Decompose()
 
 	// Poseidon hash of mu and w1
-	h = NewPoseidon(nil, POS_RF, POS_T, POS_RATE, Q)
-	h.Write(mu, POS_RF, POS_T, POS_RATE, Q)
-	for i := 0; i < N; i++ {
-		for j := 0; j < K; j++ {
-			h.Write([]int{int(w1.ps[j].cs[i])}, POS_RF, POS_T, POS_RATE, Q)
+	h = poseidon.NewPoseidon(nil, POS_RF, POS_T, POS_RATE, common.Q)
+	h.Write(mu, POS_RF, POS_T, POS_RATE, common.Q)
+	for i := 0; i < common.N; i++ {
+		for j := 0; j < common.K; j++ {
+			h.Write([]int{int(w1.Ps[j].Cs[i])}, POS_RF, POS_T, POS_RATE, common.Q)
 		}
 	}
-	cTilde2, _ := h.Read(CSIZE, POS_RF, POS_T, POS_RATE, Q)
+	cTilde2, _ := h.Read(CSIZE, POS_RF, POS_T, POS_RATE, common.Q)
 
 	// Verify cTilde matches
 	for i := 0; i < len(cTilde); i++ {
