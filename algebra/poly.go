@@ -1,8 +1,9 @@
-package main
+package algebra
 
 import (
 	"bytes"
 	"fmt"
+
 	"github.com/BeardOfDoom/pq-gabi/big"
 )
 

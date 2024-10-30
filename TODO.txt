@@ -1,0 +1,22 @@
+MEGKÖTÉSEK:
+Igazából nem történik blind signature, egy merkle commitmentet ír alá az issuer.
+Első körben a proof annyi lesz, hogy ismeri az attribútum hash-ét a tulajdonos, és felépíthető a fa.
+Egy credential többszöri bemutatása összekapcsolható lesz most még. Egyrészt sima STARK van implementálva, nem zkSTARK, másrészt nem néztem még utána, hogy egy merkle fát amúgyis el tudnánk-e rejteni, ha amúgy az attribútum commitmenteket átküldjük, magát a fát ki kell tudja számítani a verifier.
+
+
+
+
+CLSSignature replacement
+    - Think about a structure that would be the best for now
+    - We will only sign the root of a merkle tree, so replace the 2 signature functions with only 1 simple
+    - Replace the verify function
+    - RepresentToPublicKey not sure yet what it does and how it is used, probably we don't need.
+    - Randomize.
+        - Have a read on it, how it is used and when. I am not sure if its possible for us to implement similar stuff.
+        - Try to replace it.
+        - SZERINTEM ARRA VALÓ, HOGY RANDOMIZÁLJA AZ ALÁÍRÁST, EZ ÁLTAL PEDIG A PROOFot AZ ALÁÍRÁSRA.
+        - a proof generálásba kell bevezetnünk szerintem a randomizációt
+
+issuer.go
+    - proveSignature sztem kidobható
+    - Context még nem tudom mire való, valsyeg vmi ID, inkább mint context

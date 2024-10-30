@@ -1,7 +1,8 @@
-package main
+package common
 
 import (
 	"bytes"
+
 	"github.com/BeardOfDoom/pq-gabi/big"
 )
 

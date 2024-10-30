@@ -1,4 +1,4 @@
-package main
+package gabi
 
 import (
 	"fmt"
@@ -15,6 +15,10 @@ const BETA = 80 //TAU * ETA
 
 const CSIZE = 12 // number of field elements to use for c tilde
 const MUSIZE = 24
+
+type zkDilSignature struct {
+	Signature []byte `json:"signature"`
+}
 
 // Gen generates a keypair using a seed.
 func Gen(seed []byte) (pk []byte, sk []byte) {
@@ -35,6 +39,9 @@ func Gen(seed []byte) (pk []byte, sk []byte) {
 	// Sample matrix and secret vectors
 	Ahat := sampleMatrix(rho)
 	s1, s2 := sampleSecret(rho2)
+
+	fmt.Println(s1)
+	fmt.Println(s2)
 
 	// Compute t = InvNTT(Ahat * NTT(s1) + NTT(s2))
 	t := Ahat.MulNTT(s1.NTT()).Add(s2.NTT()).InvNTT()

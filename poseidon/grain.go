@@ -1,4 +1,4 @@
-package main
+package poseidon
 
 import (
 	"github.com/BeardOfDoom/pq-gabi/big"
