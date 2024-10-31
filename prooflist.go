@@ -4,7 +4,7 @@
 
 package gabi
 
-import (
+/* import (
 	"github.com/BeardOfDoom/pq-gabi/big"
 	"github.com/BeardOfDoom/pq-gabi/gabikeys"
 	"github.com/BeardOfDoom/pq-gabi/internal/common"
@@ -188,3 +188,4 @@ func (builders ProofBuilderList) BuildProofList(context, nonce *big.Int, issig b
 	}
 	return list, nil
 }
+*/

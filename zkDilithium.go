@@ -31,7 +31,7 @@ func Gen(seed []byte) (pk []byte, sk []byte) {
 	}
 
 	// Expand the seed: H(seed, 32 + 64 + 32)
-	expandedSeed := H(seed, 32+64+32)
+	expandedSeed := common.H(seed, 32+64+32)
 
 	rho := make([]byte, 32)
 	copy(rho, expandedSeed[:32])
@@ -41,8 +41,8 @@ func Gen(seed []byte) (pk []byte, sk []byte) {
 	copy(key, expandedSeed[32+64:])
 
 	// Sample matrix and secret vectors
-	Ahat := sampleMatrix(rho)
-	s1, s2 := sampleSecret(rho2)
+	Ahat := algebra.SampleMatrix(rho)
+	s1, s2 := algebra.SampleSecret(rho2)
 
 	fmt.Println(s1)
 	fmt.Println(s2)
@@ -54,16 +54,16 @@ func Gen(seed []byte) (pk []byte, sk []byte) {
 	tPacked := t.Pack()
 
 	// Compute tr = H(rho + tPacked, 32)
-	tr := H(append(rho, tPacked...), 32)
+	tr := common.H(append(rho, tPacked...), 32)
 
 	// Assertions
-	if !unpackVecLeqEta(s2.PackLeqEta(), K).Equal(s2) {
+	if !algebra.UnpackVecLeqEta(s2.PackLeqEta(), common.K).Equal(s2) {
 		panic("Assertion failed: unpackVecLeqEta(s2.PackLeqEta(), K) != s2")
 	}
-	if !unpackVecLeqEta(s1.PackLeqEta(), L).Equal(s1) {
+	if !algebra.UnpackVecLeqEta(s1.PackLeqEta(), common.L).Equal(s1) {
 		panic("Assertion failed: unpackVecLeqEta(s1.PackLeqEta(), L) != s1")
 	}
-	if !unpackVec(tPacked, K).Equal(t) {
+	if !algebra.UnpackVec(tPacked, common.K).Equal(t) {
 		panic("Assertion failed: unpackVec(tPacked, K) != t")
 	}
 
@@ -87,7 +87,7 @@ func sampleInBall(h *poseidon.Poseidon) *algebra.Poly {
 
 	//TAU is forced to be a multiple of POS_CYCLE_LEN to simplify AIR
 	for i := 0; i < (TAU+POS_CYCLE_LEN-1)/POS_CYCLE_LEN; i++ {
-		h.poseidonPerm(POS_RF, POS_T, Q)
+		h.PoseidonPerm(POS_RF, POS_T, common.Q)
 		swaps = []int64{}
 		signs = []int64{}
 
@@ -101,7 +101,7 @@ func sampleInBall(h *poseidon.Poseidon) *algebra.Poly {
 		q := fe / twoPowerSignsPerFe
 		r := fe % twoPowerSignsPerFe
 
-		if q == Q/twoPowerSignsPerFe {
+		if q == common.Q/twoPowerSignsPerFe {
 			return nil
 		}
 
@@ -109,7 +109,7 @@ func sampleInBall(h *poseidon.Poseidon) *algebra.Poly {
 			if r&1 == 0 {
 				signs = append(signs, 1)
 			} else {
-				signs = append(signs, Q-1)
+				signs = append(signs, common.Q-1)
 			}
 			r >>= 1
 		}
@@ -120,7 +120,7 @@ func sampleInBall(h *poseidon.Poseidon) *algebra.Poly {
 			q := fe / int64(base+1)
 			r := fe % int64(base+1)
 
-			if q == Q/int64(base+1) {
+			if q == common.Q/int64(base+1) {
 				return nil
 			}
 
@@ -130,7 +130,7 @@ func sampleInBall(h *poseidon.Poseidon) *algebra.Poly {
 		}
 	}
 
-	return &Poly{ret}
+	return &algebra.Poly{ret}
 }
 
 func Sign(sk []byte, msg []byte) zkDilSignature {

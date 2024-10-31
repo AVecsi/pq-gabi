@@ -4,7 +4,7 @@
 
 package gabi
 
-import (
+/* import (
 	"encoding/json"
 	"time"
 
@@ -294,3 +294,4 @@ func (b *CredentialBuilder) CreateProof(challenge *big.Int) Proof {
 		MUserResponses: mUserResponses,
 	}
 }
+*/

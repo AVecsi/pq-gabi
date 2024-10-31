@@ -1,6 +1,6 @@
 package gabi
 
-import (
+/* import (
 	"github.com/BeardOfDoom/pq-gabi/big"
 	"github.com/BeardOfDoom/pq-gabi/gabikeys"
 )
@@ -22,3 +22,4 @@ func (p *ProofU) RemoveKeyshareP(b *CredentialBuilder) {
 	p.U.Mul(p.U, new(big.Int).ModInverse(b.keyshareP, b.pk.N))
 	p.U.Mod(p.U, b.pk.N)
 }
+*/

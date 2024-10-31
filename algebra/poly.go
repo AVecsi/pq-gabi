@@ -252,7 +252,7 @@ func UnpackPolyLeGamma1(bs []byte) *Poly {
 	}
 	poly := NewPoly(ret)
 	if poly.Norm() > common.GAMMA1 {
-		panic(fmt.Sprintf("Poly norm %i exceeds GAMMA1 %i", poly.Norm(), common.GAMMA1))
+		panic(fmt.Sprintf("Poly norm %d exceeds GAMMA1 %d", poly.Norm(), common.GAMMA1))
 	}
 	return poly
 }

@@ -4,7 +4,7 @@
 
 package gabi
 
-import (
+/* import (
 	"github.com/BeardOfDoom/pq-gabi/big"
 	"github.com/BeardOfDoom/pq-gabi/gabikeys"
 	"github.com/BeardOfDoom/pq-gabi/internal/common"
@@ -414,3 +414,4 @@ func (d *DisclosureProofBuilder) TimestampRequestContributions() (*big.Int, []*b
 func GenerateSecretAttribute() (*big.Int, error) {
 	return common.RandomBigInt(gabikeys.DefaultSystemParameters[1024].Lm - 1)
 }
+*/

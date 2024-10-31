@@ -1,6 +1,6 @@
 package gabi
 
-import (
+/* import (
 	"crypto/sha256"
 	"crypto/subtle"
 
@@ -250,3 +250,4 @@ func NewKeyshareCommitments(secret *big.Int, keys []*gabikeys.PublicKey) (*big.I
 
 	return randomizer, exponentiatedCommitments, nil
 }
+*/

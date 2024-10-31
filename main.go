@@ -19,8 +19,7 @@ import (
 	"github.com/cbergoon/merkletree"
 )
 
-func main() {
-
+func Test() {
 	var list []merkletree.Content
 	list = append(list, Attribute{value: []byte("attr1")})
 	list = append(list, Attribute{value: []byte("attr2")})
@@ -94,7 +93,7 @@ func main() {
 
 	fmt.Println(time.Since(start))
 
-	fmt.Println("Result ", result, "\n")
+	fmt.Println("Result ", result)
 	//println!("{}", unsafe{*verify(proof_bytes_ptr, &len, mbytes.as_ptr())});
 
 	//unsigned char* zBytes, unsigned char*  wBytes, unsigned char*  qwBytes, unsigned char*  ctildeBytes, unsigned char*  mBytes, unsigned char*  comrBytes

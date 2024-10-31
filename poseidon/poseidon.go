@@ -69,7 +69,7 @@ func (p *Poseidon) poseidonRound(r, POS_T, Q int) {
 	}
 }
 
-func (p *Poseidon) poseidonPerm(POS_RF, POS_T, Q int) {
+func (p *Poseidon) PoseidonPerm(POS_RF, POS_T, Q int) {
 	// Applies the poseidon permutation to the given state in place
 	for r := 0; r < POS_RF; r++ {
 		p.poseidonRound(r, POS_T, Q)
@@ -86,7 +86,7 @@ func (p *Poseidon) Write(fes []int, POS_RF, POS_T, POS_RATE, Q int) error {
 		p.s[p.i] = (p.s[p.i] + fe) % Q
 		p.i++
 		if p.i == POS_RATE {
-			p.poseidonPerm(POS_RF, POS_T, Q)
+			p.PoseidonPerm(POS_RF, POS_T, Q)
 			p.i = 0
 		}
 	}
@@ -99,7 +99,7 @@ func (p *Poseidon) Permute(POS_RF, POS_T, Q int) error {
 		return errors.New("Poseidon is no longer in absorbing phase")
 	}
 	if p.i != 0 {
-		p.poseidonPerm(POS_RF, POS_T, Q)
+		p.PoseidonPerm(POS_RF, POS_T, Q)
 		p.i = 0
 	}
 	return nil
@@ -110,7 +110,7 @@ func (p *Poseidon) Read(n, POS_RF, POS_T, POS_RATE, Q int) ([]int, error) {
 	if p.absorbing {
 		p.absorbing = false
 		if p.i != 0 {
-			p.poseidonPerm(POS_RF, POS_T, Q)
+			p.PoseidonPerm(POS_RF, POS_T, Q)
 			p.i = 0
 		}
 	}
@@ -123,7 +123,7 @@ func (p *Poseidon) Read(n, POS_RF, POS_T, POS_RATE, Q int) ([]int, error) {
 		p.i += toRead
 		if p.i == POS_RATE {
 			p.i = 0
-			p.poseidonPerm(POS_RF, POS_T, Q)
+			p.PoseidonPerm(POS_RF, POS_T, Q)
 		}
 	}
 	return ret, nil

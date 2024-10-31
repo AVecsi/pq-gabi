@@ -4,7 +4,7 @@
 
 package gabi
 
-import (
+/* import (
 	"crypto/rand"
 
 	"github.com/go-errors/errors"
@@ -107,3 +107,4 @@ func (i *Issuer) proveSignature(signature *CLSignature, nonce2 *big.Int) (*Proof
 
 	return &ProofS{c, eResponse}, nil
 }
+*/

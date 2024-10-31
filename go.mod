@@ -11,7 +11,6 @@ require (
 	github.com/sirupsen/logrus v1.9.3
 	github.com/stretchr/testify v1.9.0
 	golang.org/x/crypto v0.28.0
-	golang.org/x/exp v0.0.0-20240909161429-701f63a606c0
 )
 
 require (
