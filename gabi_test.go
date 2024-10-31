@@ -15,7 +15,6 @@ import (
 	"github.com/BeardOfDoom/pq-gabi/internal/common"
 	"github.com/BeardOfDoom/pq-gabi/rangeproof"
 	"github.com/BeardOfDoom/pq-gabi/revocation"
-	"github.com/BeardOfDoom/pq-gabi/safeprime"
 	"github.com/go-errors/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -167,7 +166,7 @@ func setupParameters() error {
 	return nil
 }
 
-func testPrivateKey(t *testing.T, privk *gabikeys.PrivateKey, strict bool) {
+/* func testPrivateKey(t *testing.T, privk *gabikeys.PrivateKey, strict bool) {
 	assert.True(t, safeprime.ProbablySafePrime(privk.P, 20), "p in secret key is not prime!")
 	assert.True(t, safeprime.ProbablySafePrime(privk.Q, 20), "q in secret key is not prime!")
 	assert.NotZero(t, privk.P.Cmp(privk.Q))
@@ -197,9 +196,9 @@ func testPrivateKey(t *testing.T, privk *gabikeys.PrivateKey, strict bool) {
 		assert.NotEqual(t, 0, modQPrime.Cmp(big.NewInt(1)), "q' != 1 (mod 8) does not hold!")
 		assert.NotEqual(t, 0, modPPrime.Cmp(modQPrime), "p' != q' (mod 8) does not hold!")
 	}
-}
+} */
 
-func testPublicKey(t *testing.T, pubk *gabikeys.PublicKey, privk *gabikeys.PrivateKey) {
+/* func testPublicKey(t *testing.T, pubk *gabikeys.PublicKey, privk *gabikeys.PrivateKey) {
 	r := new(big.Int).Mul(privk.P, privk.Q)
 
 	assert.Equal(t, pubk.Params.Ln/2, uint(privk.P.BitLen()))
@@ -209,15 +208,15 @@ func testPublicKey(t *testing.T, pubk *gabikeys.PublicKey, privk *gabikeys.Priva
 	assert.Equal(t, 0, r.Cmp(pubk.N), "p*q != n")
 	assert.Equal(t, 1, common.LegendreSymbol(pubk.S, privk.P), "S \notin QR_p")
 	assert.Equal(t, 1, common.LegendreSymbol(pubk.S, privk.Q), "S \notin QR_q")
-}
+} */
 
-func TestTestKeys(t *testing.T) {
+/* func TestTestKeys(t *testing.T) {
 	// DEAL WITH FACT THAT OLD KEYS DONT SATIFY PROOF REQUIREMENTS
 	testPrivateKey(t, testPrivK, false)
 	testPublicKey(t, testPubK, testPrivK)
-}
+} */
 
-func TestCLSignature(t *testing.T) {
+func TestzkDilSignature(t *testing.T) {
 	m := []*big.Int{big.NewInt(1), big.NewInt(2), big.NewInt(3)}
 	sig, err := SignMessageBlock(testPrivK, testPubK, m)
 

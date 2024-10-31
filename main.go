@@ -1,8 +1,8 @@
-package main
+package gabi
 
 /*
-#cgo LDFLAGS: -L./lib/zkDilithiumProof -lzkDilithium
-#include "./lib/zkDilithiumProof/zkDilithiumProof.h"
+#cgo LDFLAGS: -L./zkDilithium/lib/zkDilithiumProof -lzkDilithium
+#include "./zkDilithium/lib/zkDilithiumProof/zkDilithiumProof.h"
 #include <stdlib.h>
 */
 import "C"
@@ -15,16 +15,17 @@ import (
 
 	"github.com/BeardOfDoom/pq-gabi/algebra"
 	"github.com/BeardOfDoom/pq-gabi/internal/common"
+	"github.com/BeardOfDoom/pq-gabi/poseidon"
 	"github.com/cbergoon/merkletree"
 )
 
 func main() {
 
 	var list []merkletree.Content
-	list = append(list, Attribute{value: "attr1"})
-	list = append(list, Attribute{value: "attr2"})
-	list = append(list, Attribute{value: "attr3"})
-	list = append(list, Attribute{value: "attr4"})
+	list = append(list, Attribute{value: []byte("attr1")})
+	list = append(list, Attribute{value: []byte("attr2")})
+	list = append(list, Attribute{value: []byte("attr3")})
+	list = append(list, Attribute{value: []byte("attr4")})
 
 	merkleTree, err := merkletree.NewTree(list)
 	if err != nil {
@@ -39,7 +40,7 @@ func main() {
 	// Sign the message
 	sig := Sign(sk, msg)
 
-	packedCTilde, packedZ := sig[:CSIZE*3], sig[CSIZE*3:]
+	packedCTilde, packedZ := sig.Signature[:CSIZE*3], sig.Signature[CSIZE*3:]
 	z := algebra.UnpackVecLeGamma1(packedZ, common.L)
 	cTilde := common.UnpackFesInt(packedCTilde, common.Q)
 
@@ -49,7 +50,7 @@ func main() {
 	t := algebra.UnpackVec(tPacked, common.K)
 	Ahat := algebra.SampleMatrix(rho)
 
-	c := sampleInBall(NewPoseidon(append([]int{2}, cTilde...), POS_RF, POS_T, POS_RATE, common.Q))
+	c := sampleInBall(poseidon.NewPoseidon(append([]int{2}, cTilde...), POS_RF, POS_T, POS_RATE, common.Q))
 
 	Azq, Azr := Ahat.SchoolbookMulDebug(z)
 	Tq, Tr := t.SchoolbookScalarMulDebug(c)
@@ -74,7 +75,7 @@ func main() {
 
 	msgUint32 := make([]uint32, 12)
 
-	msgFes := unpackFes22Bit(msg)
+	msgFes := common.UnpackFes22Bit(msg)
 	fmt.Println(msgFes)
 
 	for i := range msgFes {
@@ -99,7 +100,7 @@ func main() {
 	//unsigned char* zBytes, unsigned char*  wBytes, unsigned char*  qwBytes, unsigned char*  ctildeBytes, unsigned char*  mBytes, unsigned char*  comrBytes
 
 	// Verify the signature
-	if Verify(pk, msg, sig) {
+	if Verify(pk, msg, sig.Signature) {
 		fmt.Println("Signature verified successfully!")
 	} else {
 		fmt.Println("Signature verification failed.")

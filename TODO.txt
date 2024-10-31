@@ -20,3 +20,8 @@ CLSSignature replacement
 issuer.go
     - proveSignature sztem kidobható
     - Context még nem tudom mire való, valsyeg vmi ID, inkább mint context
+
+
+deleted
+signMessageBlockAndCommitment
+SignMessageBlock
