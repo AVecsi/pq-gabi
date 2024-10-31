@@ -7,50 +7,24 @@ package main
 */
 import "C"
 
-import "unsafe"
-import "fmt"
+import (
+	"fmt"
+	"log"
+	"time"
+	"unsafe"
 
-import "github.com/cbergoon/merkletree"
-
-import "crypto/sha256"
-import "log"
-
-import "time"
-
-// TestContent implements the Content interface provided by merkletree and represents the content stored in the tree.
-type TestContent struct {
-	s string
-}
-
-// CalculateHash hashes the values of a TestContent
-func (t TestContent) CalculateHash() ([]byte, error) {
-	h := sha256.New()
-	if _, err := h.Write([]byte(t.s)); err != nil {
-		return nil, err
-	}
-
-	return h.Sum(nil), nil
-}
-
-// Equals tests for equality of two Contents
-func (t TestContent) Equals(other merkletree.Content) (bool, error) {
-	return t.s == other.(TestContent).s, nil
-}
+	"github.com/BeardOfDoom/pq-gabi/algebra"
+	"github.com/BeardOfDoom/pq-gabi/internal/common"
+	"github.com/cbergoon/merkletree"
+)
 
 func main() {
-	/* str1 := C.CString("world")
-	str2 := C.CString("this is code from the dynamic library")
-	defer C.free(unsafe.Pointer(str1))
-	defer C.free(unsafe.Pointer(str2))
-
-	C.hello(str1)
-	C.whisper(str2)*/
 
 	var list []merkletree.Content
-	list = append(list, TestContent{s: "attr1"})
-	list = append(list, TestContent{s: "attr2"})
-	list = append(list, TestContent{s: "attr3"})
-	list = append(list, TestContent{s: "attr4"})
+	list = append(list, Attribute{value: "attr1"})
+	list = append(list, Attribute{value: "attr2"})
+	list = append(list, Attribute{value: "attr3"})
+	list = append(list, Attribute{value: "attr4"})
 
 	merkleTree, err := merkletree.NewTree(list)
 	if err != nil {
@@ -66,16 +40,16 @@ func main() {
 	sig := Sign(sk, msg)
 
 	packedCTilde, packedZ := sig[:CSIZE*3], sig[CSIZE*3:]
-	z := unpackVecLeGamma1(packedZ, L)
-	cTilde := unpackFesInt(packedCTilde, Q)
+	z := algebra.UnpackVecLeGamma1(packedZ, common.L)
+	cTilde := common.UnpackFesInt(packedCTilde, common.Q)
 
 	tPacked := pk[32:]
 	rho := pk[:32]
 
-	t := unpackVec(tPacked, K)
-	Ahat := sampleMatrix(rho)
+	t := algebra.UnpackVec(tPacked, common.K)
+	Ahat := algebra.SampleMatrix(rho)
 
-	c := sampleInBall(NewPoseidon(append([]int{2}, cTilde...), POS_RF, POS_T, POS_RATE, Q))
+	c := sampleInBall(NewPoseidon(append([]int{2}, cTilde...), POS_RF, POS_T, POS_RATE, common.Q))
 
 	Azq, Azr := Ahat.SchoolbookMulDebug(z)
 	Tq, Tr := t.SchoolbookScalarMulDebug(c)
