@@ -1,17 +1,14 @@
 use atomic_refcell::AtomicRefCell;
 use super::{
-    BaseElement, FieldElement, ProofOptions, TRACE_WIDTH, N, HASH_RATE_WIDTH, HASH_CYCLE_LEN, 
-    HASH_STATE_WIDTH, HASH_DIGEST_WIDTH, TAU, BETA, PADDED_TRACE_LENGTH, M, SBALLEND, 
-    aux_trace_table::{GAMMA, CAUX, ZAUX, WAUX, QWAUX, POLYMULTASSERT}, 
-    PIT_START, PIT_END, PUBT, PUBA, QWIND, CTILDEASSERT, COM_START, COM_END, HTR, K, PIT_LEN};
+    aux_trace_table::{CAUX, GAMMA, POLYMULTASSERT, QWAUX, WAUX, ZAUX}, BaseElement, FieldElement, ProofOptions, BETA, COM_END, COM_START, CTILDEASSERT, HASH_CYCLE_LEN, HASH_DIGEST_WIDTH, HASH_RATE_WIDTH, HASH_STATE_WIDTH, HTR, K, M, N, PADDED_TRACE_LENGTH, PIT_END, PIT_LEN, PIT_START, PUBA, PUBT, QWIND, SBALLEND, SBALLSTART, TAU, TRACE_WIDTH};
 
 use crate::{
     utils::{EvaluationResult, is_binary, poseidon_23_spec, are_equal}, 
-    starkpf::{CIND, CTILDEIND, HASHIND, ZIND, ZRANGE, ZRANGEIND, QRANGE, RRANGE,
+    starkpf::{MIND, CIND, CTILDEIND, HASHIND, ZIND, ZRANGE, ZRANGEIND, QRANGE, RRANGE,
     QRANGEIND, QIND, RRANGEIND, RIND, QASSERT, RASSERT, SWAPASSERT, NEGASSERT, 
     ZASSERT, SWAPDECIND, SWAPDECASSERT, QRASSERT, AUX_WIDTH, WIND, SIGNIND, 
     ZLIMIT, WLOWIND, WLOWRANGE, WBIND, WHIGHIND, GAMMA2, WDECASSERT, WLOWLIMIT, 
-    WLOWASSERT, WLOWRANGEIND, WHIGHSHIFT, WHIGHASSERT, WHIGHRANGEIND, WHIGHRANGE}};
+    WLOWASSERT, WLOWRANGEIND, WHIGHSHIFT, WHIGHASSERT, WHIGHRANGEIND, WHIGHRANGE, MCOMASSERT, MBALLASSERT}};
 
 use winterfell::{
     Air, AirContext, Assertion, ByteWriter, EvaluationFrame, Serializable, TraceInfo,
@@ -35,12 +32,16 @@ const HASH_CYCLE_MASK: [BaseElement; HASH_CYCLE_LEN] = [
 pub struct PublicInputs {
     // pub ctilde: [BaseElement; HASH_DIGEST_WIDTH],
     // pub z: [BaseElement; N*4],
-    pub m: [BaseElement; HASH_DIGEST_WIDTH]
+    pub comm: [BaseElement; HASH_RATE_WIDTH],
+    pub nonce: [BaseElement; 12]
 }
 
 impl Serializable for PublicInputs {
     fn write_into<W: ByteWriter>(&self, _target: &mut W) {
         // target.write(&self.ctilde[..]);
+        for i in 0..self.nonce.len() {
+            _target.write(self.nonce[i]);
+        }
     }
 }
 pub struct ThinDilAir {
@@ -48,7 +49,8 @@ pub struct ThinDilAir {
     cache: AtomicRefCell<Vec<u8>>,
     // ctilde: [BaseElement; HASH_DIGEST_WIDTH],
     // z: [BaseElement; N*4],
-    m: [BaseElement; HASH_DIGEST_WIDTH]
+    comm: [BaseElement; HASH_RATE_WIDTH],
+    nonce: [BaseElement; 12]
 }
 
 impl Air for ThinDilAir {
@@ -91,6 +93,8 @@ impl Air for ThinDilAir {
         main_degrees.append(&mut vec![TransitionConstraintDegree::with_cycles(1, vec![PADDED_TRACE_LENGTH]); 4]); //WLOWASSERT (Assertion for w1 rangeproof)
         main_degrees.append(&mut vec![TransitionConstraintDegree::with_cycles(1, vec![PADDED_TRACE_LENGTH]); 8]); //WHIGHASSERT (Assertion for w0 rangeproof)
         main_degrees.append(&mut vec![TransitionConstraintDegree::with_cycles(1, vec![PADDED_TRACE_LENGTH]); HASH_DIGEST_WIDTH]); //CTILDEASSERT (Assertion for ctilde=h(mu||w1))
+        main_degrees.append(&mut vec![TransitionConstraintDegree::with_cycles(1, vec![PADDED_TRACE_LENGTH]); HASH_DIGEST_WIDTH]); //MCOMASSERT (Assertion for correct m in commitment)
+        main_degrees.append(&mut vec![TransitionConstraintDegree::with_cycles(1, vec![PADDED_TRACE_LENGTH]); HASH_DIGEST_WIDTH]); //MBALLASSERT (Assertion for correct m in sampleinball)
 
         debug_assert_eq!(TRACE_WIDTH+AUX_WIDTH, trace_info.width());
 
@@ -104,11 +108,12 @@ impl Air for ThinDilAir {
                 trace_info, 
                 main_degrees,
                 aux_degrees,
-                316,
+                340,
                 14, 
                 options
-            ).set_num_transition_exemptions(2),
-            m: pub_inputs.m,
+            ).set_num_transition_exemptions(512-PIT_END),
+            comm: pub_inputs.comm,
+            nonce: pub_inputs.nonce,
             cache: AtomicRefCell::new(vec![]),
         }
     }
@@ -144,9 +149,12 @@ impl Air for ThinDilAir {
         let r_mod = periodic_values[11];
         let q_mod = periodic_values[12];
 
-        let s = &periodic_values[13..(13+N)];
-        let qr_base = periodic_values[13+N];
-        let ark = &periodic_values[(14+N)..];
+        let mcom_flag = periodic_values[13];
+        let mball_flag = periodic_values[14];
+
+        let s = &periodic_values[15..(15+N)];
+        let qr_base = periodic_values[15+N];
+        let ark = &periodic_values[(16+N)..];
 
         let powers_of_2 = vec![
             E::ONE,
@@ -384,6 +392,11 @@ impl Air for ThinDilAir {
             result[CTILDEIND+i] += next[CTILDEIND+i] - current[CTILDEIND+i];
         }
 
+        // Copy m
+        for i in 0..HASH_DIGEST_WIDTH {
+            result[MIND+i] += next[MIND+i] - current[MIND+i];
+        }
+
 
         // Assert that ctilde is equal to h(mu||w) -- hashstate at step PIT_END-1
         for i in 0..HASH_DIGEST_WIDTH {
@@ -391,6 +404,23 @@ impl Air for ThinDilAir {
                 CTILDEASSERT + i, 
                 ctilde_flag.into(), 
                 are_equal(current[CTILDEIND+i],current[HASHIND+i])
+            );
+        }
+
+        // Assert that m was used for the commitment and the sample in ball computation
+        for i in 0..HASH_DIGEST_WIDTH{
+            result.agg_constraint(
+                MCOMASSERT + i, 
+                mcom_flag.into(), 
+                are_equal(current[HASHIND+i],current[MIND+i])
+            );
+        }
+
+        for i in 0..HASH_DIGEST_WIDTH{
+            result.agg_constraint(
+                MBALLASSERT + i, 
+                mball_flag.into(), 
+                are_equal(current[HASHIND+i],E::from(HTR[i])+current[MIND+i])
             );
         }
     }
@@ -527,10 +557,22 @@ impl Air for ThinDilAir {
     }
 
     fn get_assertions(&self) -> Vec<Assertion<Self::BaseField>> {
+
         let mut main_assertions = Vec::new();
+
+        //Assert the nonce is correct
+        for i in HASH_DIGEST_WIDTH..2*HASH_DIGEST_WIDTH{
+            main_assertions.push(Assertion::single(HASHIND+i, 0, self.nonce[i-HASH_DIGEST_WIDTH]));
+        }
+
+        //Assert the commitment is correct
+        for i in 0..HASH_RATE_WIDTH{
+            main_assertions.push(Assertion::single(HASHIND+i, SBALLSTART - 1, self.comm[i]));
+        }
+
         // Assert HASH_STATE is zero in all registers except the first HASH_DIGEST_WIDTH+1
         for i in HASH_DIGEST_WIDTH+1..HASH_STATE_WIDTH{
-            main_assertions.push(Assertion::single(HASHIND+i, 0, BaseElement::ZERO));
+            main_assertions.push(Assertion::single(HASHIND+i, SBALLSTART, BaseElement::ZERO));
         } 
         
         // Assert HASH_STATE is zero in all registers except the first HASH_RATE_WIDTH
@@ -543,14 +585,9 @@ impl Air for ThinDilAir {
             main_assertions.push(Assertion::single(HASHIND+i, COM_START, BaseElement::from(HTR[i])));
         }
 
-        // Assert 0..HASH_DIGEST is HTR+m on step COM_START
-        for i in 0..HASH_DIGEST_WIDTH{
-            main_assertions.push(Assertion::single(HASHIND+i, COM_START, BaseElement::from(HTR[i])+self.m[i]));
-        }
-
-        // Assert CIND in initialized to zero at the beginning (HASH_CYCLE_LEN-1)
+        // Assert CIND is initialized to zero at the beginning (SBALLSTART + HASH_CYCLE_LEN-1)
         for i in 0..N{
-            main_assertions.push(Assertion::single(CIND+i, HASH_CYCLE_LEN-1, BaseElement::ZERO));
+            main_assertions.push(Assertion::single(CIND+i, SBALLSTART + HASH_CYCLE_LEN-1, BaseElement::ZERO));
         }
 
         // Assert highest coefficienct of qw is 0
@@ -596,6 +633,8 @@ impl Air for ThinDilAir {
         result.push(get_matmul_mask());
         result.push(get_r_mod());
         result.push(get_q_mod());
+        result.push(get_mcom_mask());
+        result.push(get_mball_mask());
         result.append(&mut get_swap_constants());
         result.append(&mut poseidon_23_spec::get_round_constants());
 
@@ -702,6 +741,22 @@ fn assert_bitdec<E: FieldElement + From<BaseElement>>(
     *final_check+=flag*(value - should_be_value);
 }
 
+fn get_mcom_mask() -> Vec<BaseElement> {
+    let mut mcom_mask = vec![BaseElement::ZERO; PADDED_TRACE_LENGTH];
+
+    mcom_mask[0] = BaseElement::ONE;
+
+    mcom_mask
+}
+
+fn get_mball_mask() -> Vec<BaseElement> {
+    let mut mball_mask = vec![BaseElement::ZERO; PADDED_TRACE_LENGTH];
+
+    mball_mask[COM_START] = BaseElement::ONE;
+
+    mball_mask
+}
+
 fn get_matmul_mask() -> Vec<BaseElement> {
     let mut matmul_mask = vec![BaseElement::ZERO; PADDED_TRACE_LENGTH];
     for i in PIT_START..PIT_END-4{
@@ -753,7 +808,7 @@ fn get_ccopy_mask() -> Vec<BaseElement> {
 fn get_qr_mask() -> Vec<BaseElement> {
     let mut qr_mask = vec![BaseElement::ZERO; PADDED_TRACE_LENGTH];
 
-    for i in HASH_CYCLE_LEN-1..(HASH_CYCLE_LEN)*(SBALLEND){
+    for i in SBALLSTART + HASH_CYCLE_LEN-1..(HASH_CYCLE_LEN)*(SBALLEND){
         qr_mask[i] = HASH_CYCLE_MASK[i%HASH_CYCLE_LEN];
     }
 
@@ -764,7 +819,7 @@ fn get_notqr_mask() -> Vec<BaseElement> {
     let mut notqr_mask = vec![BaseElement::ZERO; PADDED_TRACE_LENGTH];
 
     // Check that (HASH_CYCLE_LEN)*(SBALLEND)-1 is correct
-    for i in HASH_CYCLE_LEN-1..(HASH_CYCLE_LEN)*(SBALLEND)-1{
+    for i in (SBALLSTART + HASH_CYCLE_LEN-1)..(HASH_CYCLE_LEN)*(SBALLEND)-1{
         notqr_mask[i] = BaseElement::ONE - HASH_CYCLE_MASK[i%HASH_CYCLE_LEN];
     }
 
@@ -774,7 +829,7 @@ fn get_notqr_mask() -> Vec<BaseElement> {
 fn get_qrdec_mask() -> Vec<BaseElement> {
     let mut qrdec_mask = vec![BaseElement::ZERO; PADDED_TRACE_LENGTH];
 
-    for i in HASH_CYCLE_LEN..(HASH_CYCLE_LEN)*(SBALLEND)-1 {
+    for i in SBALLSTART + HASH_CYCLE_LEN..(HASH_CYCLE_LEN)*(SBALLEND)-1 {
         qrdec_mask[i] = BaseElement::ONE;
     }
 
@@ -786,7 +841,7 @@ fn get_r_mod() -> Vec<BaseElement> {
 
     for i in 0..TAU+1{
         // println!("r_mod: {}", 256 - (N-1-TAU+i) as u32);
-        r_mod[HASH_CYCLE_LEN+i] = BaseElement::new(256 - (N-TAU+i) as u32);
+        r_mod[SBALLSTART + HASH_CYCLE_LEN+i] = BaseElement::new(256 - (N-TAU+i) as u32);
     }
 
     r_mod
@@ -797,7 +852,7 @@ fn get_q_mod() -> Vec<BaseElement> {
 
     for i in 0..TAU+1{
         // println!("q_mod: {}", M/(N-1-TAU+i) as u32);
-        q_mod[HASH_CYCLE_LEN+i] = BaseElement::new(M/(N-TAU+i) as u32);
+        q_mod[SBALLSTART + HASH_CYCLE_LEN+i] = BaseElement::new(M/(N-TAU+i) as u32);
     }
 
     q_mod
@@ -808,9 +863,9 @@ fn get_swap_constants() -> Vec<Vec<BaseElement>> {
     for _ in 0..N+1 {
         swap_const.push(vec![BaseElement::ZERO; PADDED_TRACE_LENGTH]);
     }
-    for i in HASH_CYCLE_LEN-1..(SBALLEND)*HASH_CYCLE_LEN{
-        swap_const[N-TAU+i-HASH_CYCLE_LEN][i] = BaseElement::ONE;
-        swap_const[N][i] = BaseElement::new((N-TAU+i-HASH_CYCLE_LEN+1) as u32);
+    for i in SBALLSTART + HASH_CYCLE_LEN-1..(SBALLEND)*HASH_CYCLE_LEN{
+        swap_const[N-TAU+i-HASH_CYCLE_LEN - SBALLSTART][i] = BaseElement::ONE;
+        swap_const[N][i] = BaseElement::new((N-TAU+i-HASH_CYCLE_LEN+1 - SBALLSTART) as u32);
     }
 
     swap_const
@@ -818,7 +873,11 @@ fn get_swap_constants() -> Vec<Vec<BaseElement>> {
 
 fn get_hashmask_constants() -> Vec<BaseElement> {
     let mut hashmask_const = vec![BaseElement::ZERO; PADDED_TRACE_LENGTH];
-    for i in 0..(HASH_CYCLE_LEN)*(SBALLEND){
+    for i in 0..HASH_CYCLE_LEN{
+        hashmask_const[i] = HASH_CYCLE_MASK[i%HASH_CYCLE_LEN];
+    }
+    
+    for i in SBALLSTART..(HASH_CYCLE_LEN)*(SBALLEND){
         hashmask_const[i] = HASH_CYCLE_MASK[i%HASH_CYCLE_LEN];
     }
 
@@ -840,7 +899,7 @@ fn get_inserthashmask_constants() -> Vec<BaseElement> {
 
 fn get_copyhashmask_constants() -> Vec<BaseElement> {
     let mut copyhashmask_const = vec![BaseElement::ZERO; PADDED_TRACE_LENGTH];
-    for i in 0..(HASH_CYCLE_LEN)*(SBALLEND){
+    for i in SBALLSTART..(HASH_CYCLE_LEN)*(SBALLEND){
         copyhashmask_const[i] = BaseElement::ONE - HASH_CYCLE_MASK[i%HASH_CYCLE_LEN];
     }
 

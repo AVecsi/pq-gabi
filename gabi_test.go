@@ -1520,7 +1520,7 @@ import (
 // 	os.Exit(m.Run())
 // }
 
-func TestEverzthing(test *testing.T) {
+func TestEverything(test *testing.T) {
 	Test()
 }
 

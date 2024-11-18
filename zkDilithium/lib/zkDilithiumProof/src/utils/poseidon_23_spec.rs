@@ -21,7 +21,7 @@ pub const CYCLE_LENGTH: usize = 8;
 // ================================================================================================
 
 pub struct Poseidon23 {
-    state: [BaseElement; STATE_WIDTH],
+    state: [BaseElement; 3*STATE_WIDTH],
     idx: usize,
 }
 
@@ -37,7 +37,7 @@ impl Poseidon23 {
     #[allow(dead_code)]
     pub fn new() -> Self {
         Poseidon23 {
-            state: [BaseElement::ZERO; STATE_WIDTH],
+            state: [BaseElement::ZERO; 3*STATE_WIDTH],
             idx: 0,
         }
     }
@@ -71,7 +71,7 @@ impl Poseidon23 {
     /// Returns hash of the provided data.
     pub fn digest(data: &[BaseElement]) -> Hash {
         // initialize state to all zeros
-        let mut state = [BaseElement::ZERO; STATE_WIDTH];
+        let mut state = [BaseElement::ZERO; 3*STATE_WIDTH];
 
         let mut i = 0;
         for &element in data.iter() {
@@ -167,7 +167,7 @@ impl Deserializable for Hash {
 // Poseidon PERMUTATION
 // ================================================================================================
 
-pub fn apply_permutation(state: &mut [BaseElement; STATE_WIDTH]) {
+pub fn apply_permutation(state: &mut [BaseElement; 3*STATE_WIDTH]) {
     for i in 0..NUM_ROUNDS {
         apply_round(state, i);
     }

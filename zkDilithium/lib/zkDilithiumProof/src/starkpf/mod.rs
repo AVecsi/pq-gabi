@@ -27,7 +27,7 @@ const M: u32 = 7340033; // 2^23 - 2^20 + 1
 pub const N: usize = 256;
 pub const K: usize = 4;
 const TAU: usize = 39; //The actual number of swaps gets rounded up to 40 which is fine for security
-const SBALLEND: usize = TAU/HASH_CYCLE_LEN + 2; //Spending 6 HASH_CYCLES on BALLSAMPLE
+const SBALLEND: usize = TAU/HASH_CYCLE_LEN + 2 + 1; //Spending 6 HASH_CYCLES on BALLSAMPLE
 const BETA: u64 = 80;
 const ZLIMIT: u64 = 131072 - BETA; // 2^17 - BETA
 const WHIGHSHIFT: u64 = 8;
@@ -42,7 +42,7 @@ const WLOWRANGE: usize = 17;
 const WHIGHRANGE: usize = 6;
 
 pub const PADDED_TRACE_LENGTH: usize = 512;
-pub const _TRACE_LENGTH:usize = (TAU) + 2*HASH_CYCLE_LEN + N*HASH_CYCLE_LEN/6;
+//pub const _TRACE_LENGTH:usize = (TAU) + 2*HASH_CYCLE_LEN + N*HASH_CYCLE_LEN/6;
 
 //////////////////////////
 const CIND: usize = 0;
@@ -60,6 +60,8 @@ const CTILDEIND: usize = SWAPDECIND + N;
 
 const HASHIND: usize = CTILDEIND + HASH_DIGEST_WIDTH;
 
+pub const MIND: usize = HASHIND + 3*HASH_STATE_WIDTH;
+
 // Below show up only in result space
 const QASSERT: usize = HASHIND + 3*HASH_STATE_WIDTH + 3*HASH_STATE_WIDTH; //3*HASH_STATE_WIDTH for hashing and double for assertions
 const RASSERT: usize = QASSERT + 2;
@@ -71,6 +73,8 @@ const WDECASSERT: usize = QRASSERT + HASH_CYCLE_LEN;
 const WLOWASSERT: usize = WDECASSERT + 2*4;
 const WHIGHASSERT: usize = WLOWASSERT + 4;
 const CTILDEASSERT: usize = WHIGHASSERT + 2*4;
+const MCOMASSERT: usize = CTILDEASSERT + 12;
+const MBALLASSERT: usize = MCOMASSERT + 12;
 
 /////////////////////////
 const WHIGHIND: usize = QIND; // HASH_RATE_WIDTH wlow per row for first 6 rows. Placing everything at once because we permute
@@ -86,15 +90,17 @@ const WHIGHRANGEIND: usize = WLOWRANGEIND + 4*WLOWRANGE;
 const WASSERT: usize = WHIGHRANGEIND + 8*WHIGHRANGE;
 const ZASSERT: usize = WASSERT + 4*3; // 4 w's, each has 3 checks
 /////////////////////////
-pub const TRACE_WIDTH: usize = HASHIND + 3*HASH_STATE_WIDTH;
+pub const TRACE_WIDTH: usize = MIND + 12;
 pub const AUX_WIDTH: usize = 1 + 4 + 4 + 4 + 1; // C + Z + W + QW + GAMMA(random evaluation point)
+
+pub const SBALLSTART: usize = HASH_CYCLE_LEN;
 
 pub const COM_START: usize = (HASH_CYCLE_LEN)*(SBALLEND+1);
 pub const COM_END: usize = (HASH_CYCLE_LEN)*(SBALLEND+2);
 
 pub const PIT_START: usize = (HASH_CYCLE_LEN)*(SBALLEND+3);
-pub const PIT_END: usize = (HASH_CYCLE_LEN)*(4*N/24+HASH_CYCLE_LEN + 2);
-pub const PIT_LEN: usize = (N+2)*HASH_CYCLE_LEN/(HASH_CYCLE_LEN-2); //todo:remove this constant -- maybe confusing
+pub const PIT_LEN: usize = (N+2)*HASH_CYCLE_LEN/(HASH_CYCLE_LEN-2);
+pub const PIT_END: usize = PIT_START+PIT_LEN;
 // Public key of Dilithium
 
 const PUBT: [[u64;N];4] = [
@@ -142,7 +148,9 @@ pub(crate) fn prove(
     qw: [[BaseElement; N]; K],
     ctilde: [BaseElement; HASH_DIGEST_WIDTH],
     m: [BaseElement; 12],
-    com_r: [BaseElement; 12]
+    comm: [BaseElement; HASH_RATE_WIDTH],
+    com_r: [BaseElement; 12],
+    nonce: [BaseElement; 12]
 ) -> StarkProof {
     // 48,4,20
     // 32,8,20
@@ -166,11 +174,18 @@ pub(crate) fn prove(
     );
 
     // create a prover
-    let prover = ThinDilProver::new(options.clone(), z, w, qw, ctilde, m, com_r);
+    let prover = ThinDilProver::new(options.clone(), z, w, qw, ctilde, m, comm, com_r, nonce);
 
     // generate execution trace
     let now = Instant::now();
     let trace = prover.build_trace();
+    // for i in 0..512 {
+    //     for j in 0..713 {
+    //         let asd = trace.main_segment().get(j, i);
+    //         print!("{} ", asd);
+    //     }
+    //     print!("\n");
+    // }
 
     let trace_width = trace.width();
     let trace_length = trace.length();
@@ -181,25 +196,17 @@ pub(crate) fn prove(
         now.elapsed().as_millis()
     );
 
-    for i in 0..trace_width {
-        for j in 0..trace_length {
-            if(trace.get(i, j).as_int() == 7236416) {
-                debug!("I found it at {} {} WTF?\n", i, j);
-            }
-        }
-    }
-
     // generate the proof
     prover.prove(trace).unwrap()
 }
 
-pub(crate) fn verify(proof: StarkProof, m: [BaseElement; HASH_DIGEST_WIDTH]) -> Result<(), VerifierError> {
-    let pub_inputs = PublicInputs{m};
+pub(crate) fn verify(proof: StarkProof, comm: [BaseElement; HASH_RATE_WIDTH], nonce: [BaseElement; 12]) -> Result<(), VerifierError> {
+    let pub_inputs = PublicInputs{comm, nonce};
     winterfell::verify::<ThinDilAir>(proof, pub_inputs)
 }
 
-pub(crate) fn verify_with_wrong_inputs(proof: StarkProof, m: [BaseElement; HASH_DIGEST_WIDTH]) -> Result<(), VerifierError> {
-    let pub_inputs = PublicInputs{m};
+pub(crate) fn verify_with_wrong_inputs(proof: StarkProof, comm: [BaseElement; HASH_RATE_WIDTH], nonce: [BaseElement; 12]) -> Result<(), VerifierError> {
+    let pub_inputs = PublicInputs{comm, nonce};
     winterfell::verify::<ThinDilAir>(proof, pub_inputs)
 }
 

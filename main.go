@@ -75,10 +75,27 @@ func Test() {
 	msgUint32 := make([]uint32, 12)
 
 	msgFes := common.UnpackFes22Bit(msg)
-	fmt.Println(msgFes)
 
 	for i := range msgFes {
 		msgUint32[i] = uint32(msgFes[i])
+	}
+
+	nonce := []int{1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1}
+
+	nonceUint32 := make([]uint32, 12)
+
+	for i := range msgFes {
+		nonceUint32[i] = uint32(nonce[i])
+	}
+
+	h := poseidon.NewPoseidon(nil, POS_RF, POS_T, POS_RATE, common.Q)
+	h.Write(append(msgFes, nonce...), POS_RF, POS_T, POS_RATE, common.Q)
+	commFes, _ := h.Read(24, POS_RF, POS_T, POS_RATE, common.Q)
+
+	commUint32 := make([]uint32, 24)
+
+	for i := range commFes {
+		commUint32[i] = uint32(commFes[i])
 	}
 
 	//msgUint32 := []uint32{26331, 30185, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
@@ -87,9 +104,9 @@ func Test() {
 
 	start := time.Now()
 
-	proof := C.prove((*C.uint32_t)(z.IntArray()), (*C.uint32_t)(w.IntArray()), (*C.uint32_t)(qw.IntArray()), (*C.uint32_t)(&cTildeUint32[0]), (*C.uint32_t)(&msgUint32[0]), (*C.uint32_t)(&comr[0]), (*C.int)(unsafe.Pointer(&len)))
+	proof := C.prove((*C.uint32_t)(z.IntArray()), (*C.uint32_t)(w.IntArray()), (*C.uint32_t)(qw.IntArray()), (*C.uint32_t)(&cTildeUint32[0]), (*C.uint32_t)(&msgUint32[0]), (*C.uint32_t)(&commUint32[0]), (*C.uint32_t)(&comr[0]), (*C.uint32_t)(&nonceUint32[0]), (*C.int)(unsafe.Pointer(&len)))
 
-	result := C.verify(proof, (*C.int)(unsafe.Pointer(&len)), (*C.uint32_t)(&msgUint32[0]))
+	result := C.verify(proof, (*C.int)(unsafe.Pointer(&len)), (*C.uint32_t)(&commUint32[0]), (*C.uint32_t)(&nonceUint32[0]))
 
 	fmt.Println(time.Since(start))
 

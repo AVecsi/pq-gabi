@@ -16,7 +16,7 @@ use std::slice;
 use std::time::{Duration, Instant};
 
 #[no_mangle]
-pub extern "C" fn prove(zBytes: *const libc::c_uint, wBytes: *const libc::c_uint, qwBytes: *const libc::c_uint, ctildeBytes: *const libc::c_uint, mBytes: *const libc::c_uint, comrBytes: *const libc::c_uint, out_len: *mut libc::c_int) -> *const libc::c_uchar {
+pub extern "C" fn prove(zBytes: *const libc::c_uint, wBytes: *const libc::c_uint, qwBytes: *const libc::c_uint, ctildeBytes: *const libc::c_uint, mBytes: *const libc::c_uint, commBytes: *const libc::c_uint, comrBytes: *const libc::c_uint, nonceBytes: *const libc::c_uint, out_len: *mut libc::c_int) -> *const libc::c_uchar {
 
     //For now lets just assume that the input's length is ok
     //Convert from the C bytes to something rust readable
@@ -25,7 +25,9 @@ pub extern "C" fn prove(zBytes: *const libc::c_uint, wBytes: *const libc::c_uint
     let mut qw: [[BaseElement; N]; K] = [[BaseElement::new(0); N]; K];
     let mut ctilde: [BaseElement; HASH_DIGEST_WIDTH] = [BaseElement::new(0); HASH_DIGEST_WIDTH];
     let mut m: [BaseElement; 12] = [BaseElement::new(0); 12];
+    let mut comm: [BaseElement; 24] = [BaseElement::new(0); 24];
     let mut com_r: [BaseElement; HASH_DIGEST_WIDTH] = [BaseElement::new(0); HASH_DIGEST_WIDTH];
+    let mut nonce: [BaseElement; 12] = [BaseElement::new(0); 12];
 
     unsafe {
         for i in 0..K {
@@ -44,11 +46,19 @@ pub extern "C" fn prove(zBytes: *const libc::c_uint, wBytes: *const libc::c_uint
             m[i] = BaseElement::new(*(mBytes.add(i)));
         }
 
+        for i in 0..24 {
+            comm[i] = BaseElement::new(*(commBytes.add(i)));
+        }
+
         for i in 0..HASH_DIGEST_WIDTH {
             com_r[i] = BaseElement::new(*(comrBytes.add(i)));
         }
+
+        for i in 0..12 {
+            nonce[i] = BaseElement::new(*(nonceBytes.add(i)));
+        }
     }
-    let proof_bytes = starkpf::prove(z, w, qw, ctilde, m, com_r).to_bytes();
+    let proof_bytes = starkpf::prove(z, w, qw, ctilde, m, comm, com_r, nonce).to_bytes();
 
     let len = proof_bytes.len();
 
@@ -74,21 +84,24 @@ pub extern "C" fn prove(zBytes: *const libc::c_uint, wBytes: *const libc::c_uint
 }
 
 #[no_mangle]
-pub extern "C" fn verify(proofBytes: *const libc::c_uchar, len: *const libc::c_int, mBytes: *const libc::c_uint) -> libc::c_int {
+pub extern "C" fn verify(proofBytes: *const libc::c_uchar, len: *const libc::c_int, commBytes: *const libc::c_uint, nonceBytes: *const libc::c_uint) -> libc::c_int {
 
     let proofSlice: &[u8] = unsafe {slice::from_raw_parts(proofBytes, (*len) as usize)};
 
     let proof = StarkProof::from_bytes(proofSlice).unwrap();
-    let mut m: [BaseElement; 12] = [BaseElement::new(0); 12];
+    let mut comm: [BaseElement; 24] = [BaseElement::new(0); 24];
+    let mut nonce: [BaseElement; 12] = [BaseElement::new(0); 12];
     unsafe {
+        for i in 0..24 {
+            comm[i] = BaseElement::new(*(commBytes.add(i)));
+        }
+
         for i in 0..12 {
-            m[i] = BaseElement::new(*(mBytes.add(i)));
-            unsafe{
-                println!("veri message {}", *(mBytes.add(i)));}
+            nonce[i] = BaseElement::new(*(nonceBytes.add(i)));
         }
     }
 
-    match starkpf::verify(proof.clone(), m) {
+    match starkpf::verify(proof.clone(), comm, nonce) {
         Ok(_) => {
             println!("Verified.");
             return 1;

@@ -3,7 +3,7 @@ use super::{
     HASH_CYCLE_LEN, HASH_STATE_WIDTH, HASH_RATE_WIDTH, NUM_HASH_ROUNDS, HASH_DIGEST_WIDTH, ZIND, QIND, RIND, CIND, 
     CTILDEIND, HASHIND,  ZRANGEIND, QRANGEIND, RRANGEIND, ZRANGE, QRANGE, RRANGE, BETA, TAU, PADDED_TRACE_LENGTH, 
     SWAPDECIND, SBALLEND, WIND, QWIND, SIGNIND, ZLIMIT, WLOWIND, WBIND, WHIGHIND, GAMMA2, WLOWLIMIT, 
-    WLOWRANGEIND, WLOWRANGE, WHIGHSHIFT, WHIGHRANGEIND, WHIGHRANGE, K, PIT_START, PIT_LEN, COM_START, HTR, COM_END};
+    WLOWRANGEIND, WLOWRANGE, WHIGHSHIFT, WHIGHRANGEIND, WHIGHRANGE, K, PIT_START, PIT_LEN, COM_START, HTR, COM_END, MIND, SBALLSTART};
 
 use crate::utils::poseidon_23_spec::{self};
 
@@ -17,12 +17,14 @@ pub struct ThinDilProver {
     qw: [[BaseElement; N]; K],
     ctilde: [BaseElement; HASH_DIGEST_WIDTH],
     m: [BaseElement; 12],
-    com_r: [BaseElement; 12]
+    comm: [BaseElement; HASH_RATE_WIDTH],
+    com_r: [BaseElement; 12],
+    nonce: [BaseElement; 12]
 }
 
 impl ThinDilProver {
-    pub fn new(options: ProofOptions, z: [[BaseElement; N]; K], w: [[BaseElement; N]; K],  qw: [[BaseElement; N]; K], ctilde: [BaseElement; HASH_DIGEST_WIDTH], m: [BaseElement; 12], com_r: [BaseElement; 12]) -> Self {
-        Self {options, z, w, qw, ctilde, m, com_r}
+    pub fn new(options: ProofOptions, z: [[BaseElement; N]; K], w: [[BaseElement; N]; K],  qw: [[BaseElement; N]; K], ctilde: [BaseElement; HASH_DIGEST_WIDTH], m: [BaseElement; 12], comm: [BaseElement; HASH_RATE_WIDTH], com_r: [BaseElement; 12], nonce: [BaseElement; 12]) -> Self {
+        Self {options, z, w, qw, ctilde, m, comm, com_r, nonce}
     }
 
     // Builds an execution trace for verifying dilithium signatures
@@ -37,10 +39,19 @@ impl ThinDilProver {
                     state[CTILDEIND+i] = self.ctilde[i];
                 }
 
+                for i in 0..self.m.len() {
+                    state[MIND + i] = self.m[i];
+                }
+
                 // hash_space with domain separation
-                state[HASHIND] = BaseElement::from(2u32);
+                // state[HASHIND] = BaseElement::from(2u32);
+                // for i in 0..HASH_DIGEST_WIDTH{
+                //     state[HASHIND + i + 1] += state[CTILDEIND + i];
+                // }
+
                 for i in 0..HASH_DIGEST_WIDTH{
-                    state[HASHIND + i + 1] += state[CTILDEIND + i];
+                    state[HASHIND + i] =  state[MIND + i];
+                    state[HASHIND + HASH_DIGEST_WIDTH + i] = self.nonce[i];
                 }
             },
 
@@ -48,66 +59,77 @@ impl ThinDilProver {
                 let cycle_pos = step % HASH_CYCLE_LEN;
                 let _cycle_num = step / HASH_CYCLE_LEN;
 
-                let base: u32 = (N-TAU + step-(HASH_CYCLE_LEN)) as u32;
+                let base: u32 = (N-TAU + step-(HASH_CYCLE_LEN)-SBALLSTART) as u32;
                 
                 // apply poseidon round in all but the last round of HASH_CYCLE
                 if cycle_pos < NUM_HASH_ROUNDS {
                     poseidon_23_spec::apply_round(&mut state[HASHIND..(HASHIND+3*HASH_STATE_WIDTH)], step);
                 }
 
-                // Ballsample section
-                if step < (HASH_CYCLE_LEN)*(SBALLEND)-1{
-                    // Hashing to compute randomness used in BallSample
-                    if cycle_pos == NUM_HASH_ROUNDS {
-                        // Computing random value % basei where basei runs from N-TAU..N and storing in RIND, QIND
-                        for i in 0..HASH_CYCLE_LEN{
-                            let x = state[HASHIND+i].to_string().parse::<u32>().unwrap();
-                            
-                            let basei = base + (i+1) as u32;
-                            
-                            state[QIND+i] = BaseElement::new(x/basei);
-                            state[RIND+i] = BaseElement::new(x%basei);    
-                        }
-
-                        // Extracting bits for sign flips
-                        bitdec(
-                            state[HASHIND+HASH_CYCLE_LEN].to_string().parse::<u64>().unwrap() % 2u64.pow(HASH_CYCLE_LEN as u32),
-                            &mut state[SIGNIND..SIGNIND+HASH_CYCLE_LEN] 
-                        );
-
-                        // Below is needed because rotate_left happens at every step and we don't want to do it whenever hashing is complete
-                        state[QIND..QIND+HASH_CYCLE_LEN].rotate_right(1);
-                        state[RIND..RIND+HASH_CYCLE_LEN].rotate_right(1);
-                        state[SIGNIND..SIGNIND+HASH_CYCLE_LEN].rotate_right(1);
+                if step == SBALLSTART - 1 {
+                    state[HASHIND] = BaseElement::from(2u32);
+                    for i in 0..HASH_DIGEST_WIDTH{
+                        state[HASHIND + i + 1] = state[CTILDEIND + i];
                     }
 
-                    // Starts at the end of first round of hashing above. Then we start swapping and negation
-                    if step >= HASH_CYCLE_LEN-1 {
-                        // The base goes from 216 to 255
-                        state[QIND..QIND+HASH_CYCLE_LEN].rotate_left(1);
-                        state[RIND..RIND+HASH_CYCLE_LEN].rotate_left(1);
-                        state[SIGNIND..SIGNIND+HASH_CYCLE_LEN].rotate_left(1);
-                        
-                        bitdec(state[QIND].to_string().parse::<u64>().unwrap(), &mut state[QRANGEIND..(QRANGEIND+QRANGE)]);
-                        bitdec(state[RIND].to_string().parse::<u64>().unwrap(), &mut state[RRANGEIND..(RRANGEIND+RRANGE)]);
-
-                        bitdec(state[QIND].to_string().parse::<u64>().unwrap() + (M/(base+1)) as u64, &mut state[QRANGEIND+QRANGE..(QRANGEIND+2*QRANGE)]);
-                        bitdec(state[RIND].to_string().parse::<u64>().unwrap() + 256 - (base+1) as u64, &mut state[RRANGEIND+RRANGE..(RRANGEIND+2*RRANGE)]);
-
-                        // Hashing ctilde to ball
-                        // Swapping and negating entries of c as described in Dilithium.v3
-                        let sel = state[RIND];
-
-                        state[CIND + (base) as usize] = state[CIND + sel.to_string().parse::<usize>().unwrap()];
-                        state[CIND + sel.to_string().parse::<usize>().unwrap()] = BaseElement::ONE - BaseElement::new(2)*state[SIGNIND];
-
-                        // Resetting the SWAPDEC registers to 0
-                        for i in 0..N{
-                            state[SWAPDECIND+i] = BaseElement::ZERO;
-                        }
-                        state[SWAPDECIND + state[RIND].to_string().parse::<usize>().unwrap()] = BaseElement::ONE;
+                    for i in HASH_DIGEST_WIDTH+1..(3*HASH_STATE_WIDTH) {
+                        state[HASHIND + i] = BaseElement::ZERO;
                     }
                 }
+
+                // Ballsample section
+                    if step < (HASH_CYCLE_LEN)*(SBALLEND)-1 && step > SBALLSTART - 1{
+                        // Hashing to compute randomness used in BallSample
+                        if cycle_pos == NUM_HASH_ROUNDS {
+                            // Computing random value % basei where basei runs from N-TAU..N and storing in RIND, QIND
+                            for i in 0..HASH_CYCLE_LEN{
+                                let x = state[HASHIND+i].to_string().parse::<u32>().unwrap();
+                                
+                                let basei = base + (i+1) as u32;
+                                
+                                state[QIND+i] = BaseElement::new(x/basei);
+                                state[RIND+i] = BaseElement::new(x%basei);    
+                            }
+    
+                            // Extracting bits for sign flips
+                            bitdec(
+                                state[HASHIND+HASH_CYCLE_LEN].to_string().parse::<u64>().unwrap() % 2u64.pow(HASH_CYCLE_LEN as u32),
+                                &mut state[SIGNIND..SIGNIND+HASH_CYCLE_LEN] 
+                            );
+    
+                            // Below is needed because rotate_left happens at every step and we don't want to do it whenever hashing is complete
+                            state[QIND..QIND+HASH_CYCLE_LEN].rotate_right(1);
+                            state[RIND..RIND+HASH_CYCLE_LEN].rotate_right(1);
+                            state[SIGNIND..SIGNIND+HASH_CYCLE_LEN].rotate_right(1);
+                        }
+    
+                        // Starts at the end of first round of hashing above. Then we start swapping and negation
+                        if step >= SBALLSTART + HASH_CYCLE_LEN-1 {
+                            // The base goes from 216 to 255
+                            state[QIND..QIND+HASH_CYCLE_LEN].rotate_left(1);
+                            state[RIND..RIND+HASH_CYCLE_LEN].rotate_left(1);
+                            state[SIGNIND..SIGNIND+HASH_CYCLE_LEN].rotate_left(1);
+                            
+                            bitdec(state[QIND].to_string().parse::<u64>().unwrap(), &mut state[QRANGEIND..(QRANGEIND+QRANGE)]);
+                            bitdec(state[RIND].to_string().parse::<u64>().unwrap(), &mut state[RRANGEIND..(RRANGEIND+RRANGE)]);
+    
+                            bitdec(state[QIND].to_string().parse::<u64>().unwrap() + (M/(base+1)) as u64, &mut state[QRANGEIND+QRANGE..(QRANGEIND+2*QRANGE)]);
+                            bitdec(state[RIND].to_string().parse::<u64>().unwrap() + 256 - (base+1) as u64, &mut state[RRANGEIND+RRANGE..(RRANGEIND+2*RRANGE)]);
+    
+                            // Hashing ctilde to ball
+                            // Swapping and negating entries of c as described in Dilithium.v3
+                            let sel = state[RIND];
+    
+                            state[CIND + (base) as usize] = state[CIND + sel.to_string().parse::<usize>().unwrap()];
+                            state[CIND + sel.to_string().parse::<usize>().unwrap()] = BaseElement::ONE - BaseElement::new(2)*state[SIGNIND];
+    
+                            // Resetting the SWAPDEC registers to 0
+                            for i in 0..N{
+                                state[SWAPDECIND+i] = BaseElement::ZERO;
+                            }
+                            state[SWAPDECIND + state[RIND].to_string().parse::<usize>().unwrap()] = BaseElement::ONE;
+                        }
+                    }
 
                 // Opening a hash-based commitment -- signature on com = H(m||com_r)
                 // the constraints will be enforced as follows
@@ -270,7 +292,7 @@ impl Prover for ThinDilProver {
     type Trace = RapTraceTable<BaseElement>;
 
     fn get_pub_inputs(&self, _trace: &Self::Trace) -> PublicInputs {
-        PublicInputs{m: self.m}
+        PublicInputs{comm: self.comm, nonce: self.nonce}
     }
     fn options(&self) -> &ProofOptions {
         &self.options

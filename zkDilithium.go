@@ -44,9 +44,6 @@ func Gen(seed []byte) (pk []byte, sk []byte) {
 	Ahat := algebra.SampleMatrix(rho)
 	s1, s2 := algebra.SampleSecret(rho2)
 
-	fmt.Println(s1)
-	fmt.Println(s2)
-
 	// Compute t = InvNTT(Ahat * NTT(s1) + NTT(s2))
 	t := Ahat.MulNTT(s1.NTT()).Add(s2.NTT()).InvNTT()
 
