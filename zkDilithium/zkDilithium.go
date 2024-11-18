@@ -20,7 +20,8 @@ const CSIZE = 12 // number of field elements to use for c tilde
 const MUSIZE = 24
 
 type zkDilSignature struct {
-	Signature []byte `json:"signature"`
+	CTilde []int        `json:"ctilde"`
+	Z      *algebra.Vec `json:"z"`
 }
 
 // Gen generates a keypair using a seed.
@@ -174,20 +175,11 @@ func Sign(rho, key, msg []byte, t, s1, s2 *algebra.Vec) zkDilSignature {
 		}
 
 		// Return the signature
-		return zkDilSignature{Signature: append(common.PackFesInt(cTilde), z.PackLeGamma1()...)}
+		return zkDilSignature{cTilde, z}
 	}
 }
 
-func Verify(rho, msg, sig []byte, t *algebra.Vec) bool {
-	// Check the signature length
-	if len(sig) != CSIZE*3+common.POLY_LE_GAMMA1_SIZE*common.L {
-		return false
-	}
-
-	// Unpack signature
-	packedCTilde, packedZ := sig[:CSIZE*3], sig[CSIZE*3:]
-	z := algebra.UnpackVecLeGamma1(packedZ, common.L)
-	cTilde := common.UnpackFesInt(packedCTilde, common.Q)
+func Verify(rho, msg []byte, sig zkDilSignature, t *algebra.Vec) bool {
 
 	tPacked := t.Pack()
 
@@ -201,20 +193,20 @@ func Verify(rho, msg, sig []byte, t *algebra.Vec) bool {
 	mu, _ := h.Read(MUSIZE, POS_RF, POS_T, POS_RATE, common.Q)
 
 	// Sample challenge c
-	c := SampleInBall(poseidon.NewPoseidon(append([]int{2}, cTilde...), POS_RF, POS_T, POS_RATE, common.Q))
+	c := SampleInBall(poseidon.NewPoseidon(append([]int{2}, sig.CTilde...), POS_RF, POS_T, POS_RATE, common.Q))
 	if c == nil {
 		return false
 	}
 
 	// Apply NTT to challenge
 	cHat := c.NTT()
-	if z.Norm() >= common.GAMMA1-BETA {
+	if sig.Z.Norm() >= common.GAMMA1-BETA {
 		return false
 	}
 
 	// Sample Ahat matrix
 	Ahat := algebra.SampleMatrix(rho)
-	zHat := z.NTT()
+	zHat := sig.Z.NTT()
 	tHat := t.NTT()
 
 	// Compute w1
@@ -231,8 +223,8 @@ func Verify(rho, msg, sig []byte, t *algebra.Vec) bool {
 	cTilde2, _ := h.Read(CSIZE, POS_RF, POS_T, POS_RATE, common.Q)
 
 	// Verify cTilde matches
-	for i := 0; i < len(cTilde); i++ {
-		if cTilde2[i] != cTilde[i] {
+	for i := 0; i < len(sig.CTilde); i++ {
+		if cTilde2[i] != sig.CTilde[i] {
 			return false
 		}
 	}

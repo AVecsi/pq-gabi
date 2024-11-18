@@ -45,9 +45,7 @@ func Test() {
 	// Sign the message
 	sig := zkDilithium.Sign(pk.Rho, sk.CNS, msg, pk.T, sk.S1, sk.S2)
 
-	packedCTilde, packedZ := sig.Signature[:zkDilithium.CSIZE*3], sig.Signature[zkDilithium.CSIZE*3:]
-	z := algebra.UnpackVecLeGamma1(packedZ, common.L)
-	cTilde := common.UnpackFesInt(packedCTilde, common.Q)
+	cTilde, z := sig.CTilde, sig.Z
 
 	Ahat := algebra.SampleMatrix(pk.Rho)
 
@@ -113,7 +111,7 @@ func Test() {
 	//unsigned char* zBytes, unsigned char*  wBytes, unsigned char*  qwBytes, unsigned char*  ctildeBytes, unsigned char*  mBytes, unsigned char*  comrBytes
 
 	// Verify the signature
-	if zkDilithium.Verify(pk.Rho, msg, sig.Signature, pk.T) {
+	if zkDilithium.Verify(pk.Rho, msg, sig, pk.T) {
 		fmt.Println("Signature verified successfully!")
 	} else {
 		fmt.Println("Signature verification failed.")
