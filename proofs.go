@@ -4,7 +4,8 @@
 
 package gabi
 
-/* import (
+/*
+import (
 	"github.com/BeardOfDoom/pq-gabi/big"
 	"github.com/BeardOfDoom/pq-gabi/gabikeys"
 	"github.com/BeardOfDoom/pq-gabi/internal/common"

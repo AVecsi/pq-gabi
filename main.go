@@ -14,8 +14,10 @@ import (
 	"unsafe"
 
 	"github.com/BeardOfDoom/pq-gabi/algebra"
+	"github.com/BeardOfDoom/pq-gabi/gabikeys"
 	"github.com/BeardOfDoom/pq-gabi/internal/common"
 	"github.com/BeardOfDoom/pq-gabi/poseidon"
+	"github.com/BeardOfDoom/pq-gabi/zkDilithium"
 	"github.com/cbergoon/merkletree"
 )
 
@@ -33,44 +35,36 @@ func Test() {
 
 	seed := make([]byte, 32)
 
-	pk, sk := Gen(seed)
+	sk, pk, err := gabikeys.GenerateKeyPair(seed, 0, time.Now())
+	if err != nil {
+		return
+	}
+
 	msg := merkleTree.MerkleRoot()
 
 	// Sign the message
-	sig := Sign(sk, msg)
+	sig := zkDilithium.Sign(pk.Rho, sk.CNS, msg, pk.T, sk.S1, sk.S2)
 
-	packedCTilde, packedZ := sig.Signature[:CSIZE*3], sig.Signature[CSIZE*3:]
+	packedCTilde, packedZ := sig.Signature[:zkDilithium.CSIZE*3], sig.Signature[zkDilithium.CSIZE*3:]
 	z := algebra.UnpackVecLeGamma1(packedZ, common.L)
 	cTilde := common.UnpackFesInt(packedCTilde, common.Q)
 
-	tPacked := pk[32:]
-	rho := pk[:32]
+	Ahat := algebra.SampleMatrix(pk.Rho)
 
-	t := algebra.UnpackVec(tPacked, common.K)
-	Ahat := algebra.SampleMatrix(rho)
-
-	c := sampleInBall(poseidon.NewPoseidon(append([]int{2}, cTilde...), POS_RF, POS_T, POS_RATE, common.Q))
+	c := zkDilithium.SampleInBall(poseidon.NewPoseidon(append([]int{2}, cTilde...), zkDilithium.POS_RF, zkDilithium.POS_T, zkDilithium.POS_RATE, common.Q))
 
 	Azq, Azr := Ahat.SchoolbookMulDebug(z)
-	Tq, Tr := t.SchoolbookScalarMulDebug(c)
+	Tq, Tr := pk.T.SchoolbookScalarMulDebug(c)
 
 	qw := Azq.Sub(Tq)
 	w := Azr.Sub(Tr)
 
 	comr := make([]uint32, 12)
 
-	//(*C.uint32_t)(unsafe.Pointer(&comr[0]))
-	//(*C.uint32_t)(unsafe.Pointer(z.IntArray()))
-
 	cTildeUint32 := make([]uint32, (len(cTilde)))
 	for i := range cTilde {
 		cTildeUint32[i] = uint32(cTilde[i])
 	}
-
-	// msgUint32 := make([]uint32, 12)
-	// for i := range msg {
-	// 	msgUint32[i] = uint32(msg[i])
-	// }
 
 	msgUint32 := make([]uint32, 12)
 
@@ -84,13 +78,13 @@ func Test() {
 
 	nonceUint32 := make([]uint32, 12)
 
-	for i := range msgFes {
+	for i := range nonce {
 		nonceUint32[i] = uint32(nonce[i])
 	}
 
-	h := poseidon.NewPoseidon(nil, POS_RF, POS_T, POS_RATE, common.Q)
-	h.Write(append(msgFes, nonce...), POS_RF, POS_T, POS_RATE, common.Q)
-	commFes, _ := h.Read(24, POS_RF, POS_T, POS_RATE, common.Q)
+	h := poseidon.NewPoseidon(nil, zkDilithium.POS_RF, zkDilithium.POS_T, zkDilithium.POS_RATE, common.Q)
+	h.Write(append(msgFes, nonce...), zkDilithium.POS_RF, zkDilithium.POS_T, zkDilithium.POS_RATE, common.Q)
+	commFes, _ := h.Read(24, zkDilithium.POS_RF, zkDilithium.POS_T, zkDilithium.POS_RATE, common.Q)
 
 	commUint32 := make([]uint32, 24)
 
@@ -106,9 +100,12 @@ func Test() {
 
 	proof := C.prove((*C.uint32_t)(z.IntArray()), (*C.uint32_t)(w.IntArray()), (*C.uint32_t)(qw.IntArray()), (*C.uint32_t)(&cTildeUint32[0]), (*C.uint32_t)(&msgUint32[0]), (*C.uint32_t)(&commUint32[0]), (*C.uint32_t)(&comr[0]), (*C.uint32_t)(&nonceUint32[0]), (*C.int)(unsafe.Pointer(&len)))
 
+	fmt.Println("Proof generated in: ", time.Since(start))
+	start = time.Now()
+
 	result := C.verify(proof, (*C.int)(unsafe.Pointer(&len)), (*C.uint32_t)(&commUint32[0]), (*C.uint32_t)(&nonceUint32[0]))
 
-	fmt.Println(time.Since(start))
+	fmt.Println("Verified in: ", time.Since(start))
 
 	fmt.Println("Result ", result)
 	//println!("{}", unsafe{*verify(proof_bytes_ptr, &len, mbytes.as_ptr())});
@@ -116,7 +113,7 @@ func Test() {
 	//unsigned char* zBytes, unsigned char*  wBytes, unsigned char*  qwBytes, unsigned char*  ctildeBytes, unsigned char*  mBytes, unsigned char*  comrBytes
 
 	// Verify the signature
-	if Verify(pk, msg, sig.Signature) {
+	if zkDilithium.Verify(pk.Rho, msg, sig.Signature, pk.T) {
 		fmt.Println("Signature verified successfully!")
 	} else {
 		fmt.Println("Signature verification failed.")

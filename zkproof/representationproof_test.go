@@ -1,5 +1,6 @@
 package zkproof_test
 
+/*
 import (
 	"sync/atomic"
 	"testing"
@@ -407,3 +408,4 @@ func (t *TestFollower) StepDone() {}
 func init() {
 	keyproof.Follower = &TestFollower{}
 }
+*/

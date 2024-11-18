@@ -1,6 +1,6 @@
 package gabikeys
 
-import (
+/* import (
 	"encoding/xml"
 	"strconv"
 
@@ -85,3 +85,4 @@ func (el *EpochLength) MarshalXML(e *xml.Encoder, start xml.StartElement) error 
 	t.Epoch.Length = int(*el)
 	return e.EncodeElement(t, start)
 }
+*/

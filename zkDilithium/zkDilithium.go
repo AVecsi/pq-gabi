@@ -1,8 +1,7 @@
-package gabi
+package zkDilithium
 
 import (
 	"fmt"
-	"slices"
 
 	"github.com/BeardOfDoom/pq-gabi/algebra"
 	"github.com/BeardOfDoom/pq-gabi/internal/common"
@@ -25,7 +24,8 @@ type zkDilSignature struct {
 }
 
 // Gen generates a keypair using a seed.
-func Gen(seed []byte) (pk []byte, sk []byte) {
+func Gen(seed []byte) ([]byte, *algebra.Vec, []byte, *algebra.Vec, *algebra.Vec, error) {
+
 	if len(seed) != 32 {
 		panic("Seed length must be 32 bytes")
 	}
@@ -47,35 +47,10 @@ func Gen(seed []byte) (pk []byte, sk []byte) {
 	// Compute t = InvNTT(Ahat * NTT(s1) + NTT(s2))
 	t := Ahat.MulNTT(s1.NTT()).Add(s2.NTT()).InvNTT()
 
-	// Pack t
-	tPacked := t.Pack()
-
-	// Compute tr = H(rho + tPacked, 32)
-	tr := common.H(append(rho, tPacked...), 32)
-
-	// Assertions
-	if !algebra.UnpackVecLeqEta(s2.PackLeqEta(), common.K).Equal(s2) {
-		panic("Assertion failed: unpackVecLeqEta(s2.PackLeqEta(), K) != s2")
-	}
-	if !algebra.UnpackVecLeqEta(s1.PackLeqEta(), common.L).Equal(s1) {
-		panic("Assertion failed: unpackVecLeqEta(s1.PackLeqEta(), L) != s1")
-	}
-	if !algebra.UnpackVec(tPacked, common.K).Equal(t) {
-		panic("Assertion failed: unpackVec(tPacked, K) != t")
-	}
-
-	// Return public and secret keys
-	pk = append(rho, tPacked...)
-	sk = slices.Concat(rho, key, tr, s1.PackLeqEta(), s2.PackLeqEta(), tPacked)
-	//sk = append(rho, key...)
-	//sk = append(sk, tr...)
-	//sk = append(sk, s1.PackLeqEta()...)
-	//sk = append(sk, s2.PackLeqEta()...)
-	//sk = append(sk, tPacked...)
-	return pk, sk
+	return rho, t, key, s1, s2, nil
 }
 
-func sampleInBall(h *poseidon.Poseidon) *algebra.Poly {
+func SampleInBall(h *poseidon.Poseidon) *algebra.Poly {
 	signs := []int64{}
 	ret := [256]int64{}
 	signsPerFe := 8                                                   // number of signs to extract per field element
@@ -130,21 +105,12 @@ func sampleInBall(h *poseidon.Poseidon) *algebra.Poly {
 	return &algebra.Poly{ret}
 }
 
-func Sign(sk []byte, msg []byte) zkDilSignature {
-	// Unpack the secret key
-	rho := make([]byte, 32)
-	copy(rho, sk[:32])
-	key := make([]byte, 32)
-	copy(key, sk[32:64])
-	tr := make([]byte, 32)
-	copy(tr, sk[64:96])
+func Sign(rho, key, msg []byte, t, s1, s2 *algebra.Vec) zkDilSignature {
 
-	s1Bytes := make([]byte, 96*common.L)
-	copy(s1Bytes, sk[96:96+96*common.L])
-	s2Bytes := make([]byte, 96*common.K)
-	copy(s2Bytes, sk[96+96*common.L:96+96*(common.K+common.L)])
-	s1 := algebra.UnpackVecLeqEta(s1Bytes, common.L)
-	s2 := algebra.UnpackVecLeqEta(s2Bytes, common.K)
+	// Pack t
+	tPacked := t.Pack()
+	// Compute tr = H(rho + tPacked, 32)
+	tr := common.H(append(rho, tPacked...), 32)
 
 	// Sample matrix Ahat
 	Ahat := algebra.SampleMatrix(rho)
@@ -161,7 +127,7 @@ func Sign(sk []byte, msg []byte) zkDilSignature {
 	s2Hat := s2.NTT()
 
 	// Challenge generation loop
-	yNonce := 0
+	yNonce := 0 //TODO
 	rho2 := common.H(append(key, common.H(append(tr, msg...), 64)...), 64)
 	for {
 		// Sample Y and compute w
@@ -183,7 +149,7 @@ func Sign(sk []byte, msg []byte) zkDilSignature {
 		// Sample challenge c
 		h = poseidon.NewPoseidon([]int{2}, POS_RF, POS_T, POS_RATE, common.Q)
 		h.Write(cTilde, POS_RF, POS_T, POS_RATE, common.Q)
-		c := sampleInBall(h)
+		c := SampleInBall(h)
 		if c == nil {
 			fmt.Println("Retrying because of challenge")
 			continue
@@ -212,7 +178,7 @@ func Sign(sk []byte, msg []byte) zkDilSignature {
 	}
 }
 
-func Verify(pk []byte, msg []byte, sig []byte) bool {
+func Verify(rho, msg, sig []byte, t *algebra.Vec) bool {
 	// Check the signature length
 	if len(sig) != CSIZE*3+common.POLY_LE_GAMMA1_SIZE*common.L {
 		return false
@@ -223,11 +189,8 @@ func Verify(pk []byte, msg []byte, sig []byte) bool {
 	z := algebra.UnpackVecLeGamma1(packedZ, common.L)
 	cTilde := common.UnpackFesInt(packedCTilde, common.Q)
 
-	// Unpack public key
-	rho := pk[:32]
-	tPacked := pk[32:]
+	tPacked := t.Pack()
 
-	t := algebra.UnpackVec(tPacked, common.K)
 	tr := common.H(append(rho, tPacked...), 32)
 
 	// Poseidon hash of message
@@ -238,7 +201,7 @@ func Verify(pk []byte, msg []byte, sig []byte) bool {
 	mu, _ := h.Read(MUSIZE, POS_RF, POS_T, POS_RATE, common.Q)
 
 	// Sample challenge c
-	c := sampleInBall(poseidon.NewPoseidon(append([]int{2}, cTilde...), POS_RF, POS_T, POS_RATE, common.Q))
+	c := SampleInBall(poseidon.NewPoseidon(append([]int{2}, cTilde...), POS_RF, POS_T, POS_RATE, common.Q))
 	if c == nil {
 		return false
 	}
@@ -276,23 +239,3 @@ func Verify(pk []byte, msg []byte, sig []byte) bool {
 
 	return true
 }
-
-/* func main() {
-	seed := make([]byte, 32)
-	fmt.Println("seed: ", seed)
-
-	pk, sk := Gen(seed)
-	fmt.Println("pk: ", pk, "\nsk: ", sk)
-	msg := []byte("test")
-
-	// Sign the message
-	sig := Sign(sk, msg)
-	fmt.Println("sig: ", sig)
-
-	// Verify the signature
-	if Verify(pk, msg, sig) {
-		fmt.Println("Signature verified successfully!")
-	} else {
-		fmt.Println("Signature verification failed.")
-	}
-} */

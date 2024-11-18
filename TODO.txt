@@ -1,7 +1,6 @@
 MEGKÖTÉSEK:
 Igazából nem történik blind signature, egy merkle commitmentet ír alá az issuer.
 Első körben a proof annyi lesz, hogy ismeri az attribútum hash-ét a tulajdonos, és felépíthető a fa.
-Egy credential többszöri bemutatása összekapcsolható lesz most még. Egyrészt sima STARK van implementálva, nem zkSTARK, másrészt nem néztem még utána, hogy egy merkle fát amúgyis el tudnánk-e rejteni, ha amúgy az attribútum commitmenteket átküldjük, magát a fát ki kell tudja számítani a verifier.
 
 
 

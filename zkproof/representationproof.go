@@ -1,5 +1,6 @@
 package zkproof
 
+/*
 import (
 	"github.com/BeardOfDoom/pq-gabi/big"
 	"github.com/BeardOfDoom/pq-gabi/gabikeys"
@@ -130,3 +131,4 @@ func (s *QrRepresentationProofStructure) CommitmentsFromProof(pk *gabikeys.Publi
 
 	return append(list, commitment)
 }
+*/
