@@ -1,26 +1,14 @@
-MEGKÖTÉSEK:
-Igazából nem történik blind signature, egy merkle commitmentet ír alá az issuer.
 Első körben a proof annyi lesz, hogy ismeri az attribútum hash-ét a tulajdonos, és felépíthető a fa.
-
-
-
-
-CLSSignature replacement
-    - Think about a structure that would be the best for now
-    - We will only sign the root of a merkle tree, so replace the 2 signature functions with only 1 simple
-    - Replace the verify function
-    - RepresentToPublicKey not sure yet what it does and how it is used, probably we don't need.
-    - Randomize.
-        - Have a read on it, how it is used and when. I am not sure if its possible for us to implement similar stuff.
-        - Try to replace it.
-        - SZERINTEM ARRA VALÓ, HOGY RANDOMIZÁLJA AZ ALÁÍRÁST, EZ ÁLTAL PEDIG A PROOFot AZ ALÁÍRÁSRA.
-        - a proof generálásba kell bevezetnünk szerintem a randomizációt
 
 issuer.go
     - proveSignature sztem kidobható
     - Context még nem tudom mire való, valsyeg vmi ID, inkább mint context
 
 
-deleted
-signMessageBlockAndCommitment
-SignMessageBlock
+- There will be no revocation feature in the beginning
+
+- We don't have blind signature, therefore we put more trust in the Issuer, but i am guessing the Issuers should be trusted anyways.
+
+Valószínüleg rosszul használom a poseidon hash-t. a capacityvel sose foglalkozok.
+Megtörténik az elegendő hash a commitment elkészítéséhez?
+Kell számolnom tovább a hash-et ha már úgyis csak a padded rész van?

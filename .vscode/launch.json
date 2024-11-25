@@ -10,6 +10,25 @@
             "request": "launch",
             "mode": "auto",
             "program": "${fileDirname}"
-        }
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Cargo test",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--manifest-path",
+                    "${workspaceFolder}/zkDilithium/lib/zkDilithiumProof/Cargo.toml",
+                    "--no-run",
+                    "--lib",
+                ]
+            },
+            "env": {
+                "RUST_BACKTRACE": "full"
+            },
+            "args": []
+        },
+
     ]
 }

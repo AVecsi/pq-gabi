@@ -3,9 +3,12 @@ use winterfell::StarkProof;
 use std::io::Write;
 
 mod starkpf;
+mod merklepf;
 mod utils;
+
 use crate::utils::poseidon_23_spec::{
     DIGEST_SIZE as HASH_DIGEST_WIDTH,
+    RATE_WIDTH as HASH_RATE_WIDTH
 };
 
 use crate::starkpf::{N, K};
@@ -114,7 +117,7 @@ pub extern "C" fn verify(proofBytes: *const libc::c_uchar, len: *const libc::c_i
     }
 }
 
-#[cfg(test)]
+/* #[cfg(test)]
 pub mod test {
 
     use std::ffi::CString;
@@ -157,6 +160,50 @@ pub mod test {
         let proof_bytes_ptr = prove(zbytes.as_ptr(), wbytes.as_ptr(), qwbytes.as_ptr(), ctildebytes.as_ptr(), mbytes.as_ptr(), com_rbytes.as_ptr(), &mut len);
     
         println!("{}", verify(proof_bytes_ptr, &len, mbytes.as_ptr()));
+
+        println!("{:?}", start.elapsed());
+    }
+} */
+
+#[cfg(test)]
+pub mod test {
+
+    use super::*;
+
+    #[test]
+    fn test_merkle_proof () {
+
+        let example_attr_u32: [u32; HASH_DIGEST_WIDTH] = [5324, 1251, 43534, 124235, 432241, 6436, 2341, 23523, 2525, 658965, 4583, 245389];
+        let example_attr: [BaseElement; HASH_DIGEST_WIDTH] = example_attr_u32.map(BaseElement::new);
+
+        let mut attributes: Vec<[BaseElement; HASH_DIGEST_WIDTH]> = vec![];
+
+        for i in 0..32 {
+            attributes.push(example_attr);
+        }
+
+        let comm_u32: [u32; HASH_RATE_WIDTH] = [26331, 30185, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+        let comm: [BaseElement; HASH_RATE_WIDTH] = comm_u32.map(BaseElement::new);
+
+        let nonce: [BaseElement; HASH_DIGEST_WIDTH] = [BaseElement::ONE; HASH_DIGEST_WIDTH];
+
+        let disclosed_indices: Vec<usize> = [2, 4, 5, 6, 7, 13, 15].to_vec();
+
+        let start = Instant::now();
+
+        let proof_bytes = merklepf::prove(attributes, disclosed_indices, comm, nonce).to_bytes();
+    
+        /* match merklepf::verify(proof.clone(), disclosed_attributes, disclosed_indices, comm, nonce) {
+            Ok(_) => {
+                println!("Verified.");
+                return 1;
+            },
+            Err(msg) => 
+            {
+                println!("Failed to verify proof: {}", msg);
+                return 0;
+            }
+        } */
 
         println!("{:?}", start.elapsed());
     }

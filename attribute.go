@@ -7,6 +7,8 @@ import (
 	"github.com/cbergoon/merkletree"
 )
 
+//TODO for now its fine, but later when we will make a STARK for the merkle tree, to prove undisclosed attributes, we will need to use poseidon hash
+
 // Attribute implements the Content interface provided by merkletree and represents the content stored in the tree.
 type Attribute struct {
 	value []byte
