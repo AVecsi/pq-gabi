@@ -48,8 +48,9 @@ impl Air for MerkleAir {
         //     context: AirContext::new(trace_info, degrees, 3, options),
         //     result: pub_inputs,
         // }
+        let degrees = vec![TransitionConstraintDegree::new(1), TransitionConstraintDegree::new(1)];
         MerkleAir {
-            context: AirContext::new(trace_info, Vec::new(), 0, options),
+            context: AirContext::new(trace_info, degrees, pub_inputs.disclosed_attributes.len()*HASH_DIGEST_WIDTH, options),
             disclosed_attributes: pub_inputs.disclosed_attributes,
             disclosed_indices: pub_inputs.indices,
             comm: pub_inputs.comm,
@@ -78,6 +79,30 @@ impl Air for MerkleAir {
 
     fn get_assertions(&self) -> Vec<Assertion<Self::BaseField>> {
         let mut main_assertions = Vec::new();
+
+        //Assert that the disclosed attributes were loaded to the hash space on the correct step
+        let highest_disclosed_index = pub_inputs.disclosed_indices[pub_inputs.disclosed_indices.len() - 1];
+        let load_attribute_steps = leaf_steps_in_postorder(i);
+
+        let mut j = 0;
+        for (i, step) in load_attribute_steps.iter().enumerate() {
+            //i*2th and i*2+1th attributes are loaded in step
+
+            //TODO might need to assert that the rest is zero HASH_RATE_WIDTH..HASH_STATE_WIDTH
+            if pub_inputs.disclosed_indices.contains(i*2) {
+                for k in 0..HASH_DIGEST_WIDTH{
+                    main_assertions.push(Assertion::single(k, step*HASH_CYCLE_LEN, pub_inputs.disclosed_attributes[j]));
+                }
+                j += 1;
+            }
+
+            if pub_inputs.disclosed_indices.contains(i*2 + 1) {
+                for k in HASH_DIGEST_WIDTH..2*HASH_DIGEST_WIDTH{
+                    main_assertions.push(Assertion::single(k, step*HASH_CYCLE_LEN, pub_inputs.disclosed_attributes[j]));
+                } 
+                j += 1;
+            }
+        }
 
         main_assertions
     }
@@ -118,4 +143,38 @@ fn assert_hash<E: FieldElement + From<BaseElement>>(
         &ark[2*HASH_STATE_WIDTH..3*HASH_STATE_WIDTH],
         flag,
     );
+}
+
+fn postorder_traversal(n: usize, nodes: &[usize]) -> Vec<usize> {
+    // Simulates postorder traversal of a tree with nodes.
+    if n > nodes.len() {
+        // Base case: If the node doesn't exist, return empty
+        return vec![];
+    }
+    // Recursive calls for left and right children
+    let left = postorder_traversal(2 * n, nodes);
+    let right = postorder_traversal(2 * n + 1, nodes);
+
+    // Current node last (postorder)
+    [left, right, vec![nodes[n - 1]]].concat()
+}
+
+fn leaf_steps_in_postorder(num_nodes: usize) -> Vec<usize> {
+    // Step 1: Generate node indices for a fully balanced binary tree
+    let nodes: Vec<usize> = (1..=num_nodes).collect();
+
+    // Step 2: Simulate postorder traversal
+    let postorder = postorder_traversal(1, &nodes);
+
+    // Step 3: Identify leaves (indices from 2^(h-1) to 2^h - 1)
+    let leaf_start = (num_nodes + 1) / 2;
+    let leaf_end = num_nodes + 1;
+    let leaf_nodes: Vec<usize> = (leaf_start..leaf_end).collect();
+
+    // Step 4: Find steps where leaf nodes appear in the postorder sequence
+    postorder
+        .iter()
+        .enumerate()
+        .filter_map(|(i, &node)| if leaf_nodes.contains(&node) { Some(i) } else { None })
+        .collect()
 }

@@ -48,7 +48,7 @@ impl MerkleProver {
         let load_attribute_steps = leaf_steps_in_postorder((self.attributes.len()) - 1);
 
 
-        //TODO
+        //TODO randomized commitment not included yet
         let mut trace = TraceTable::new(trace_width, trace_padded_length);
         trace.fill(
             |state| {

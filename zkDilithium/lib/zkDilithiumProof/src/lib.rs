@@ -187,6 +187,7 @@ pub mod test {
 
         let nonce: [BaseElement; HASH_DIGEST_WIDTH] = [BaseElement::ONE; HASH_DIGEST_WIDTH];
 
+        //It is assumed that disclosed indices are soreted
         let disclosed_indices: Vec<usize> = [2, 4, 5, 6, 7, 13, 15].to_vec();
 
         let start = Instant::now();
