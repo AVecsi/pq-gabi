@@ -81,7 +81,11 @@ impl Air for MerkleAir {
         let mut main_assertions = Vec::new();
 
         //Assert that the disclosed attributes were loaded to the hash space on the correct step
-        let highest_disclosed_index = pub_inputs.disclosed_indices[pub_inputs.disclosed_indices.len() - 1];
+        let highest_disclosed_index = self.disclosed_indices[self.disclosed_indices.len() - 1];
+        let mut i = 1;
+        while i < highest_disclosed_index {
+            i *= 2;
+        }
         let load_attribute_steps = leaf_steps_in_postorder(i);
 
         let mut j = 0;
@@ -89,16 +93,16 @@ impl Air for MerkleAir {
             //i*2th and i*2+1th attributes are loaded in step
 
             //TODO might need to assert that the rest is zero HASH_RATE_WIDTH..HASH_STATE_WIDTH
-            if pub_inputs.disclosed_indices.contains(i*2) {
+            if self.disclosed_indices.contains(&(i*2)) {
                 for k in 0..HASH_DIGEST_WIDTH{
-                    main_assertions.push(Assertion::single(k, step*HASH_CYCLE_LEN, pub_inputs.disclosed_attributes[j]));
+                    main_assertions.push(Assertion::single(k, step*HASH_CYCLE_LEN, self.disclosed_attributes[j][k]));
                 }
                 j += 1;
             }
 
-            if pub_inputs.disclosed_indices.contains(i*2 + 1) {
+            if self.disclosed_indices.contains(&(i*2 + 1)) {
                 for k in HASH_DIGEST_WIDTH..2*HASH_DIGEST_WIDTH{
-                    main_assertions.push(Assertion::single(k, step*HASH_CYCLE_LEN, pub_inputs.disclosed_attributes[j]));
+                    main_assertions.push(Assertion::single(k, step*HASH_CYCLE_LEN, self.disclosed_attributes[j][k - HASH_DIGEST_WIDTH]));
                 } 
                 j += 1;
             }
