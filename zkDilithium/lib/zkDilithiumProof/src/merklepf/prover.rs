@@ -35,7 +35,7 @@ impl MerkleProver {
 
         //TODO for now it is not counting with multiple certificates, only 1.
         let trace_width = HASH_STATE_WIDTH*3 + (self.attributes.len().trailing_zeros() as usize)*HASH_DIGEST_WIDTH;
-        let trace_length = (self.attributes.len() as usize - 1) * HASH_CYCLE_LEN - 2;
+        let trace_length = (self.attributes.len() as usize - 1) * HASH_CYCLE_LEN - 1;
 
         //trace length must be power of 2
         let mut i = 16;
