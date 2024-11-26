@@ -68,12 +68,12 @@ pub(crate) fn prove(
         prover.prove(trace).unwrap()
     }
 
-pub(crate) fn verify(proof: StarkProof, disclosed_attributes: Vec<[BaseElement; HASH_DIGEST_WIDTH]>, indices: Vec<usize>, comm: [BaseElement; HASH_RATE_WIDTH], nonce: [BaseElement; 12]) -> Result<(), VerifierError> {
-    let pub_inputs = PublicInputs{disclosed_attributes, indices, comm, nonce};
+pub(crate) fn verify(proof: StarkProof, disclosed_attributes: Vec<[BaseElement; HASH_DIGEST_WIDTH]>, indices: Vec<usize>, num_of_attributes: usize, comm: [BaseElement; HASH_RATE_WIDTH], nonce: [BaseElement; 12]) -> Result<(), VerifierError> {
+    let pub_inputs = PublicInputs{disclosed_attributes, indices, num_of_attributes, comm, nonce};
     winterfell::verify::<MerkleAir>(proof, pub_inputs)
 }
 
-pub(crate) fn verify_with_wrong_inputs(proof: StarkProof, disclosed_attributes: Vec<[BaseElement; HASH_DIGEST_WIDTH]>, indices: Vec<usize>, comm: [BaseElement; HASH_RATE_WIDTH], nonce: [BaseElement; 12]) -> Result<(), VerifierError> {
-    let pub_inputs = PublicInputs{disclosed_attributes, indices, comm, nonce};
+pub(crate) fn verify_with_wrong_inputs(proof: StarkProof, disclosed_attributes: Vec<[BaseElement; HASH_DIGEST_WIDTH]>, indices: Vec<usize>, num_of_attributes: usize, comm: [BaseElement; HASH_RATE_WIDTH], nonce: [BaseElement; 12]) -> Result<(), VerifierError> {
+    let pub_inputs = PublicInputs{disclosed_attributes, indices, num_of_attributes, comm, nonce};
     winterfell::verify::<MerkleAir>(proof, pub_inputs)
 }

@@ -190,21 +190,25 @@ pub mod test {
         //It is assumed that disclosed indices are soreted
         let disclosed_indices: Vec<usize> = [2, 4, 5, 6, 7, 13, 15].to_vec();
 
-        let start = Instant::now();
+        let mut disclosed_attributes = vec![];
+        for i in 0..disclosed_indices.len() {
+            disclosed_attributes.push(attributes[disclosed_indices[i]]);
+        }
 
-        let proof_bytes = merklepf::prove(attributes, disclosed_indices, comm, nonce).to_bytes();
-    
-        /* match merklepf::verify(proof.clone(), disclosed_attributes, disclosed_indices, comm, nonce) {
+        let mut start = Instant::now();
+
+        let proof = merklepf::prove(attributes.clone(), disclosed_indices.clone(), comm, nonce);
+        println!("{:?}", start.elapsed());
+        start = Instant::now();
+        match merklepf::verify(proof.clone(), disclosed_attributes.clone(), disclosed_indices.clone(), attributes.len(), comm, nonce) {
             Ok(_) => {
                 println!("Verified.");
-                return 1;
             },
             Err(msg) => 
             {
                 println!("Failed to verify proof: {}", msg);
-                return 0;
             }
-        } */
+        }
 
         println!("{:?}", start.elapsed());
     }

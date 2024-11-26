@@ -35,7 +35,7 @@ impl MerkleProver {
 
         //TODO for now it is not counting with multiple certificates, only 1.
         let trace_width = HASH_STATE_WIDTH*3 + (self.attributes.len().trailing_zeros() as usize)*HASH_DIGEST_WIDTH;
-        let mut trace_length = (self.attributes.len() as usize - 1) * HASH_CYCLE_LEN - 2;
+        let trace_length = (self.attributes.len() as usize - 1) * HASH_CYCLE_LEN - 2;
 
         //trace length must be power of 2
         let mut i = 16;
@@ -68,6 +68,7 @@ impl MerkleProver {
                     } else {
                         //After the hashing steps, it's time to move some data
 
+                        //TODO probably could move this counter out of this block and keep it updated instead of recounting all the time.
                         let mut stored_counter = 0;
 
                         while state[STORAGE_START + stored_counter * HASH_DIGEST_WIDTH] != BaseElement::ZERO {
@@ -95,9 +96,6 @@ impl MerkleProver {
                                 state[i] = self.attributes[index * 2][i];
                                 state[HASH_DIGEST_WIDTH + i] = self.attributes[index * 2 + 1][i];
                             }
-                            for i in HASH_RATE_WIDTH..HASH_STATE_WIDTH {
-                                state[i] = BaseElement::ZERO;
-                            }
                         } else {
                             //Move two elements from storage to hash space
                             for i in 0..HASH_DIGEST_WIDTH {
@@ -107,9 +105,9 @@ impl MerkleProver {
                                 state[STORAGE_START + HASH_DIGEST_WIDTH * (stored_counter - 2) + i] = BaseElement::ZERO;
                                 state[STORAGE_START + HASH_DIGEST_WIDTH * (stored_counter - 1) + i] = BaseElement::ZERO;
                             }
-                            for i in HASH_RATE_WIDTH..HASH_STATE_WIDTH {
-                                state[i] = BaseElement::ZERO;
-                            }
+                        }
+                        for i in HASH_RATE_WIDTH..HASH_STATE_WIDTH {
+                            state[i] = BaseElement::ZERO;
                         }
                     }
                 }
@@ -121,10 +119,10 @@ impl MerkleProver {
                     }
                 }
 
-                for i in 0..state.len() {
+                /* for i in 0..state.len() {
                     print!("{} ", state[i]);
                 }
-                println!();
+                println!(); */
             },
         );
 
@@ -142,7 +140,7 @@ impl Prover for MerkleProver {
         for i in 0..self.disclosed_indices.len() {
             disclosed_attributes.push(self.attributes[self.disclosed_indices[i]]);
         }
-        PublicInputs{disclosed_attributes: disclosed_attributes, indices: self.disclosed_indices.clone(), comm: self.comm, nonce: self.nonce}
+        PublicInputs{disclosed_attributes: disclosed_attributes, indices: self.disclosed_indices.clone(), num_of_attributes: self.attributes.len(), comm: self.comm, nonce: self.nonce}
     }
     fn options(&self) -> &ProofOptions {
         &self.options
