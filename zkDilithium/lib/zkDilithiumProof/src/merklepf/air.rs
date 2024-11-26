@@ -91,11 +91,12 @@ impl Air for MerkleAir {
         let mut j = 0;
         for (i, step) in load_attribute_steps.iter().enumerate() {
             //i*2th and i*2+1th attributes are loaded in step
-
-            //TODO might need to assert that the rest is zero HASH_RATE_WIDTH..HASH_STATE_WIDTH
             if self.disclosed_indices.contains(&(i*2)) {
                 for k in 0..HASH_DIGEST_WIDTH{
                     main_assertions.push(Assertion::single(k, step*HASH_CYCLE_LEN, self.disclosed_attributes[j][k]));
+                }
+                for k in HASH_RATE_WIDTH..HASH_STATE_WIDTH {
+                    main_assertions.push(Assertion::single(k, step*HASH_CYCLE_LEN, BaseElement::ZERO));
                 }
                 j += 1;
             }
@@ -103,7 +104,10 @@ impl Air for MerkleAir {
             if self.disclosed_indices.contains(&(i*2 + 1)) {
                 for k in HASH_DIGEST_WIDTH..2*HASH_DIGEST_WIDTH{
                     main_assertions.push(Assertion::single(k, step*HASH_CYCLE_LEN, self.disclosed_attributes[j][k - HASH_DIGEST_WIDTH]));
-                } 
+                }
+                for k in HASH_RATE_WIDTH..HASH_STATE_WIDTH {
+                    main_assertions.push(Assertion::single(k, step*HASH_CYCLE_LEN, BaseElement::ZERO));
+                }
                 j += 1;
             }
         }

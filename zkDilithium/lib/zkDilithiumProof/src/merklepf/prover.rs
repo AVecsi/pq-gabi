@@ -95,6 +95,9 @@ impl MerkleProver {
                                 state[i] = self.attributes[index * 2][i];
                                 state[HASH_DIGEST_WIDTH + i] = self.attributes[index * 2 + 1][i];
                             }
+                            for i in HASH_RATE_WIDTH..HASH_STATE_WIDTH {
+                                state[i] = BaseElement::ZERO;
+                            }
                         } else {
                             //Move two elements from storage to hash space
                             for i in 0..HASH_DIGEST_WIDTH {
@@ -103,6 +106,9 @@ impl MerkleProver {
 
                                 state[STORAGE_START + HASH_DIGEST_WIDTH * (stored_counter - 2) + i] = BaseElement::ZERO;
                                 state[STORAGE_START + HASH_DIGEST_WIDTH * (stored_counter - 1) + i] = BaseElement::ZERO;
+                            }
+                            for i in HASH_RATE_WIDTH..HASH_STATE_WIDTH {
+                                state[i] = BaseElement::ZERO;
                             }
                         }
                     }
