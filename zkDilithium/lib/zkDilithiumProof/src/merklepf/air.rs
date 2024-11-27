@@ -7,7 +7,7 @@ use winterfell::{
     Air, AirContext, Assertion, EvaluationFrame, TraceInfo, TransitionConstraintDegree, Serializable, ByteWriter
 };
 
-use super::{BaseElement, FieldElement, ProofOptions, HASH_CYCLE_LEN, HASH_DIGEST_WIDTH, HASH_RATE_WIDTH, HASH_STATE_WIDTH};
+use super::{BaseElement, FieldElement, ProofOptions, HASH_CYCLE_LEN, HASH_DIGEST_WIDTH, HASH_RATE_WIDTH, HASH_STATE_WIDTH, STORAGE_START};
 use crate::utils::{EvaluationResult, is_binary, poseidon_23_spec, are_equal};
 
 const HASH_CYCLE_MASK: [BaseElement; HASH_CYCLE_LEN] = [
@@ -100,18 +100,30 @@ impl Air for MerkleAir {
         let ark = &periodic_values[1..];
         
         // Assert the poseidon round was computed correctly was computed correctly whenever a permutation needs to be applied
-        assert_hash(&mut result[0..6*HASH_STATE_WIDTH],
+        assert_hash(&mut result[0..6*HASH_STATE_WIDTH], //TODO
             &current[0..3*HASH_STATE_WIDTH],
             &next[0..3*HASH_STATE_WIDTH],
             &ark,
             hashmask_flag
         );
 
+        //Assert the storage is copied correctly in every hashing step
+        for i in STORAGE_START..self.trace_info().width() {
+            result.agg_constraint(i, hashmask_flag, next[i] - current[i]);
+        }
+
         //Assert at the end of a hash cycle the result is moved to the end of storage
+        /* let mut stored_counter = 0;
+
+        while state[STORAGE_START + stored_counter * HASH_DIGEST_WIDTH] != BaseElement::ZERO {
+            stored_counter += 1;
+        }
+
+        for i in 0..HASH_DIGEST_WIDTH {
+            result.agg_constraint(i, BaseElement::ONE - hashmask_flag, next[HASHIND+i] - current[HASHIND+i] - next[WHIGHIND+i]);
+        } */
 
         //Assert on the load from storage steps, the correct data is loaded
-
-        //Assert the storage is copied correctly
     }
 
     fn get_assertions(&self) -> Vec<Assertion<Self::BaseField>> {
