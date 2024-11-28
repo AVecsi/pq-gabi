@@ -63,6 +63,7 @@ impl Air for MerkleAir {
         // }
         let mut degrees = Vec::new();
         degrees.append(&mut vec![TransitionConstraintDegree::with_cycles(3, vec![trace_info.length()]); 6*HASH_STATE_WIDTH]); //hash_space
+        degrees.append(&mut vec![TransitionConstraintDegree::with_cycles(1, vec![trace_info.length()]); trace_info.width() - STORAGE_START]); //storage
         MerkleAir {
             context: AirContext::new(
                 trace_info, 
@@ -97,7 +98,9 @@ impl Air for MerkleAir {
         debug_assert_eq!(self.trace_info().width(), next.len());
 
         let hashmask_flag = periodic_values[0];
-        let ark = &periodic_values[1..];
+        let get_move_to_storage_flag = periodic_values[1];
+        let get_move_from_storage_flag = periodic_values[2];
+        let ark = &periodic_values[3..];
         
         // Assert the poseidon round was computed correctly was computed correctly whenever a permutation needs to be applied
         assert_hash(&mut result[0..6*HASH_STATE_WIDTH], //TODO
@@ -107,23 +110,35 @@ impl Air for MerkleAir {
             hashmask_flag
         );
 
-        //Assert the storage is copied correctly in every hashing step
+        //Assert the storage is copied correctly in every hashing steps
         for i in STORAGE_START..self.trace_info().width() {
-            result.agg_constraint(i, hashmask_flag, next[i] - current[i]);
+            result.agg_constraint(6*HASH_STATE_WIDTH + i - STORAGE_START, hashmask_flag, next[i] - current[i]);
         }
 
-        //Assert at the end of a hash cycle the result is moved to the end of storage
-        /* let mut stored_counter = 0;
-
-        while state[STORAGE_START + stored_counter * HASH_DIGEST_WIDTH] != BaseElement::ZERO {
-            stored_counter += 1;
+        //Assert the new hash was stored correctly on every attribute load steps
+        for i in STORAGE_START..STORAGE_START+HASH_DIGEST_WIDTH {
+            result.agg_constraint(6*HASH_STATE_WIDTH + i - STORAGE_START, get_move_to_storage_flag, next[i] - current[i - STORAGE_START]);
         }
 
+        //Assert the storage was shifted correctly on every attribute load steps
+        for i in STORAGE_START+HASH_DIGEST_WIDTH..self.trace_info().width() {
+            result.agg_constraint(6*HASH_STATE_WIDTH + i - STORAGE_START, get_move_to_storage_flag, next[i] - current[i - HASH_DIGEST_WIDTH]);
+        }
+
+        //Assert on the load from storage steps, the correct data is loaded from storage
+        for i in STORAGE_START..STORAGE_START+HASH_DIGEST_WIDTH {
+            result.agg_constraint(6*HASH_STATE_WIDTH + i - STORAGE_START, get_move_from_storage_flag, next[i - STORAGE_START + HASH_DIGEST_WIDTH] - current[i]);
+        }
+
+        //Assert on load from storage steps, the last hash result was copied correctly
         for i in 0..HASH_DIGEST_WIDTH {
-            result.agg_constraint(i, BaseElement::ONE - hashmask_flag, next[HASHIND+i] - current[HASHIND+i] - next[WHIGHIND+i]);
-        } */
+            result.agg_constraint(i, get_move_from_storage_flag, next[i] - current[i]);
+        }
 
-        //Assert on the load from storage steps, the correct data is loaded
+        //Assert the storage was shifted correctly on every load from storage steps
+        for i in STORAGE_START..self.trace_info().width() - 2*HASH_DIGEST_WIDTH {
+            result.agg_constraint(6*HASH_STATE_WIDTH + i - STORAGE_START, get_move_from_storage_flag, next[i] - current[i + HASH_DIGEST_WIDTH]);
+        }
     }
 
     fn get_assertions(&self) -> Vec<Assertion<Self::BaseField>> {
@@ -167,6 +182,8 @@ impl Air for MerkleAir {
     fn get_periodic_column_values(&self) -> Vec<Vec<Self::BaseField>> {
         let mut result = Vec::new();
         result.push(get_hashmask_constants(self.trace_length(), self.num_of_attributes));
+        result.push(get_move_to_storage_constants(self.trace_length(), self.num_of_attributes));
+        result.push(get_move_from_storage_constants(self.trace_length(), self.num_of_attributes));
         result.append(&mut poseidon_23_spec::get_round_constants());
 
         result
@@ -247,4 +264,42 @@ fn get_hashmask_constants(padded_trace_length: usize, num_of_attributes: usize) 
     }
 
     hashmask_const
+}
+
+fn get_move_to_storage_constants(padded_trace_length: usize, num_of_attributes: usize) -> Vec<BaseElement> {
+    let mut move_to_storage_const = vec![BaseElement::ZERO; padded_trace_length];
+    //TODO when adding the commitment don't forget to change this
+    let mut load_steps = leaf_steps_in_postorder(num_of_attributes - 1);
+
+    for i in 1..load_steps.len() {
+        load_steps[i] = load_steps[i]*HASH_CYCLE_LEN - 1;
+    }
+
+    let trace_length = (num_of_attributes as usize - 1) * HASH_CYCLE_LEN - 1;
+    for i in (HASH_CYCLE_LEN - 1..trace_length).step_by(HASH_CYCLE_LEN){
+        if load_steps.contains(&i) {
+            move_to_storage_const[i] = BaseElement::ONE;
+        }
+    }
+
+    move_to_storage_const
+}
+
+fn get_move_from_storage_constants(padded_trace_length: usize, num_of_attributes: usize) -> Vec<BaseElement> {
+    let mut move_from_storage_const = vec![BaseElement::ZERO; padded_trace_length];
+    //TODO when adding the commitment don't forget to change this
+    let mut load_steps = leaf_steps_in_postorder(num_of_attributes - 1);
+
+    for i in 1..load_steps.len() {
+        load_steps[i] = load_steps[i]*HASH_CYCLE_LEN - 1;
+    }
+
+    let trace_length = (num_of_attributes as usize - 1) * HASH_CYCLE_LEN - 1;
+    for i in (HASH_CYCLE_LEN - 1..trace_length).step_by(HASH_CYCLE_LEN){
+        if !load_steps.contains(&i) {
+            move_from_storage_const[i] = BaseElement::ONE;
+        }
+    }
+
+    move_from_storage_const
 }

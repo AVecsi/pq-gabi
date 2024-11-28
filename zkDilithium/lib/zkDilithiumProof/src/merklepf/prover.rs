@@ -68,18 +68,15 @@ impl MerkleProver {
                     } else {
                         //After the hashing steps, it's time to move some data
 
-                        //TODO probably could move this counter out of this block and keep it updated instead of recounting all the time.
-                        let mut stored_counter = 0;
-
-                        while state[STORAGE_START + stored_counter * HASH_DIGEST_WIDTH] != BaseElement::ZERO {
-                            stored_counter += 1;
+                        //Shift storage (shifting and load to beginning makes our job easier with the transition constraints).
+                        for i in (STORAGE_START..trace_width-HASH_DIGEST_WIDTH).rev() {
+                            state[i+HASH_DIGEST_WIDTH] = state[i];
                         }
 
-                        //Move hash result to the end of storage.
+                        //Move hash result to the beginning of storage.
                         for i in 0..HASH_DIGEST_WIDTH {
-                            state[STORAGE_START + stored_counter * HASH_DIGEST_WIDTH + i] = state[i];
+                            state[STORAGE_START + i] = state[i];
                         }
-                        stored_counter += 1;
 
                         //Determine if we need to load attributes
                         let mut index = 0;
@@ -99,13 +96,21 @@ impl MerkleProver {
                         } else {
                             //Move two elements from storage to hash space
                             for i in 0..HASH_DIGEST_WIDTH {
-                                state[i] = state[STORAGE_START + HASH_DIGEST_WIDTH * (stored_counter - 2) + i];
-                                state[HASH_DIGEST_WIDTH + i] = state[STORAGE_START + HASH_DIGEST_WIDTH * (stored_counter - 1) + i];
-
-                                state[STORAGE_START + HASH_DIGEST_WIDTH * (stored_counter - 2) + i] = BaseElement::ZERO;
-                                state[STORAGE_START + HASH_DIGEST_WIDTH * (stored_counter - 1) + i] = BaseElement::ZERO;
+                                state[i] = state[STORAGE_START + HASH_DIGEST_WIDTH + i];
+                                state[HASH_DIGEST_WIDTH + i] = state[STORAGE_START + i];
                             }
+
+                            //Shift the storage data
+                            for i in STORAGE_START..trace_width-2*HASH_DIGEST_WIDTH {
+                                state[i] = state[i + 2*HASH_DIGEST_WIDTH];
+                            }
+
+                            // Clean up the end of storage
+                            //for i in 0..2*HASH_DIGEST_WIDTH {
+                            //    state[trace_width - 1 - i] = BaseElement::ZERO;
+                            //}
                         }
+                        // Clean up the hash state
                         for i in HASH_RATE_WIDTH..HASH_STATE_WIDTH {
                             state[i] = BaseElement::ZERO;
                         }
@@ -119,7 +124,7 @@ impl MerkleProver {
                     }
                 }
 
-                /* for i in 0..state.len() {
+                /* for i in STORAGE_START..state.len() {
                     print!("{} ", state[i]);
                 }
                 println!(); */

@@ -22,6 +22,8 @@
                     "${workspaceFolder}/zkDilithium/lib/zkDilithiumProof/Cargo.toml",
                     "--no-run",
                     "--lib",
+                    "--",
+                    "--nocapture"
                 ]
             },
             "env": {
