@@ -70,7 +70,11 @@ impl Air for MerkleAir {
                 degrees, 
                 pub_inputs.disclosed_attributes.len() * HASH_DIGEST_WIDTH
                 +
-                (pub_inputs.num_of_attributes - 1) * (HASH_STATE_WIDTH-HASH_RATE_WIDTH),
+                HASH_DIGEST_WIDTH
+                +
+                HASH_DIGEST_WIDTH
+                +
+                (pub_inputs.num_of_attributes) * (HASH_STATE_WIDTH-HASH_RATE_WIDTH),
                  options
             ),
             disclosed_attributes: pub_inputs.disclosed_attributes,
@@ -98,9 +102,10 @@ impl Air for MerkleAir {
         debug_assert_eq!(self.trace_info().width(), next.len());
 
         let hashmask_flag = periodic_values[0];
-        let get_move_to_storage_flag = periodic_values[1];
-        let get_move_from_storage_flag = periodic_values[2];
-        let ark = &periodic_values[3..];
+        let move_to_storage_flag = periodic_values[1];
+        let move_from_storage_flag = periodic_values[2];
+        let merkle_root_copy_flag = periodic_values[3];
+        let ark = &periodic_values[4..];
         
         // Assert the poseidon round was computed correctly was computed correctly whenever a permutation needs to be applied
         assert_hash(&mut result[0..6*HASH_STATE_WIDTH], //TODO
@@ -117,27 +122,32 @@ impl Air for MerkleAir {
 
         //Assert the new hash was stored correctly on every attribute load steps
         for i in STORAGE_START..STORAGE_START+HASH_DIGEST_WIDTH {
-            result.agg_constraint(6*HASH_STATE_WIDTH + i - STORAGE_START, get_move_to_storage_flag, next[i] - current[i - STORAGE_START]);
+            result.agg_constraint(6*HASH_STATE_WIDTH + i - STORAGE_START, move_to_storage_flag, next[i] - current[i - STORAGE_START]);
         }
 
         //Assert the storage was shifted correctly on every attribute load steps
         for i in STORAGE_START+HASH_DIGEST_WIDTH..self.trace_info().width() {
-            result.agg_constraint(6*HASH_STATE_WIDTH + i - STORAGE_START, get_move_to_storage_flag, next[i] - current[i - HASH_DIGEST_WIDTH]);
+            result.agg_constraint(6*HASH_STATE_WIDTH + i - STORAGE_START, move_to_storage_flag, next[i] - current[i - HASH_DIGEST_WIDTH]);
         }
 
         //Assert on the load from storage steps, the correct data is loaded from storage
         for i in STORAGE_START..STORAGE_START+HASH_DIGEST_WIDTH {
-            result.agg_constraint(6*HASH_STATE_WIDTH + i - STORAGE_START, get_move_from_storage_flag, next[i - STORAGE_START + HASH_DIGEST_WIDTH] - current[i]);
+            result.agg_constraint(6*HASH_STATE_WIDTH + i - STORAGE_START, move_from_storage_flag, next[i - STORAGE_START + HASH_DIGEST_WIDTH] - current[i]);
         }
 
         //Assert on load from storage steps, the last hash result was copied correctly
         for i in 0..HASH_DIGEST_WIDTH {
-            result.agg_constraint(i, get_move_from_storage_flag, next[i] - current[i]);
+            result.agg_constraint(i, move_from_storage_flag, next[i] - current[i]);
         }
 
         //Assert the storage was shifted correctly on every load from storage steps
         for i in STORAGE_START..self.trace_info().width() - 2*HASH_DIGEST_WIDTH {
-            result.agg_constraint(6*HASH_STATE_WIDTH + i - STORAGE_START, get_move_from_storage_flag, next[i] - current[i + HASH_DIGEST_WIDTH]);
+            result.agg_constraint(6*HASH_STATE_WIDTH + i - STORAGE_START, move_from_storage_flag, next[i] - current[i + HASH_DIGEST_WIDTH]);
+        }
+
+        //Assert the merkle root was copied correctly
+        for i in 0..HASH_DIGEST_WIDTH {
+            result.agg_constraint(i, merkle_root_copy_flag, next[i] - current[i]);
         }
     }
 
@@ -170,7 +180,18 @@ impl Air for MerkleAir {
             }
         }
 
-        for i in 0..self.num_of_attributes-1 {
+        //Assert that the nonce in the commitment is correct
+        for i in 0..HASH_DIGEST_WIDTH {
+            main_assertions.push(Assertion::single(i + HASH_DIGEST_WIDTH, (self.num_of_attributes - 1) * HASH_CYCLE_LEN, self.nonce[i]));
+        }
+
+        //Assert the final result is the given commitment
+        for i in 0..HASH_DIGEST_WIDTH {
+            main_assertions.push(Assertion::single(i, (self.num_of_attributes) * HASH_CYCLE_LEN, self.comm[i]));
+        }
+
+        //Assert that the hash rate was cleaned up correctly
+        for i in 0..self.num_of_attributes {
             for k in HASH_RATE_WIDTH..HASH_STATE_WIDTH {
                 main_assertions.push(Assertion::single(k, i as usize * HASH_CYCLE_LEN, BaseElement::ZERO));
             }
@@ -184,6 +205,7 @@ impl Air for MerkleAir {
         result.push(get_hashmask_constants(self.trace_length(), self.num_of_attributes));
         result.push(get_move_to_storage_constants(self.trace_length(), self.num_of_attributes));
         result.push(get_move_from_storage_constants(self.trace_length(), self.num_of_attributes));
+        result.push(get_merkle_root_copy_constants(self.trace_length(), self.num_of_attributes));
         result.append(&mut poseidon_23_spec::get_round_constants());
 
         result
@@ -258,7 +280,7 @@ fn leaf_steps_in_postorder(num_nodes: usize) -> Vec<usize> {
 fn get_hashmask_constants(padded_trace_length: usize, num_of_attributes: usize) -> Vec<BaseElement> {
     let mut hashmask_const = vec![BaseElement::ZERO; padded_trace_length];
     //TODO when adding the commitment don't forget to change this
-    let trace_length = (num_of_attributes as usize - 1) * HASH_CYCLE_LEN - 1;
+    let trace_length = (num_of_attributes as usize) * HASH_CYCLE_LEN - 1;
     for i in 0..trace_length{
         hashmask_const[i] = HASH_CYCLE_MASK[i%HASH_CYCLE_LEN];
     }
@@ -302,4 +324,13 @@ fn get_move_from_storage_constants(padded_trace_length: usize, num_of_attributes
     }
 
     move_from_storage_const
+}
+
+fn get_merkle_root_copy_constants(padded_trace_length: usize, num_of_attributes: usize) -> Vec<BaseElement> {
+    let mut merkle_root_copy_const = vec![BaseElement::ZERO; padded_trace_length];
+    //TODO when adding multiple commitment don't forget to change this
+    let merkle_trace_end = (num_of_attributes as usize - 1) * HASH_CYCLE_LEN - 1;
+    merkle_root_copy_const[merkle_trace_end] = BaseElement::ONE;
+
+    merkle_root_copy_const
 }

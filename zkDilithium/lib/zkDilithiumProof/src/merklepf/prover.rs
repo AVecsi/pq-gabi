@@ -35,12 +35,13 @@ impl MerkleProver {
 
         //TODO for now it is not counting with multiple certificates, only 1.
         let trace_width = HASH_STATE_WIDTH*3 + (self.attributes.len().trailing_zeros() as usize)*HASH_DIGEST_WIDTH;
-        let trace_length = (self.attributes.len() as usize - 1) * HASH_CYCLE_LEN - 1;
+        let merkle_trace_length = (self.attributes.len() as usize - 1) * HASH_CYCLE_LEN - 1;
+        let commitment_trace_length = HASH_CYCLE_LEN;
 
         //trace length must be power of 2
         let mut i = 16;
         //Added 2 because of the winterfell artifact at the end of trace
-        while i < trace_length + 2 {
+        while i < merkle_trace_length + commitment_trace_length + 2 {
             i *= 2;
         }
         let trace_padded_length = i;
@@ -58,13 +59,23 @@ impl MerkleProver {
                 }
             },
             |step, state| {
-                if step < trace_length {
+                if step < merkle_trace_length + commitment_trace_length {
                     let cycle_pos = step % HASH_CYCLE_LEN;
                     let _cycle_num = (step + 1) / HASH_CYCLE_LEN;
 
                     // apply poseidon round in all but the last round of HASH_CYCLE
                     if cycle_pos < NUM_HASH_ROUNDS {
                         poseidon_23_spec::apply_round(&mut state[0..(3*HASH_STATE_WIDTH)], step);
+                    } else if step == merkle_trace_length {
+                        // Init commitment
+                        for i in 0..HASH_DIGEST_WIDTH {
+                            state[i + HASH_DIGEST_WIDTH] = self.nonce[i];
+                        }
+
+                        // Clean up the hash state
+                        for i in HASH_RATE_WIDTH..HASH_STATE_WIDTH {
+                            state[i] = BaseElement::ZERO;
+                        }
                     } else {
                         //After the hashing steps, it's time to move some data
 
@@ -124,7 +135,8 @@ impl MerkleProver {
                     }
                 }
 
-                /* for i in STORAGE_START..state.len() {
+                /* print!("{}: ", step);
+                for i in 0..state.len() {
                     print!("{} ", state[i]);
                 }
                 println!(); */
