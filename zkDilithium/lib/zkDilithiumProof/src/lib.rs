@@ -182,7 +182,7 @@ pub mod test {
             attributes.push(example_attr);
         }
 
-        let comm_u32: [u32; HASH_RATE_WIDTH] = [26331, 30185, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+        let comm_u32: [u32; HASH_RATE_WIDTH] = [6260179, 2206275, 439073, 841381, 1911319, 5882038, 237667, 6287456, 3618210, 5729317, 2920687, 1475261, 2443154, 6835453, 960340, 5997086, 2418213, 3845503, 4399723, 6712567, 3453777, 5753638, 1787744, 1300824];
         let comm: [BaseElement; HASH_RATE_WIDTH] = comm_u32.map(BaseElement::new);
 
         let nonce: [BaseElement; HASH_DIGEST_WIDTH] = [BaseElement::ONE; HASH_DIGEST_WIDTH];

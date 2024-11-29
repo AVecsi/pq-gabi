@@ -72,7 +72,7 @@ impl Air for MerkleAir {
                 +
                 HASH_DIGEST_WIDTH
                 +
-                HASH_DIGEST_WIDTH
+                HASH_RATE_WIDTH
                 +
                 (pub_inputs.num_of_attributes) * (HASH_STATE_WIDTH-HASH_RATE_WIDTH),
                  options
@@ -186,7 +186,7 @@ impl Air for MerkleAir {
         }
 
         //Assert the final result is the given commitment
-        for i in 0..HASH_DIGEST_WIDTH {
+        for i in 0..HASH_RATE_WIDTH {
             main_assertions.push(Assertion::single(i, (self.num_of_attributes) * HASH_CYCLE_LEN, self.comm[i]));
         }
 
