@@ -65,7 +65,7 @@ impl Air for MerkleAir {
         // }
         let mut degrees = Vec::new();
         degrees.append(&mut vec![TransitionConstraintDegree::with_cycles(3, vec![trace_info.length()]); 6*HASH_STATE_WIDTH]); //hash_space
-        degrees.append(&mut vec![TransitionConstraintDegree::with_cycles(1, vec![trace_info.length()]); trace_info.width() - STORAGE_START]); //storage
+        degrees.append(&mut vec![TransitionConstraintDegree::with_cycles(1, vec![trace_info.length()]); trace_info.width()-HASH_DIGEST_WIDTH - STORAGE_START]); //storage
 
         let mut num_assertions = 0;
         for i in 0..pub_inputs.disclosed_attributes.len() {
@@ -81,7 +81,7 @@ impl Air for MerkleAir {
                 degrees, 
                 num_assertions,
                  options
-            ),
+            ).set_num_transition_exemptions(2),
             disclosed_attributes: pub_inputs.disclosed_attributes,
             disclosed_indices: pub_inputs.indices,
             num_of_attributes: pub_inputs.num_of_attributes,
@@ -110,7 +110,8 @@ impl Air for MerkleAir {
         let move_to_storage_flag = periodic_values[1];
         let move_from_storage_flag = periodic_values[2];
         let merkle_root_copy_flag = periodic_values[3];
-        let ark = &periodic_values[4..];
+        let first_attribute_flag= periodic_values[4];
+        let ark = &periodic_values[5..];
         
         // Assert the poseidon round was computed correctly was computed correctly whenever a permutation needs to be applied
         assert_hash(&mut result[0..6*HASH_STATE_WIDTH],
@@ -121,7 +122,7 @@ impl Air for MerkleAir {
         );
 
         //Assert the storage is copied correctly in every hashing steps
-        for i in STORAGE_START..self.trace_info().width() {
+        for i in STORAGE_START..self.trace_info().width()-HASH_DIGEST_WIDTH {
             result.agg_constraint(6*HASH_STATE_WIDTH + i - STORAGE_START, hashmask_flag, next[i] - current[i]);
         }
 
@@ -131,7 +132,7 @@ impl Air for MerkleAir {
         }
 
         //Assert the storage was shifted correctly on every attribute load steps
-        for i in STORAGE_START+HASH_DIGEST_WIDTH..self.trace_info().width() {
+        for i in STORAGE_START+HASH_DIGEST_WIDTH..self.trace_info().width()-HASH_DIGEST_WIDTH {
             result.agg_constraint(6*HASH_STATE_WIDTH + i - STORAGE_START, move_to_storage_flag, next[i] - current[i - HASH_DIGEST_WIDTH]);
         }
 
@@ -146,7 +147,7 @@ impl Air for MerkleAir {
         }
 
         //Assert the storage was shifted correctly on every load from storage steps
-        for i in STORAGE_START..self.trace_info().width() - 2*HASH_DIGEST_WIDTH {
+        for i in STORAGE_START..self.trace_info().width() - 3*HASH_DIGEST_WIDTH {
             result.agg_constraint(6*HASH_STATE_WIDTH + i - STORAGE_START, move_from_storage_flag, next[i] - current[i + HASH_DIGEST_WIDTH]);
         }
 
@@ -154,6 +155,17 @@ impl Air for MerkleAir {
         for i in 0..HASH_DIGEST_WIDTH {
             result.agg_constraint(i, merkle_root_copy_flag, next[i] - current[i]);
         }
+
+        //Assert that the attribute stored at the end is copied correctly
+        for i in self.trace_info().width()-HASH_DIGEST_WIDTH..self.trace_info().width() {
+            result[i] += next[i] - current[i];
+        }
+
+        //Assert that the first attribute of each cert is the same the one stored at the end of the trace
+        for i in 0..HASH_DIGEST_WIDTH {
+            result.agg_constraint(i, first_attribute_flag, current[i] - current[self.trace_info().width()-HASH_DIGEST_WIDTH+i]);
+        }
+
     }
 
     fn get_assertions(&self) -> Vec<Assertion<Self::BaseField>> {
@@ -217,6 +229,7 @@ impl Air for MerkleAir {
         result.push(get_move_to_storage_constants(padded_trace_length, self.num_of_attributes.clone()));
         result.push(get_move_from_storage_constants(padded_trace_length, self.num_of_attributes.clone()));
         result.push(get_merkle_root_copy_constants(padded_trace_length, self.num_of_attributes.clone()));
+        result.push(get_first_attribute_copy_constants(padded_trace_length, self.num_of_attributes.clone()));
 
         let singleark = poseidon_23_spec::get_round_constants();
         let mut ark: Vec<Vec<BaseElement>> = vec![vec![BaseElement::ZERO; padded_trace_length]; 3*HASH_STATE_WIDTH];;
@@ -375,4 +388,18 @@ fn get_merkle_root_copy_constants(padded_trace_length: usize, num_of_attributes:
     }
 
     merkle_root_copy_const
+}
+
+fn get_first_attribute_copy_constants(padded_trace_length: usize, num_of_attributes: Vec<usize>) -> Vec<BaseElement> {
+    let mut first_attribute_copy_const = vec![BaseElement::ZERO; padded_trace_length];
+    
+    first_attribute_copy_const[0] = BaseElement::ONE;
+    let mut merkle_trace_begin = 1;
+    for i in 0..num_of_attributes.len() - 1{
+        //Set the counter to the beginning of the next cert
+        merkle_trace_begin += (num_of_attributes[i] as usize) * HASH_CYCLE_LEN;
+        first_attribute_copy_const[merkle_trace_begin] = BaseElement::ONE;
+    }
+
+    first_attribute_copy_const
 }

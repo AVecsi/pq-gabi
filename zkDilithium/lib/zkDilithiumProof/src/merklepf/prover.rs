@@ -40,7 +40,7 @@ impl MerkleProver {
                 max_num_of_attributes = self.attributes[i].len();
             }
         }
-        let trace_width = HASH_STATE_WIDTH*3 + (max_num_of_attributes.trailing_zeros() as usize)*HASH_DIGEST_WIDTH;
+        let trace_width = HASH_STATE_WIDTH*3 + (max_num_of_attributes.trailing_zeros() as usize)*HASH_DIGEST_WIDTH + HASH_DIGEST_WIDTH;
 
 
         let mut merkle_trace_lengths = Vec::new();
@@ -69,6 +69,8 @@ impl MerkleProver {
                 for i in 0..HASH_DIGEST_WIDTH {
                     state[i] = self.attributes[0][0][i];
                     state[HASH_DIGEST_WIDTH + i] = self.attributes[0][1][i];
+                    //TODO If the execution trace is changed it will break, unless it stays at the end
+                    state[trace_width - HASH_DIGEST_WIDTH + i] = self.attributes[0][0][i];
                 }
             },
             |step, state| {
@@ -112,7 +114,7 @@ impl MerkleProver {
                         //After the hashing steps, it's time to move some data
 
                         //Shift storage (shifting and load to beginning makes our job easier with the transition constraints).
-                        for i in (STORAGE_START..trace_width-HASH_DIGEST_WIDTH).rev() {
+                        for i in (STORAGE_START..trace_width-2*HASH_DIGEST_WIDTH).rev() {
                             state[i+HASH_DIGEST_WIDTH] = state[i];
                         }
 
@@ -144,7 +146,7 @@ impl MerkleProver {
                             }
 
                             //Shift the storage data
-                            for i in STORAGE_START..trace_width-2*HASH_DIGEST_WIDTH {
+                            for i in STORAGE_START..trace_width-3*HASH_DIGEST_WIDTH {
                                 state[i] = state[i + 2*HASH_DIGEST_WIDTH];
                             }
 
