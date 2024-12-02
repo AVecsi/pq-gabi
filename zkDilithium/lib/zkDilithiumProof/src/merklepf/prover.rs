@@ -169,11 +169,11 @@ impl MerkleProver {
                     }
                 }
 
-                /* print!("{}: ", step);
+                print!("{}: ", step);
                 for i in 0..state.len() {
                     print!("{} ", state[i]);
                 }
-                println!(); */
+                println!();
             },
         );
 

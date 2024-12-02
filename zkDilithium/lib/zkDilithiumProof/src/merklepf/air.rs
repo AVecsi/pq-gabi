@@ -138,12 +138,12 @@ impl Air for MerkleAir {
 
         //Assert on the load from storage steps, the correct data is loaded from storage
         for i in STORAGE_START..STORAGE_START+HASH_DIGEST_WIDTH {
-            result.agg_constraint(6*HASH_STATE_WIDTH + i - STORAGE_START, move_from_storage_flag, next[i - STORAGE_START + HASH_DIGEST_WIDTH] - current[i]);
+            result.agg_constraint(6*HASH_STATE_WIDTH + i - STORAGE_START, move_from_storage_flag, next[i - STORAGE_START] - current[i]);
         }
 
         //Assert on load from storage steps, the last hash result was copied correctly
         for i in 0..HASH_DIGEST_WIDTH {
-            result.agg_constraint(i, move_from_storage_flag, next[i] - current[i]);
+            result.agg_constraint(i, move_from_storage_flag, next[i+HASH_DIGEST_WIDTH] - current[i]);
         }
 
         //Assert the storage was shifted correctly on every load from storage steps

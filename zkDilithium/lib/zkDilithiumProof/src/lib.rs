@@ -173,45 +173,76 @@ pub mod test {
     #[test]
     fn test_merkle_proof () {
 
-        let example_attr_u32: [u32; HASH_DIGEST_WIDTH] = [5324, 1251, 43534, 124235, 432241, 6436, 2341, 23523, 2525, 658965, 4583, 245389];
-        let example_attr: [BaseElement; HASH_DIGEST_WIDTH] = example_attr_u32.map(BaseElement::new);
+        let example_attr_u32_0: [u32; HASH_DIGEST_WIDTH] = [5324, 1251, 43534, 124235, 432241, 6436, 2341, 23523, 2525, 658965, 4583, 245389];
+        let example_attr0: [BaseElement; HASH_DIGEST_WIDTH] = example_attr_u32_0.map(BaseElement::new);
 
-        let mut attributes: Vec<[BaseElement; HASH_DIGEST_WIDTH]> = vec![];
+        let example_attr_u32_1: [u32; HASH_DIGEST_WIDTH] = [1651613, 75257, 753, 8237, 72753, 73257, 237341, 823523, 52525, 6965, 47583, 24589];
+        let example_attr1: [BaseElement; HASH_DIGEST_WIDTH] = example_attr_u32_1.map(BaseElement::new);
 
-        for i in 0..32 {
-            attributes.push(example_attr);
+        let example_attr_u32_2: [u32; HASH_DIGEST_WIDTH] = [142, 27537, 3, 77, 38, 373, 8383, 352, 78973, 453, 8736, 6378];
+        let example_attr2: [BaseElement; HASH_DIGEST_WIDTH] = example_attr_u32_2.map(BaseElement::new);
+
+        let mut cert0: Vec<[BaseElement; HASH_DIGEST_WIDTH]> = vec![];
+
+        cert0.push(example_attr0);
+        cert0.push(example_attr1);
+        for _i in 1..16 {
+            cert0.push(example_attr1);
+            cert0.push(example_attr2);
         }
 
-        let comm_u32: [u32; HASH_RATE_WIDTH] = [6260179, 2206275, 439073, 841381, 1911319, 5882038, 237667, 6287456, 3618210, 5729317, 2920687, 1475261, 2443154, 6835453, 960340, 5997086, 2418213, 3845503, 4399723, 6712567, 3453777, 5753638, 1787744, 1300824];
-        let comm: [BaseElement; HASH_RATE_WIDTH] = comm_u32.map(BaseElement::new);
+        let mut cert1: Vec<[BaseElement; HASH_DIGEST_WIDTH]> = vec![];
 
-        let nonce: [BaseElement; HASH_DIGEST_WIDTH] = [BaseElement::ONE; HASH_DIGEST_WIDTH];
-
-        let mut attributes_list: Vec<Vec<[BaseElement; HASH_DIGEST_WIDTH]>> = Vec::new();
-        let mut comms = Vec::new();
-        let mut nonces = Vec::new();
-        let mut num_of_attributes = Vec::new();
-        for i in 0..3 {
-            attributes_list.push(attributes.clone());
-            comms.push(comm);
-            nonces.push(nonce);
-            num_of_attributes.push(attributes.len());
+        cert1.push(example_attr0);
+        cert1.push(example_attr2);
+        for _i in 1..16 {
+            cert1.push(example_attr2);
+            cert1.push(example_attr1);
         }
+
+        let mut cert2: Vec<[BaseElement; HASH_DIGEST_WIDTH]> = vec![];
+
+        //This cert has different first attr.
+        cert2.push(example_attr1);
+        cert2.push(example_attr2);
+        for _i in 1..16 {
+            cert2.push(example_attr2);
+            cert2.push(example_attr1);
+        }
+
+        let comm0_u32: [u32; HASH_RATE_WIDTH] = [6884464, 5796844, 4915403, 2685788, 1262740, 3133087, 444436, 6212006, 87333, 4752267, 4358664, 1173227, 2700755, 1797861, 5710232, 4480878, 6943763, 3941100, 1628521, 1965981, 4655992, 3329326, 7315964, 2391907];
+        let comm0: [BaseElement; HASH_RATE_WIDTH] = comm0_u32.map(BaseElement::new);
+
+        let comm1_u32: [u32; HASH_RATE_WIDTH] = [4016868, 378337, 5062150, 4000076, 6430762, 3871076, 6667880, 1309979, 2049965, 1774621, 1990321, 487812, 5976654, 6942105, 6459281, 5965486, 593837, 854088, 917276, 4519014, 134229, 3265489, 268717, 1977970];
+        let comm1: [BaseElement; HASH_RATE_WIDTH] = comm1_u32.map(BaseElement::new);
+
+        let comm2_u32: [u32; HASH_RATE_WIDTH] = [6260179, 2206275, 439073, 841381, 1911319, 5882038, 237667, 6287456, 3618210, 5729317, 2920687, 1475261, 2443154, 6835453, 960340, 5997086, 2418213, 3845503, 4399723, 6712567, 3453777, 5753638, 1787744, 1300824];
+        let comm2: [BaseElement; HASH_RATE_WIDTH] = comm2_u32.map(BaseElement::new);
+
+        let nonce0: [BaseElement; HASH_DIGEST_WIDTH] = [BaseElement::ONE; HASH_DIGEST_WIDTH];
+        let nonce1: [BaseElement; HASH_DIGEST_WIDTH] = [BaseElement::ZERO, BaseElement::ONE, BaseElement::ONE, BaseElement::ONE, BaseElement::ZERO, BaseElement::ONE, BaseElement::ONE, BaseElement::ONE, BaseElement::ZERO, BaseElement::ONE, BaseElement::ONE, BaseElement::ONE];
+        let nonce2: [BaseElement; HASH_DIGEST_WIDTH] = [BaseElement::ONE; HASH_DIGEST_WIDTH];
+
+        let mut cert_list: Vec<Vec<[BaseElement; HASH_DIGEST_WIDTH]>> = vec![cert0.clone(), cert1.clone()];
+        let mut comms = vec![comm0.clone(), comm1.clone()];
+        let mut nonces = vec![nonce0.clone(), nonce1.clone()];
+        let mut num_of_attributes = vec![cert0.len(), cert1.len()];
 
         //It is assumed that disclosed indices are soreted
-        let disclosed_indices: Vec<Vec<usize>> = [[2, 4, 5, 6, 7, 13, 15].to_vec(), [3, 7, 24, 28].to_vec(), [9, 11, 12, 13, 14].to_vec()].to_vec();
+        let disclosed_indices: Vec<Vec<usize>> = [[2, 4, 5, 6, 7, 13, 15].to_vec(), [3, 7, 24, 28].to_vec()].to_vec();
+        //[9, 11, 12, 13, 14].to_vec()
 
         let mut disclosed_attributes: Vec<Vec<[BaseElement; HASH_DIGEST_WIDTH]>> = Vec::new();
         for i in 0..disclosed_indices.len() {
             disclosed_attributes.push(Vec::new());
             for j in 0..disclosed_indices[i].len() {
-                disclosed_attributes[i].push(attributes_list[i][disclosed_indices[i][j]]);
+                disclosed_attributes[i].push(cert_list[i][disclosed_indices[i][j]]);
             }
         }
 
         let mut start = Instant::now();
 
-        let proof = merklepf::prove(attributes_list.clone(), disclosed_indices.clone(), comms.clone(), nonces.clone());
+        let proof = merklepf::prove(cert_list.clone(), disclosed_indices.clone(), comms.clone(), nonces.clone());
         println!("{:?}", start.elapsed());
         let proof_bytes = proof.to_bytes();
         println!("Proof size: {:.1} KB", proof_bytes.len() as f64 / 1024f64);
