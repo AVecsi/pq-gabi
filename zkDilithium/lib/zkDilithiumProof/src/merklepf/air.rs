@@ -22,29 +22,31 @@ const HASH_CYCLE_MASK: [BaseElement; HASH_CYCLE_LEN] = [
 ];
 
 pub struct PublicInputs {
-    pub disclosed_attributes: Vec<[BaseElement; HASH_DIGEST_WIDTH]>,
-    pub indices: Vec<usize>,
-    pub num_of_attributes: usize,
-    pub comm: [BaseElement; HASH_RATE_WIDTH],
-    pub nonce: [BaseElement; 12]
+    pub disclosed_attributes: Vec<Vec<[BaseElement; HASH_DIGEST_WIDTH]>>,
+    pub indices: Vec<Vec<usize>>,
+    pub num_of_attributes: Vec<usize>,
+    pub comm: Vec<[BaseElement; HASH_RATE_WIDTH]>,
+    pub nonce: Vec<[BaseElement; 12]>
 }
 
 impl Serializable for PublicInputs {
     fn write_into<W: ByteWriter>(&self, _target: &mut W) {
         // target.write(&self.ctilde[..]);
         for i in 0..self.nonce.len() {
-            _target.write(self.nonce[i]);
+            for j in 0..self.nonce[i].len() {
+                _target.write(self.nonce[i][j]);
+            }
         }
     }
 }
 
 pub struct MerkleAir {
     context: AirContext<BaseElement>,
-    disclosed_attributes: Vec<[BaseElement; HASH_DIGEST_WIDTH]>,
-    disclosed_indices: Vec<usize>,
-    num_of_attributes: usize,
-    comm: [BaseElement; HASH_RATE_WIDTH],
-    nonce: [BaseElement; 12]
+    disclosed_attributes: Vec<Vec<[BaseElement; HASH_DIGEST_WIDTH]>>,
+    disclosed_indices: Vec<Vec<usize>>,
+    num_of_attributes: Vec<usize>,
+    comm: Vec<[BaseElement; HASH_RATE_WIDTH]>,
+    nonce: Vec<[BaseElement; 12]>
 }
 
 impl Air for MerkleAir {
@@ -64,17 +66,20 @@ impl Air for MerkleAir {
         let mut degrees = Vec::new();
         degrees.append(&mut vec![TransitionConstraintDegree::with_cycles(3, vec![trace_info.length()]); 6*HASH_STATE_WIDTH]); //hash_space
         degrees.append(&mut vec![TransitionConstraintDegree::with_cycles(1, vec![trace_info.length()]); trace_info.width() - STORAGE_START]); //storage
+
+        let mut num_assertions = 0;
+        for i in 0..pub_inputs.disclosed_attributes.len() {
+            num_assertions += pub_inputs.disclosed_attributes[i].len() * HASH_DIGEST_WIDTH;
+            num_assertions += HASH_DIGEST_WIDTH + HASH_RATE_WIDTH;
+        }
+        for i in 0..pub_inputs.num_of_attributes.len() {
+            num_assertions += (pub_inputs.num_of_attributes[i]) * (HASH_STATE_WIDTH-HASH_RATE_WIDTH)
+        }
         MerkleAir {
             context: AirContext::new(
                 trace_info, 
                 degrees, 
-                pub_inputs.disclosed_attributes.len() * HASH_DIGEST_WIDTH
-                +
-                HASH_DIGEST_WIDTH
-                +
-                HASH_RATE_WIDTH
-                +
-                (pub_inputs.num_of_attributes) * (HASH_STATE_WIDTH-HASH_RATE_WIDTH),
+                num_assertions,
                  options
             ),
             disclosed_attributes: pub_inputs.disclosed_attributes,
@@ -108,7 +113,7 @@ impl Air for MerkleAir {
         let ark = &periodic_values[4..];
         
         // Assert the poseidon round was computed correctly was computed correctly whenever a permutation needs to be applied
-        assert_hash(&mut result[0..6*HASH_STATE_WIDTH], //TODO
+        assert_hash(&mut result[0..6*HASH_STATE_WIDTH],
             &current[0..3*HASH_STATE_WIDTH],
             &next[0..3*HASH_STATE_WIDTH],
             &ark,
@@ -154,47 +159,52 @@ impl Air for MerkleAir {
     fn get_assertions(&self) -> Vec<Assertion<Self::BaseField>> {
         let mut main_assertions = Vec::new();
 
-        //Assert that the disclosed attributes were loaded to the hash space on the correct step
-        let highest_disclosed_index = self.disclosed_indices[self.disclosed_indices.len() - 1];
-        let mut i = 1;
-        while i < highest_disclosed_index {
-            i *= 2;
-        }
-        let load_attribute_steps = leaf_steps_in_postorder(i - 1);
+        let mut steps_done = 0;
+        for cert_index in 0..self.disclosed_attributes.len() {
+            //Assert that the disclosed attributes were loaded to the hash space on the correct step
+            let highest_disclosed_index = self.disclosed_indices[cert_index][self.disclosed_indices[cert_index].len() - 1];
+            let mut i = 1;
+            while i < highest_disclosed_index {
+                i *= 2;
+            }
+            let load_attribute_steps = leaf_steps_in_postorder(i - 1);
 
-        let mut j = 0;
-        for (i, step) in load_attribute_steps.iter().enumerate() {
-            //i*2th and i*2+1th attributes are loaded in step
-            if self.disclosed_indices.contains(&(i*2)) {
-                for k in 0..HASH_DIGEST_WIDTH{
-                    main_assertions.push(Assertion::single(k, step*HASH_CYCLE_LEN, self.disclosed_attributes[j][k]));
+            let mut j = 0;
+            for (i, step) in load_attribute_steps.iter().enumerate() {
+                //i*2th and i*2+1th attributes are loaded in step
+                if self.disclosed_indices[cert_index].contains(&(i*2)) {
+                    for k in 0..HASH_DIGEST_WIDTH{
+                        main_assertions.push(Assertion::single(k, steps_done+step*HASH_CYCLE_LEN + 1, self.disclosed_attributes[cert_index][j][k]));
+                    }
+                    j += 1;
                 }
-                j += 1;
-            }
 
-            if self.disclosed_indices.contains(&(i*2 + 1)) {
-                for k in HASH_DIGEST_WIDTH..2*HASH_DIGEST_WIDTH{
-                    main_assertions.push(Assertion::single(k, step*HASH_CYCLE_LEN, self.disclosed_attributes[j][k - HASH_DIGEST_WIDTH]));
+                if self.disclosed_indices[cert_index].contains(&(i*2 + 1)) {
+                    for k in HASH_DIGEST_WIDTH..2*HASH_DIGEST_WIDTH{
+                        main_assertions.push(Assertion::single(k, steps_done+step*HASH_CYCLE_LEN + 1, self.disclosed_attributes[cert_index][j][k - HASH_DIGEST_WIDTH]));
+                    }
+                    j += 1;
                 }
-                j += 1;
             }
-        }
 
-        //Assert that the nonce in the commitment is correct
-        for i in 0..HASH_DIGEST_WIDTH {
-            main_assertions.push(Assertion::single(i + HASH_DIGEST_WIDTH, (self.num_of_attributes - 1) * HASH_CYCLE_LEN, self.nonce[i]));
-        }
-
-        //Assert the final result is the given commitment
-        for i in 0..HASH_RATE_WIDTH {
-            main_assertions.push(Assertion::single(i, (self.num_of_attributes) * HASH_CYCLE_LEN, self.comm[i]));
-        }
-
-        //Assert that the hash rate was cleaned up correctly
-        for i in 0..self.num_of_attributes {
-            for k in HASH_RATE_WIDTH..HASH_STATE_WIDTH {
-                main_assertions.push(Assertion::single(k, i as usize * HASH_CYCLE_LEN, BaseElement::ZERO));
+            //Assert that the nonce in the commitment is correct
+            for i in 0..HASH_DIGEST_WIDTH {
+                main_assertions.push(Assertion::single(i + HASH_DIGEST_WIDTH, steps_done+(self.num_of_attributes[cert_index] - 1) * HASH_CYCLE_LEN + 1, self.nonce[cert_index][i]));
             }
+
+            //Assert the final result is the given commitment
+            for i in 0..HASH_RATE_WIDTH {
+                main_assertions.push(Assertion::single(i, steps_done+(self.num_of_attributes[cert_index]) * HASH_CYCLE_LEN, self.comm[cert_index][i]));
+            }
+
+            //Assert that the hash rate was cleaned up correctly
+            for i in 0..self.num_of_attributes[cert_index] {
+                for k in HASH_RATE_WIDTH..HASH_STATE_WIDTH {
+                    main_assertions.push(Assertion::single(k, steps_done+i as usize * HASH_CYCLE_LEN + 1, BaseElement::ZERO));
+                }
+            }
+
+            steps_done += (self.num_of_attributes[cert_index] as usize) * HASH_CYCLE_LEN;
         }
 
         main_assertions
@@ -202,11 +212,21 @@ impl Air for MerkleAir {
 
     fn get_periodic_column_values(&self) -> Vec<Vec<Self::BaseField>> {
         let mut result = Vec::new();
-        result.push(get_hashmask_constants(self.trace_length(), self.num_of_attributes));
-        result.push(get_move_to_storage_constants(self.trace_length(), self.num_of_attributes));
-        result.push(get_move_from_storage_constants(self.trace_length(), self.num_of_attributes));
-        result.push(get_merkle_root_copy_constants(self.trace_length(), self.num_of_attributes));
-        result.append(&mut poseidon_23_spec::get_round_constants());
+        let padded_trace_length = self.trace_length();
+        result.push(get_hashmask_constants(padded_trace_length, self.num_of_attributes.clone()));
+        result.push(get_move_to_storage_constants(padded_trace_length, self.num_of_attributes.clone()));
+        result.push(get_move_from_storage_constants(padded_trace_length, self.num_of_attributes.clone()));
+        result.push(get_merkle_root_copy_constants(padded_trace_length, self.num_of_attributes.clone()));
+
+        let singleark = poseidon_23_spec::get_round_constants();
+        let mut ark: Vec<Vec<BaseElement>> = vec![vec![BaseElement::ZERO; padded_trace_length]; 3*HASH_STATE_WIDTH];;
+        
+        for i in (1..padded_trace_length) {
+            for j in 0..3*HASH_STATE_WIDTH {
+                ark[j][i] = singleark[j][(i-1)%HASH_CYCLE_LEN]
+            }
+        }
+        result.append(&mut ark);
 
         result
     }
@@ -277,60 +297,82 @@ fn leaf_steps_in_postorder(num_nodes: usize) -> Vec<usize> {
         .collect()
 }
 
-fn get_hashmask_constants(padded_trace_length: usize, num_of_attributes: usize) -> Vec<BaseElement> {
+fn get_hashmask_constants(padded_trace_length: usize, num_of_attributes: Vec<usize>) -> Vec<BaseElement> {
     let mut hashmask_const = vec![BaseElement::ZERO; padded_trace_length];
-    //TODO when adding the commitment don't forget to change this
-    let trace_length = (num_of_attributes as usize) * HASH_CYCLE_LEN - 1;
-    for i in 0..trace_length{
-        hashmask_const[i] = HASH_CYCLE_MASK[i%HASH_CYCLE_LEN];
+    
+    let mut trace_length = 0;
+    for i in 0..num_of_attributes.len() {
+        trace_length += (num_of_attributes[i] as usize) * HASH_CYCLE_LEN;
+    }
+
+    for i in 1..trace_length{
+        hashmask_const[i] = HASH_CYCLE_MASK[(i - 1)%HASH_CYCLE_LEN];
     }
 
     hashmask_const
 }
 
-fn get_move_to_storage_constants(padded_trace_length: usize, num_of_attributes: usize) -> Vec<BaseElement> {
+fn get_move_to_storage_constants(padded_trace_length: usize, num_of_attributes: Vec<usize>) -> Vec<BaseElement> {
     let mut move_to_storage_const = vec![BaseElement::ZERO; padded_trace_length];
-    //TODO when adding the commitment don't forget to change this
-    let mut load_steps = leaf_steps_in_postorder(num_of_attributes - 1);
 
-    for i in 1..load_steps.len() {
-        load_steps[i] = load_steps[i]*HASH_CYCLE_LEN - 1;
-    }
+    let mut steps_done = 0;
+    for i in 0..num_of_attributes.len() {
 
-    let trace_length = (num_of_attributes as usize - 1) * HASH_CYCLE_LEN - 1;
-    for i in (HASH_CYCLE_LEN - 1..trace_length).step_by(HASH_CYCLE_LEN){
-        if load_steps.contains(&i) {
-            move_to_storage_const[i] = BaseElement::ONE;
+        let mut load_steps = leaf_steps_in_postorder(num_of_attributes[i] - 1);
+
+        for j in 1..load_steps.len() {
+            load_steps[j] = load_steps[j]*HASH_CYCLE_LEN;
         }
+
+        let merkle_trace_length = (num_of_attributes[i] as usize - 1) * HASH_CYCLE_LEN;
+        for j in (HASH_CYCLE_LEN..merkle_trace_length).step_by(HASH_CYCLE_LEN){
+            if load_steps.contains(&j) {
+                move_to_storage_const[steps_done+j] = BaseElement::ONE;
+            }
+        }
+        //The extra addition is to skip the commitment steps
+        steps_done += merkle_trace_length + HASH_CYCLE_LEN;
     }
 
     move_to_storage_const
 }
 
-fn get_move_from_storage_constants(padded_trace_length: usize, num_of_attributes: usize) -> Vec<BaseElement> {
+fn get_move_from_storage_constants(padded_trace_length: usize, num_of_attributes: Vec<usize>) -> Vec<BaseElement> {
     let mut move_from_storage_const = vec![BaseElement::ZERO; padded_trace_length];
-    //TODO when adding the commitment don't forget to change this
-    let mut load_steps = leaf_steps_in_postorder(num_of_attributes - 1);
+    
+    let mut steps_done = 0;
+    for i in 0..num_of_attributes.len() {
 
-    for i in 1..load_steps.len() {
-        load_steps[i] = load_steps[i]*HASH_CYCLE_LEN - 1;
-    }
+        let mut load_steps = leaf_steps_in_postorder(num_of_attributes[i] - 1);
 
-    let trace_length = (num_of_attributes as usize - 1) * HASH_CYCLE_LEN - 1;
-    for i in (HASH_CYCLE_LEN - 1..trace_length).step_by(HASH_CYCLE_LEN){
-        if !load_steps.contains(&i) {
-            move_from_storage_const[i] = BaseElement::ONE;
+        for j in 1..load_steps.len() {
+            load_steps[j] = load_steps[j]*HASH_CYCLE_LEN;
         }
+
+        let merkle_trace_length = (num_of_attributes[i] as usize - 1) * HASH_CYCLE_LEN;
+        for j in (HASH_CYCLE_LEN..merkle_trace_length).step_by(HASH_CYCLE_LEN){
+            if !load_steps.contains(&j) {
+                move_from_storage_const[steps_done+j] = BaseElement::ONE;
+            }
+        }
+        //The extra addition is to skip the commitment steps
+        steps_done += merkle_trace_length + HASH_CYCLE_LEN;
     }
 
     move_from_storage_const
 }
 
-fn get_merkle_root_copy_constants(padded_trace_length: usize, num_of_attributes: usize) -> Vec<BaseElement> {
+fn get_merkle_root_copy_constants(padded_trace_length: usize, num_of_attributes: Vec<usize>) -> Vec<BaseElement> {
     let mut merkle_root_copy_const = vec![BaseElement::ZERO; padded_trace_length];
-    //TODO when adding multiple commitment don't forget to change this
-    let merkle_trace_end = (num_of_attributes as usize - 1) * HASH_CYCLE_LEN - 1;
-    merkle_root_copy_const[merkle_trace_end] = BaseElement::ONE;
+    
+    let mut merkle_trace_end = 0;
+    for i in 0..num_of_attributes.len() {
+        merkle_trace_end += (num_of_attributes[i] as usize - 1) * HASH_CYCLE_LEN;
+        merkle_root_copy_const[merkle_trace_end] = BaseElement::ONE;
+
+        //Set the counter to the beginning of the next cert
+        merkle_trace_end += HASH_CYCLE_LEN;
+    }
 
     merkle_root_copy_const
 }

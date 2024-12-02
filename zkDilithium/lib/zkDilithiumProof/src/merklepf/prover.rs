@@ -19,14 +19,14 @@ use crate::utils::poseidon_23_spec::{self};
 
 pub struct MerkleProver {
     options: ProofOptions,
-    attributes: Vec<[BaseElement; HASH_DIGEST_WIDTH]>,
-    disclosed_indices: Vec<usize>,
-    comm: [BaseElement; HASH_RATE_WIDTH],
-    nonce: [BaseElement; 12]
+    attributes: Vec<Vec<[BaseElement; HASH_DIGEST_WIDTH]>>,
+    disclosed_indices: Vec<Vec<usize>>,
+    comm: Vec<[BaseElement; HASH_RATE_WIDTH]>,
+    nonce: Vec<[BaseElement; 12]>
 }
 
 impl MerkleProver {
-    pub fn new(options: ProofOptions, attributes: Vec<[BaseElement; HASH_DIGEST_WIDTH]>, disclosed_indices: Vec<usize>, comm: [BaseElement; HASH_RATE_WIDTH], nonce: [BaseElement; 12]) -> Self {
+    pub fn new(options: ProofOptions, attributes: Vec<Vec<[BaseElement; HASH_DIGEST_WIDTH]>>, disclosed_indices: Vec<Vec<usize>>, comm: Vec<[BaseElement; HASH_RATE_WIDTH]>, nonce: Vec<[BaseElement; 12]>) -> Self {
         Self { options, attributes, disclosed_indices, comm, nonce }
     }
 
@@ -34,42 +34,73 @@ impl MerkleProver {
         //number of attributes must be power of 2
 
         //TODO for now it is not counting with multiple certificates, only 1.
-        let trace_width = HASH_STATE_WIDTH*3 + (self.attributes.len().trailing_zeros() as usize)*HASH_DIGEST_WIDTH;
-        let merkle_trace_length = (self.attributes.len() as usize - 1) * HASH_CYCLE_LEN - 1;
-        let commitment_trace_length = HASH_CYCLE_LEN;
+        let mut max_num_of_attributes = 0;
+        for i in 0..self.attributes.len() {
+            if self.attributes[i].len() > max_num_of_attributes {
+                max_num_of_attributes = self.attributes[i].len();
+            }
+        }
+        let trace_width = HASH_STATE_WIDTH*3 + (max_num_of_attributes.trailing_zeros() as usize)*HASH_DIGEST_WIDTH;
+
+
+        let mut merkle_trace_lengths = Vec::new();
+        let mut merkle_trace_lengths_sum = 0;
+
+        for i in 0..self.attributes.len() {
+            merkle_trace_lengths.push((self.attributes[i].len() as usize - 1) * HASH_CYCLE_LEN);
+            merkle_trace_lengths_sum += merkle_trace_lengths[i];
+        }
+        
+        let commitment_trace_length_sum = self.attributes.len()*HASH_CYCLE_LEN;
 
         //trace length must be power of 2
-        let mut i = 16;
+        let mut i = 32;
         //Added 2 because of the winterfell artifact at the end of trace
-        while i < merkle_trace_length + commitment_trace_length + 2 {
+        while i < merkle_trace_lengths_sum + commitment_trace_length_sum + 2 {
             i *= 2;
         }
         let trace_padded_length = i;
 
-        let load_attribute_steps = leaf_steps_in_postorder((self.attributes.len()) - 1);
+        let load_attribute_steps = leaf_steps_in_postorder(max_num_of_attributes - 1);
 
-
-        //TODO randomized commitment not included yet
         let mut trace = TraceTable::new(trace_width, trace_padded_length);
         trace.fill(
             |state| {
                 for i in 0..HASH_DIGEST_WIDTH {
-                    state[i] = self.attributes[0][i];
-                    state[HASH_DIGEST_WIDTH + i] = self.attributes[1][i];
+                    state[i] = self.attributes[0][0][i];
+                    state[HASH_DIGEST_WIDTH + i] = self.attributes[0][1][i];
                 }
             },
             |step, state| {
-                if step < merkle_trace_length + commitment_trace_length {
+                if step < merkle_trace_lengths_sum + commitment_trace_length_sum {
+                    let mut step_in_cert = step;
+                    let mut cert_index = 0;
+                    for i in 0..merkle_trace_lengths.len()-1 {
+                        if step_in_cert >= merkle_trace_lengths[i] + HASH_CYCLE_LEN {
+                            cert_index += 1;
+                            step_in_cert = step_in_cert - merkle_trace_lengths[i] - HASH_CYCLE_LEN;
+                        }
+                    }
                     let cycle_pos = step % HASH_CYCLE_LEN;
-                    let _cycle_num = (step + 1) / HASH_CYCLE_LEN;
 
-                    // apply poseidon round in all but the last round of HASH_CYCLE
-                    if cycle_pos < NUM_HASH_ROUNDS {
-                        poseidon_23_spec::apply_round(&mut state[0..(3*HASH_STATE_WIDTH)], step);
-                    } else if step == merkle_trace_length {
+                    //Not the best as it will redo the init part for the first cert
+                    if step_in_cert == 0 {
+                        //Init
+                        for i in 0..HASH_DIGEST_WIDTH {
+                            state[i] = self.attributes[cert_index][0][i];
+                            state[HASH_DIGEST_WIDTH + i] = self.attributes[cert_index][1][i];
+                        }
+                        // Clean up the hash state
+                        for i in HASH_RATE_WIDTH..HASH_STATE_WIDTH {
+                            state[i] = BaseElement::ZERO;
+                        }
+                    } else if cycle_pos > 0 {
+                        // apply poseidon round in all round of HASH_CYCLE, leave the init rounds in the trace
+                        poseidon_23_spec::apply_round(&mut state[0..(3*HASH_STATE_WIDTH)], step-1);
+                    } else if merkle_trace_lengths.contains(&step_in_cert) {
                         // Init commitment
                         for i in 0..HASH_DIGEST_WIDTH {
-                            state[i + HASH_DIGEST_WIDTH] = self.nonce[i];
+                            state[i + HASH_DIGEST_WIDTH] = self.nonce[cert_index][i];
                         }
 
                         // Clean up the hash state
@@ -77,6 +108,7 @@ impl MerkleProver {
                             state[i] = BaseElement::ZERO;
                         }
                     } else {
+                        let _cycle_num = (step_in_cert + 1) / HASH_CYCLE_LEN;
                         //After the hashing steps, it's time to move some data
 
                         //Shift storage (shifting and load to beginning makes our job easier with the transition constraints).
@@ -101,8 +133,8 @@ impl MerkleProver {
                         if index != 0 {
                             //Load two attributes to hash space
                             for i in 0..HASH_DIGEST_WIDTH {
-                                state[i] = self.attributes[index * 2][i];
-                                state[HASH_DIGEST_WIDTH + i] = self.attributes[index * 2 + 1][i];
+                                state[i] = self.attributes[cert_index][index * 2][i];
+                                state[HASH_DIGEST_WIDTH + i] = self.attributes[cert_index][index * 2 + 1][i];
                             }
                         } else {
                             //Move two elements from storage to hash space
@@ -153,11 +185,18 @@ impl Prover for MerkleProver {
     type Trace = TraceTable<BaseElement>;
 
     fn get_pub_inputs(&self, _trace: &Self::Trace) -> PublicInputs {
-        let mut disclosed_attributes: Vec<[BaseElement; HASH_DIGEST_WIDTH]> = vec![];
+        let mut disclosed_attributes: Vec<Vec<[BaseElement; HASH_DIGEST_WIDTH]>> = vec![];
         for i in 0..self.disclosed_indices.len() {
-            disclosed_attributes.push(self.attributes[self.disclosed_indices[i]]);
+            disclosed_attributes.push(Vec::new());
+            for j in 0..self.disclosed_indices[i].len() {
+                disclosed_attributes[i].push(self.attributes[i][self.disclosed_indices[i][j]]);
+            }
         }
-        PublicInputs{disclosed_attributes: disclosed_attributes, indices: self.disclosed_indices.clone(), num_of_attributes: self.attributes.len(), comm: self.comm, nonce: self.nonce}
+        let mut num_of_attributes = Vec::new();
+        for i in 0.. self.attributes.len() {
+            num_of_attributes.push(self.attributes[i].len());
+        }
+        PublicInputs{disclosed_attributes: disclosed_attributes, indices: self.disclosed_indices.clone(), num_of_attributes: num_of_attributes, comm: self.comm.clone(), nonce: self.nonce.clone()}
     }
     fn options(&self) -> &ProofOptions {
         &self.options

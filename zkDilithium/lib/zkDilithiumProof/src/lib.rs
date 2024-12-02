@@ -187,20 +187,37 @@ pub mod test {
 
         let nonce: [BaseElement; HASH_DIGEST_WIDTH] = [BaseElement::ONE; HASH_DIGEST_WIDTH];
 
-        //It is assumed that disclosed indices are soreted
-        let disclosed_indices: Vec<usize> = [2, 4, 5, 6, 7, 13, 15].to_vec();
+        let mut attributes_list: Vec<Vec<[BaseElement; HASH_DIGEST_WIDTH]>> = Vec::new();
+        let mut comms = Vec::new();
+        let mut nonces = Vec::new();
+        let mut num_of_attributes = Vec::new();
+        for i in 0..3 {
+            attributes_list.push(attributes.clone());
+            comms.push(comm);
+            nonces.push(nonce);
+            num_of_attributes.push(attributes.len());
+        }
 
-        let mut disclosed_attributes = vec![];
+        //It is assumed that disclosed indices are soreted
+        let disclosed_indices: Vec<Vec<usize>> = [[2, 4, 5, 6, 7, 13, 15].to_vec(), [3, 7, 24, 28].to_vec(), [9, 11, 12, 13, 14].to_vec()].to_vec();
+
+        let mut disclosed_attributes: Vec<Vec<[BaseElement; HASH_DIGEST_WIDTH]>> = Vec::new();
         for i in 0..disclosed_indices.len() {
-            disclosed_attributes.push(attributes[disclosed_indices[i]]);
+            disclosed_attributes.push(Vec::new());
+            for j in 0..disclosed_indices[i].len() {
+                disclosed_attributes[i].push(attributes_list[i][disclosed_indices[i][j]]);
+            }
         }
 
         let mut start = Instant::now();
 
-        let proof = merklepf::prove(attributes.clone(), disclosed_indices.clone(), comm, nonce);
+        let proof = merklepf::prove(attributes_list.clone(), disclosed_indices.clone(), comms.clone(), nonces.clone());
         println!("{:?}", start.elapsed());
+        let proof_bytes = proof.to_bytes();
+        println!("Proof size: {:.1} KB", proof_bytes.len() as f64 / 1024f64);
+        println!("Proof security: {} bits", proof.security_level(true));
         start = Instant::now();
-        match merklepf::verify(proof.clone(), disclosed_attributes.clone(), disclosed_indices.clone(), attributes.len(), comm, nonce) {
+        match merklepf::verify(proof.clone(), disclosed_attributes.clone(), disclosed_indices.clone(), num_of_attributes, comms, nonces) {
             Ok(_) => {
                 println!("Verified.");
             },
