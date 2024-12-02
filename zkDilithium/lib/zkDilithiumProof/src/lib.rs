@@ -216,12 +216,12 @@ pub mod test {
         let comm1_u32: [u32; HASH_RATE_WIDTH] = [4016868, 378337, 5062150, 4000076, 6430762, 3871076, 6667880, 1309979, 2049965, 1774621, 1990321, 487812, 5976654, 6942105, 6459281, 5965486, 593837, 854088, 917276, 4519014, 134229, 3265489, 268717, 1977970];
         let comm1: [BaseElement; HASH_RATE_WIDTH] = comm1_u32.map(BaseElement::new);
 
-        let comm2_u32: [u32; HASH_RATE_WIDTH] = [6260179, 2206275, 439073, 841381, 1911319, 5882038, 237667, 6287456, 3618210, 5729317, 2920687, 1475261, 2443154, 6835453, 960340, 5997086, 2418213, 3845503, 4399723, 6712567, 3453777, 5753638, 1787744, 1300824];
+        let comm2_u32: [u32; HASH_RATE_WIDTH] = [810421, 5657095, 6187730, 6252613, 6566569, 4835895, 2074026, 2107415, 5629227, 681991, 855972, 2574051, 1906283, 2526605, 1827260, 1515521, 1603600, 6621959, 3468030, 398881, 5983142, 1734108, 1357845, 1208531];
         let comm2: [BaseElement; HASH_RATE_WIDTH] = comm2_u32.map(BaseElement::new);
 
         let nonce0: [BaseElement; HASH_DIGEST_WIDTH] = [BaseElement::ONE; HASH_DIGEST_WIDTH];
         let nonce1: [BaseElement; HASH_DIGEST_WIDTH] = [BaseElement::ZERO, BaseElement::ONE, BaseElement::ONE, BaseElement::ONE, BaseElement::ZERO, BaseElement::ONE, BaseElement::ONE, BaseElement::ONE, BaseElement::ZERO, BaseElement::ONE, BaseElement::ONE, BaseElement::ONE];
-        let nonce2: [BaseElement; HASH_DIGEST_WIDTH] = [BaseElement::ONE; HASH_DIGEST_WIDTH];
+        //let nonce2: [BaseElement; HASH_DIGEST_WIDTH] = [BaseElement::ONE; HASH_DIGEST_WIDTH];
 
         let mut cert_list: Vec<Vec<[BaseElement; HASH_DIGEST_WIDTH]>> = vec![cert0.clone(), cert1.clone()];
         let mut comms = vec![comm0.clone(), comm1.clone()];
@@ -248,7 +248,7 @@ pub mod test {
         println!("Proof size: {:.1} KB", proof_bytes.len() as f64 / 1024f64);
         println!("Proof security: {} bits", proof.security_level(true));
         start = Instant::now();
-        match merklepf::verify(proof.clone(), disclosed_attributes.clone(), disclosed_indices.clone(), num_of_attributes, comms, nonces) {
+        match merklepf::verify(proof.clone(), disclosed_attributes.clone(), disclosed_indices.clone(), num_of_attributes.clone(), comms.clone(), nonces.clone()) {
             Ok(_) => {
                 println!("Verified.");
             },
@@ -257,7 +257,18 @@ pub mod test {
                 println!("Failed to verify proof: {}", msg);
             }
         }
-
         println!("{:?}", start.elapsed());
+        cert_list[1] = cert2;
+        comms[1] = comm2;
+        let proof2 = merklepf::prove(cert_list.clone(), disclosed_indices.clone(), comms.clone(), nonces.clone());
+        match merklepf::verify_with_wrong_inputs(proof2.clone(), disclosed_attributes.clone(), disclosed_indices.clone(), num_of_attributes, comms, nonces) {
+            Ok(_) => {
+                println!("This should have failed.");
+            },
+            Err(msg) => 
+            {
+                println!("Failed successfully: {}", msg);
+            }
+        }
     }
 }
