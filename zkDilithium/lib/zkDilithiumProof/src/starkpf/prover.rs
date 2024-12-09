@@ -279,6 +279,12 @@ impl ThinDilProver {
                         state[i] = BaseElement::new(123 as u32);
                     }
                 }
+
+                /* print!("{}: ", step);
+                for i in 0..state.len() {
+                    print!("{} ", state[i]);
+                }
+                println!(); */
             },
         );
 

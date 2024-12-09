@@ -56,13 +56,7 @@ impl Air for MerkleAir {
     // CONSTRUCTOR
     // --------------------------------------------------------------------------------------------
     fn new(trace_info: TraceInfo, pub_inputs: Self::PublicInputs, options: ProofOptions) -> Self {
-        //TODO
-        // let degrees = vec![TransitionConstraintDegree::new(1), TransitionConstraintDegree::new(1)];
-        // assert_eq!(TRACE_WIDTH, trace_info.width());
-        // FibAir {
-        //     context: AirContext::new(trace_info, degrees, 3, options),
-        //     result: pub_inputs,
-        // }
+ 
         let mut degrees = Vec::new();
         degrees.append(&mut vec![TransitionConstraintDegree::with_cycles(3, vec![trace_info.length()]); 6*HASH_STATE_WIDTH]); //hash_space
         degrees.append(&mut vec![TransitionConstraintDegree::with_cycles(1, vec![trace_info.length()]); trace_info.width()-HASH_DIGEST_WIDTH - STORAGE_START]); //storage
@@ -289,7 +283,6 @@ fn postorder_traversal(n: usize, nodes: &[usize]) -> Vec<usize> {
     [left, right, vec![nodes[n - 1]]].concat()
 }
 
-//TODO didnt test thoroughly
 fn leaf_steps_in_postorder(num_nodes: usize) -> Vec<usize> {
     // Step 1: Generate node indices for a fully balanced binary tree
     let nodes: Vec<usize> = (1..=num_nodes).collect();

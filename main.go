@@ -22,13 +22,18 @@ import (
 )
 
 func Test() {
-	var list []merkletree.Content
-	list = append(list, Attribute{value: []byte("attr1")})
-	list = append(list, Attribute{value: []byte("attr2")})
-	list = append(list, Attribute{value: []byte("attr3")})
-	list = append(list, Attribute{value: []byte("attr4")})
+	/* hashStrategy := func() hash.Hash {
+		return poseidon.NewPoseidon(nil, zkDilithium.POS_RF, zkDilithium.POS_T, zkDilithium.POS_RATE, common.Q)
+	} */
 
-	merkleTree, err := merkletree.NewTree(list)
+	var attribute_list1 []merkletree.Content
+	for i := 0; i < 16; i++ {
+		value := fmt.Sprintf("attr%d", i)
+		attribute_list1 = append(attribute_list1, Attribute{value: []byte(value)})
+	}
+
+	//merkleTree1, err := merkletree.NewTreeWithHashStrategy(attribute_list1, hashStrategy)
+	merkleTree1, err := merkletree.NewTree(attribute_list1)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -40,10 +45,10 @@ func Test() {
 		return
 	}
 
-	msg := merkleTree.MerkleRoot()
+	msg1 := merkleTree1.MerkleRoot()
 
 	// Sign the message
-	sig := zkDilithium.Sign(pk.Rho, sk.CNS, msg, pk.T, sk.S1, sk.S2)
+	sig := zkDilithium.Sign(pk.Rho, sk.CNS, msg1, pk.T, sk.S1, sk.S2)
 
 	cTilde, z := sig.CTilde, sig.Z
 
@@ -66,7 +71,7 @@ func Test() {
 
 	msgUint32 := make([]uint32, 12)
 
-	msgFes := common.UnpackFes22Bit(msg)
+	msgFes := common.UnpackFes22Bit(msg1)
 
 	for i := range msgFes {
 		msgUint32[i] = uint32(msgFes[i])
@@ -81,8 +86,8 @@ func Test() {
 	}
 
 	h := poseidon.NewPoseidon(nil, zkDilithium.POS_RF, zkDilithium.POS_T, zkDilithium.POS_RATE, common.Q)
-	h.Write(append(msgFes, nonce...), zkDilithium.POS_RF, zkDilithium.POS_T, zkDilithium.POS_RATE, common.Q)
-	commFes, _ := h.Read(24, zkDilithium.POS_RF, zkDilithium.POS_T, zkDilithium.POS_RATE, common.Q)
+	h.WriteInts(append(msgFes, nonce...))
+	commFes, _ := h.Read(24)
 
 	commUint32 := make([]uint32, 24)
 
@@ -96,12 +101,21 @@ func Test() {
 
 	start := time.Now()
 
-	proof := C.prove((*C.uint32_t)(z.IntArray()), (*C.uint32_t)(w.IntArray()), (*C.uint32_t)(qw.IntArray()), (*C.uint32_t)(&cTildeUint32[0]), (*C.uint32_t)(&msgUint32[0]), (*C.uint32_t)(&commUint32[0]), (*C.uint32_t)(&comr[0]), (*C.uint32_t)(&nonceUint32[0]), (*C.int)(unsafe.Pointer(&len)))
+	/* for j := 0; j < 4; j++ {
+		for i := 0; i < 256; i++ {
+			fmt.Print(qw.Ps[j].Cs[i], ", ")
+		}
+		fmt.Println()
+	} */
+
+	proof := C.prove_signature((*C.uint32_t)(z.IntArray()), (*C.uint32_t)(w.IntArray()), (*C.uint32_t)(qw.IntArray()), (*C.uint32_t)(&cTildeUint32[0]), (*C.uint32_t)(&msgUint32[0]), (*C.uint32_t)(&commUint32[0]), (*C.uint32_t)(&comr[0]), (*C.uint32_t)(&nonceUint32[0]), (*C.size_t)(unsafe.Pointer(&len)))
 
 	fmt.Println("Proof generated in: ", time.Since(start))
 	start = time.Now()
 
-	result := C.verify(proof, (*C.int)(unsafe.Pointer(&len)), (*C.uint32_t)(&commUint32[0]), (*C.uint32_t)(&nonceUint32[0]))
+	result := C.verify_signature(proof, (C.size_t)(len), (*C.uint32_t)(&commUint32[0]), (*C.uint32_t)(&nonceUint32[0]))
+
+	//proof := C.prove_attributes(1)
 
 	fmt.Println("Verified in: ", time.Since(start))
 
@@ -111,7 +125,7 @@ func Test() {
 	//unsigned char* zBytes, unsigned char*  wBytes, unsigned char*  qwBytes, unsigned char*  ctildeBytes, unsigned char*  mBytes, unsigned char*  comrBytes
 
 	// Verify the signature
-	if zkDilithium.Verify(pk.Rho, msg, sig, pk.T) {
+	if zkDilithium.Verify(pk.Rho, msg1, sig, pk.T) {
 		fmt.Println("Signature verified successfully!")
 	} else {
 		fmt.Println("Signature verification failed.")

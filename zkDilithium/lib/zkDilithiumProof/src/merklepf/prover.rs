@@ -33,7 +33,6 @@ impl MerkleProver {
     pub fn build_trace(&self) -> TraceTable<BaseElement> {
         //number of attributes must be power of 2
 
-        //TODO for now it is not counting with multiple certificates, only 1.
         let mut max_num_of_attributes = 0;
         for i in 0..self.attributes.len() {
             if self.attributes[i].len() > max_num_of_attributes {
@@ -169,11 +168,11 @@ impl MerkleProver {
                     }
                 }
 
-                print!("{}: ", step);
+                /* print!("{}: ", step);
                 for i in 0..state.len() {
                     print!("{} ", state[i]);
                 }
-                println!();
+                println!(); */
             },
         );
 

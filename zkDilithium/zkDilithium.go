@@ -60,7 +60,7 @@ func SampleInBall(h *poseidon.Poseidon) *algebra.Poly {
 
 	//TAU is forced to be a multiple of POS_CYCLE_LEN to simplify AIR
 	for i := 0; i < (TAU+POS_CYCLE_LEN-1)/POS_CYCLE_LEN; i++ {
-		h.PoseidonPerm(POS_RF, POS_T, common.Q)
+		h.PoseidonPerm()
 		swaps = []int64{}
 		signs = []int64{}
 
@@ -118,10 +118,10 @@ func Sign(rho, key, msg []byte, t, s1, s2 *algebra.Vec) zkDilSignature {
 
 	// Poseidon hash of message
 	h := poseidon.NewPoseidon([]int{0}, POS_RF, POS_T, POS_RATE, common.Q)
-	h.Write(common.UnpackFesLoose(tr), POS_RF, POS_T, POS_RATE, common.Q)
-	h.Permute(POS_RF, POS_T, common.Q)
-	h.Write(common.UnpackFes22Bit(msg), POS_RF, POS_T, POS_RATE, common.Q)
-	mu, _ := h.Read(MUSIZE, POS_RF, POS_T, POS_RATE, common.Q)
+	h.WriteInts(common.UnpackFesLoose(tr))
+	h.Permute()
+	h.WriteInts(common.UnpackFes22Bit(msg))
+	mu, _ := h.Read(MUSIZE)
 
 	// Apply NTT
 	s1Hat := s1.NTT()
@@ -139,17 +139,17 @@ func Sign(rho, key, msg []byte, t, s1, s2 *algebra.Vec) zkDilSignature {
 
 		// Poseidon hash of mu and w
 		h = poseidon.NewPoseidon(nil, POS_RF, POS_T, POS_RATE, common.Q)
-		h.Write(mu, POS_RF, POS_T, POS_RATE, common.Q)
+		h.WriteInts(mu)
 		for i := 0; i < common.N; i++ {
 			for j := 0; j < common.K; j++ {
-				h.Write([]int{int(w1.Ps[j].Cs[i])}, POS_RF, POS_T, POS_RATE, common.Q)
+				h.WriteInts([]int{int(w1.Ps[j].Cs[i])})
 			}
 		}
-		cTilde, _ := h.Read(CSIZE, POS_RF, POS_T, POS_RATE, common.Q)
+		cTilde, _ := h.Read(CSIZE)
 
 		// Sample challenge c
 		h = poseidon.NewPoseidon([]int{2}, POS_RF, POS_T, POS_RATE, common.Q)
-		h.Write(cTilde, POS_RF, POS_T, POS_RATE, common.Q)
+		h.WriteInts(cTilde)
 		c := SampleInBall(h)
 		if c == nil {
 			fmt.Println("Retrying because of challenge")
@@ -187,10 +187,10 @@ func Verify(rho, msg []byte, sig zkDilSignature, t *algebra.Vec) bool {
 
 	// Poseidon hash of message
 	h := poseidon.NewPoseidon([]int{0}, POS_RF, POS_T, POS_RATE, common.Q)
-	h.Write(common.UnpackFesLoose(tr), POS_RF, POS_T, POS_RATE, common.Q)
-	h.Permute(POS_RF, POS_T, common.Q)
-	h.Write(common.UnpackFes22Bit(msg), POS_RF, POS_T, POS_RATE, common.Q)
-	mu, _ := h.Read(MUSIZE, POS_RF, POS_T, POS_RATE, common.Q)
+	h.WriteInts(common.UnpackFesLoose(tr))
+	h.Permute()
+	h.WriteInts(common.UnpackFes22Bit(msg))
+	mu, _ := h.Read(MUSIZE)
 
 	// Sample challenge c
 	c := SampleInBall(poseidon.NewPoseidon(append([]int{2}, sig.CTilde...), POS_RF, POS_T, POS_RATE, common.Q))
@@ -214,13 +214,13 @@ func Verify(rho, msg []byte, sig zkDilSignature, t *algebra.Vec) bool {
 
 	// Poseidon hash of mu and w1
 	h = poseidon.NewPoseidon(nil, POS_RF, POS_T, POS_RATE, common.Q)
-	h.Write(mu, POS_RF, POS_T, POS_RATE, common.Q)
+	h.WriteInts(mu)
 	for i := 0; i < common.N; i++ {
 		for j := 0; j < common.K; j++ {
-			h.Write([]int{int(w1.Ps[j].Cs[i])}, POS_RF, POS_T, POS_RATE, common.Q)
+			h.WriteInts([]int{int(w1.Ps[j].Cs[i])})
 		}
 	}
-	cTilde2, _ := h.Read(CSIZE, POS_RF, POS_T, POS_RATE, common.Q)
+	cTilde2, _ := h.Read(CSIZE)
 
 	// Verify cTilde matches
 	for i := 0; i < len(sig.CTilde); i++ {

@@ -12,3 +12,5 @@ issuer.go
 Valószínüleg rosszul használom a poseidon hash-t. a capacityvel sose foglalkozok.
 Megtörténik az elegendő hash a commitment elkészítéséhez?
 Kell számolnom tovább a hash-et ha már úgyis csak a padded rész van?
+
+For some input the zkDil STARK fails.

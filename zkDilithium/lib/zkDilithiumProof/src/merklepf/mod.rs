@@ -34,7 +34,6 @@ pub(crate) fn prove(
     comm: Vec<[BaseElement; HASH_RATE_WIDTH]>,
     nonce: Vec<[BaseElement; 12]>
 ) -> StarkProof {
-        //TODO options
         let options = ProofOptions::new(
             48, // number of queries
             4,  // blowup factor
