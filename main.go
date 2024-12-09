@@ -9,6 +9,7 @@ import "C"
 
 import (
 	"fmt"
+	"hash"
 	"log"
 	"time"
 	"unsafe"
@@ -21,19 +22,21 @@ import (
 	"github.com/cbergoon/merkletree"
 )
 
+func hashStrategy() hash.Hash {
+	h := poseidon.NewPoseidon(nil, zkDilithium.POS_RF, zkDilithium.POS_T, zkDilithium.POS_RATE, common.Q)
+
+	return h
+}
+
 func Test() {
-	/* hashStrategy := func() hash.Hash {
-		return poseidon.NewPoseidon(nil, zkDilithium.POS_RF, zkDilithium.POS_T, zkDilithium.POS_RATE, common.Q)
-	} */
 
 	var attribute_list1 []merkletree.Content
-	for i := 0; i < 16; i++ {
+	for i := 0; i < 32; i++ {
 		value := fmt.Sprintf("attr%d", i)
 		attribute_list1 = append(attribute_list1, Attribute{value: []byte(value)})
 	}
 
-	//merkleTree1, err := merkletree.NewTreeWithHashStrategy(attribute_list1, hashStrategy)
-	merkleTree1, err := merkletree.NewTree(attribute_list1)
+	merkleTree1, err := merkletree.NewTreeWithHashStrategy(attribute_list1, hashStrategy)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -71,7 +74,7 @@ func Test() {
 
 	msgUint32 := make([]uint32, 12)
 
-	msgFes := common.UnpackFes22Bit(msg1)
+	msgFes := common.UnpackFesInt(msg1, common.Q)
 
 	for i := range msgFes {
 		msgUint32[i] = uint32(msgFes[i])

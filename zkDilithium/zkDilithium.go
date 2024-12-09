@@ -120,7 +120,7 @@ func Sign(rho, key, msg []byte, t, s1, s2 *algebra.Vec) zkDilSignature {
 	h := poseidon.NewPoseidon([]int{0}, POS_RF, POS_T, POS_RATE, common.Q)
 	h.WriteInts(common.UnpackFesLoose(tr))
 	h.Permute()
-	h.WriteInts(common.UnpackFes22Bit(msg))
+	h.WriteInts(common.UnpackFesInt(msg, common.Q))
 	mu, _ := h.Read(MUSIZE)
 
 	// Apply NTT
@@ -189,7 +189,7 @@ func Verify(rho, msg []byte, sig zkDilSignature, t *algebra.Vec) bool {
 	h := poseidon.NewPoseidon([]int{0}, POS_RF, POS_T, POS_RATE, common.Q)
 	h.WriteInts(common.UnpackFesLoose(tr))
 	h.Permute()
-	h.WriteInts(common.UnpackFes22Bit(msg))
+	h.WriteInts(common.UnpackFesInt(msg, common.Q))
 	mu, _ := h.Read(MUSIZE)
 
 	// Sample challenge c

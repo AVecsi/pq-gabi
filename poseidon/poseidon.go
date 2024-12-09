@@ -2,6 +2,7 @@ package poseidon
 
 import (
 	"errors"
+
 	//"fmt"
 	"github.com/BeardOfDoom/pq-gabi/big"
 	"github.com/BeardOfDoom/pq-gabi/internal/common"
@@ -60,7 +61,7 @@ func (p *Poseidon) WriteInts(fes []int) error {
 // Write for hash.Hash interface (accepts byte slices)
 func (p *Poseidon) Write(data []byte) (n int, err error) {
 	// Convert bytes to integers for Poseidon
-	fes := common.UnpackFes22Bit(data)
+	fes := common.UnpackFesInt(data, p.q)
 	err = p.WriteInts(fes)
 	return len(data), err
 }
@@ -68,12 +69,8 @@ func (p *Poseidon) Write(data []byte) (n int, err error) {
 // Sum appends the hash and returns the resulting slice
 func (p *Poseidon) Sum(b []byte) []byte {
 	// Squeeze output
-	out, _ := p.Read(p.posRate)
-	out64 := make([]int64, len(out))
-	for i := 0; i < len(out); i++ {
-		out64[i] = int64(out[i])
-	}
-	outBytes := common.PackFes(out64)
+	out, _ := p.Read(12)
+	outBytes := common.PackFesInt(out)
 	b = append(b, outBytes...) // Modulo to fit in a byte
 	return b
 }
@@ -134,7 +131,10 @@ func (p *Poseidon) poseidonRound(r int) {
 
 	// S-box
 	for i := 0; i < p.posT; i++ {
-		p.s[i] = int(new(big.Int).ModInverse(big.NewInt(int64(p.s[i])), big.NewInt(int64(p.q))).Int64())
+		//TODO further investigation needed as we just skip this step on a 0 value
+		if p.s[i] != 0 {
+			p.s[i] = int(new(big.Int).ModInverse(big.NewInt(int64(p.s[i])), big.NewInt(int64(p.q))).Int64())
+		}
 	}
 
 	// MDS, M_ij = 1/(i+j-1)

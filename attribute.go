@@ -2,8 +2,10 @@ package gabi
 
 import (
 	"bytes"
-	"crypto/sha256"
 
+	"github.com/BeardOfDoom/pq-gabi/internal/common"
+	"github.com/BeardOfDoom/pq-gabi/poseidon"
+	"github.com/BeardOfDoom/pq-gabi/zkDilithium"
 	"github.com/cbergoon/merkletree"
 )
 
@@ -16,8 +18,12 @@ type Attribute struct {
 
 // CalculateHash hashes the values of a Attribute
 func (t Attribute) CalculateHash() ([]byte, error) {
-	h := sha256.New()
-	if _, err := h.Write([]byte(t.value)); err != nil {
+	for len(t.value)%3 != 0 {
+		t.value = append(t.value, 0)
+	}
+
+	h := poseidon.NewPoseidon(nil, zkDilithium.POS_RF, zkDilithium.POS_T, zkDilithium.POS_RATE, common.Q)
+	if _, err := h.Write(t.value); err != nil {
 		return nil, err
 	}
 
