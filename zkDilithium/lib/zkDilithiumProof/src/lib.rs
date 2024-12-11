@@ -116,7 +116,7 @@ pub extern "C" fn prove_attributes(num_of_certs: usize, cert_list_ptr: *const u3
         for j in 0..current_num_of_attributes {
             let mut attribute: [BaseElement; HASH_DIGEST_WIDTH] = [BaseElement::ZERO; HASH_DIGEST_WIDTH];
             for k in 0..HASH_DIGEST_WIDTH {
-                attribute[k] = BaseElement::new(unsafe{*cert_list_ptr.add(attributes_counter+j*HASH_DIGEST_WIDTH+k)})
+                attribute[k] = BaseElement::new(unsafe{*cert_list_ptr.add(attributes_counter+j*HASH_DIGEST_WIDTH+k)});
             }
             cert_list[i].push(attribute);
         }
@@ -209,7 +209,7 @@ pub extern "C" fn verify_attributes(proof_bytes_ptr: *const u8, proof_bytes_len:
 }
 
 #[cfg(test)]
-pub mod test {
+pub mod test1 {
 
     use std::ffi::CString;
     use super::*;
@@ -260,8 +260,8 @@ pub mod test {
     }
 }
 
-/* #[cfg(test)]
-pub mod test {
+#[cfg(test)]
+pub mod test2 {
 
     use super::*;
 
@@ -366,4 +366,4 @@ pub mod test {
             }
         }
     }
-} */
+}

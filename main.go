@@ -30,13 +30,19 @@ func hashStrategy() hash.Hash {
 
 func Test() {
 
-	var attribute_list1 []merkletree.Content
-	for i := 0; i < 32; i++ {
-		value := fmt.Sprintf("attr%d", i)
-		attribute_list1 = append(attribute_list1, Attribute{value: []byte(value)})
+	var merkleLeaves1 []merkletree.Content
+	var attributeList1 [][]byte
+	for i := 0; i < 16; i++ {
+		value := []byte(fmt.Sprintf("attr%d", i))
+		for len(value) < 36 {
+			value = append(value, 0)
+		}
+		merkleLeaves1 = append(merkleLeaves1, Attribute{value: value})
+		leaveHash, _ := merkleLeaves1[i].CalculateHash()
+		attributeList1 = append(attributeList1, leaveHash)
 	}
 
-	merkleTree1, err := merkletree.NewTreeWithHashStrategy(attribute_list1, hashStrategy)
+	merkleTree1, err := merkletree.NewTreeWithHashStrategy(merkleLeaves1, hashStrategy)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -98,11 +104,63 @@ func Test() {
 		commUint32[i] = uint32(commFes[i])
 	}
 
-	//msgUint32 := []uint32{26331, 30185, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
+	numOfCerts := 1
+	var certs [][][]uint32 = make([][][]uint32, numOfCerts)
+	var numOfAttributes []uint64
+
+	for i := 0; i < numOfCerts; i++ {
+		certs[i] = make([][]uint32, len(attributeList1))
+		numOfAttributes = append(numOfAttributes, uint64(len(attributeList1)))
+		for j := 0; j < len(attributeList1); j++ {
+			attrFes := common.UnpackFesInt(attributeList1[j], common.Q)
+			certs[i][j] = make([]uint32, len(attrFes))
+			for k := 0; k < len(attrFes); k++ {
+				certs[i][j][k] = uint32(attrFes[k])
+			}
+		}
+	}
+
+	var disclosedIndices [][]uint64
+	var numOfDisclosedIndices []uint64
+
+	disclosedIndices = append(disclosedIndices, []uint64{4, 7, 8, 11, 15})
+	numOfDisclosedIndices = append(numOfDisclosedIndices, uint64(len(disclosedIndices[0])))
+
+	var commitments [][]uint32
+	commitments = append(commitments, commUint32)
+
+	var nonces [][]uint32
+	nonces = append(nonces, nonceUint32)
+
+	var merkleProofLen uint64 = 0
+
+	start := time.Now()
+
+	certProof := C.prove_attributes((C.size_t)(numOfCerts), (*C.uint32_t)(&certs[0][0][0]), (*C.size_t)(&numOfAttributes[0]), (*C.size_t)(&disclosedIndices[0][0]), (*C.size_t)(&numOfDisclosedIndices[0]), (*C.uint32_t)(&commitments[0][0]), (*C.uint32_t)(&nonces[0][0]), (*C.size_t)(&merkleProofLen))
+
+	fmt.Println("Cert proof generated in: ", time.Since(start))
+
+	var disclosedAttributes [][][]uint32 = make([][][]uint32, numOfCerts)
+
+	for i := 0; i < numOfCerts; i++ {
+		disclosedAttributes[i] = make([][]uint32, int(numOfDisclosedIndices[i]))
+		for j := 0; j < int(numOfDisclosedIndices[i]); j++ {
+			disclosedAttributes[i][j] = make([]uint32, len(certs[i][disclosedIndices[i][j]]))
+			copy(disclosedAttributes[i][j], certs[i][disclosedIndices[i][j]])
+		}
+	}
+
+	start = time.Now()
+
+	certResult := C.verify_attributes(certProof, (C.size_t)(merkleProofLen), (C.size_t)(numOfCerts), (*C.uint32_t)(&disclosedAttributes[0][0][0]), (*C.size_t)(&numOfDisclosedIndices[0]), (*C.size_t)(&disclosedIndices[0][0]), (*C.size_t)(&numOfAttributes[0]), (*C.uint32_t)(&commitments[0][0]), (*C.uint32_t)(&nonces[0][0]))
+
+	fmt.Println("Vert verified in: ", time.Since(start))
+
+	fmt.Println("Cert verification result ", certResult)
 
 	len := 0
 
-	start := time.Now()
+	start = time.Now()
 
 	/* for j := 0; j < 4; j++ {
 		for i := 0; i < 256; i++ {
@@ -118,14 +176,9 @@ func Test() {
 
 	result := C.verify_signature(proof, (C.size_t)(len), (*C.uint32_t)(&commUint32[0]), (*C.uint32_t)(&nonceUint32[0]))
 
-	//proof := C.prove_attributes(1)
-
 	fmt.Println("Verified in: ", time.Since(start))
 
 	fmt.Println("Result ", result)
-	//println!("{}", unsafe{*verify(proof_bytes_ptr, &len, mbytes.as_ptr())});
-
-	//unsigned char* zBytes, unsigned char*  wBytes, unsigned char*  qwBytes, unsigned char*  ctildeBytes, unsigned char*  mBytes, unsigned char*  comrBytes
 
 	// Verify the signature
 	if zkDilithium.Verify(pk.Rho, msg1, sig, pk.T) {

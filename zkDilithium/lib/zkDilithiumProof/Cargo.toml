@@ -27,3 +27,6 @@ env_logger = { version = "0.9", default-features = false }
 generic_singleton = "0.4.1"
 atomic_refcell = "0.1.9"
 libc = "0.2.2"
+
+[profile.release]
+panic = "unwind"  # Allows the panic message to propagate

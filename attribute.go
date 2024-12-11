@@ -2,6 +2,7 @@ package gabi
 
 import (
 	"bytes"
+	"fmt"
 
 	"github.com/BeardOfDoom/pq-gabi/internal/common"
 	"github.com/BeardOfDoom/pq-gabi/poseidon"
@@ -18,12 +19,24 @@ type Attribute struct {
 
 // CalculateHash hashes the values of a Attribute
 func (t Attribute) CalculateHash() ([]byte, error) {
-	for len(t.value)%3 != 0 {
+
+	if len(t.value) > 36 {
+		fmt.Println("The value ", t.value, " is too long.")
+	}
+
+	for len(t.value) < 36 {
 		t.value = append(t.value, 0)
 	}
 
+	valueFes := common.UnpackFesInt(t.value, common.Q)
+
+	/* for i := 0; i < len(unpackedValue); i++ {
+		valueFes[i] = unpackedValue[i]
+	} */
+
 	h := poseidon.NewPoseidon(nil, zkDilithium.POS_RF, zkDilithium.POS_T, zkDilithium.POS_RATE, common.Q)
-	if _, err := h.Write(t.value); err != nil {
+
+	if err := h.WriteInts(valueFes); err != nil {
 		return nil, err
 	}
 

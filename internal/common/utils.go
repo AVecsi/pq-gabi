@@ -2,7 +2,6 @@ package common
 
 import (
 	"bytes"
-	"fmt"
 
 	"github.com/BeardOfDoom/pq-gabi/big"
 	"golang.org/x/crypto/sha3"
@@ -113,7 +112,6 @@ func UnpackFesLoose(bs []byte) []int {
 // This function unpacks 256 bit to 12 field elements, making sure the output is unique for every input.
 
 func UnpackFes22Bit(bs []byte) []int {
-	fmt.Println(bs)
 	if len(bs) > 32 {
 		panic("invalid byte array length")
 	} else if len(bs) < 32 {
