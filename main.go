@@ -32,7 +32,7 @@ func Test() {
 
 	var merkleLeaves1 []merkletree.Content
 	var attributeList1 [][]byte
-	for i := 0; i < 16; i++ {
+	for i := 0; i < 128; i++ {
 		value := []byte(fmt.Sprintf("attr%d", i))
 		for len(value) < 36 {
 			value = append(value, 0)
@@ -105,17 +105,20 @@ func Test() {
 	}
 
 	numOfCerts := 1
-	var certs [][][]uint32 = make([][][]uint32, numOfCerts)
+
+	numOfAllAttributes := 0
+	for i := 0; i < numOfCerts; i++ {
+		numOfAllAttributes += len(attributeList1)
+	}
+	var certs []uint32 = make([]uint32, numOfAllAttributes*12)
 	var numOfAttributes []uint64
 
 	for i := 0; i < numOfCerts; i++ {
-		certs[i] = make([][]uint32, len(attributeList1))
 		numOfAttributes = append(numOfAttributes, uint64(len(attributeList1)))
 		for j := 0; j < len(attributeList1); j++ {
 			attrFes := common.UnpackFesInt(attributeList1[j], common.Q)
-			certs[i][j] = make([]uint32, len(attrFes))
-			for k := 0; k < len(attrFes); k++ {
-				certs[i][j][k] = uint32(attrFes[k])
+			for k := 0; k < 12; k++ {
+				certs[i*len(attributeList1)+j*12+k] = uint32(attrFes[k])
 			}
 		}
 	}
@@ -123,7 +126,7 @@ func Test() {
 	var disclosedIndices [][]uint64
 	var numOfDisclosedIndices []uint64
 
-	disclosedIndices = append(disclosedIndices, []uint64{4, 7, 8, 11, 15})
+	disclosedIndices = append(disclosedIndices, []uint64{4})
 	numOfDisclosedIndices = append(numOfDisclosedIndices, uint64(len(disclosedIndices[0])))
 
 	var commitments [][]uint32
@@ -136,25 +139,40 @@ func Test() {
 
 	start := time.Now()
 
-	certProof := C.prove_attributes((C.size_t)(numOfCerts), (*C.uint32_t)(&certs[0][0][0]), (*C.size_t)(&numOfAttributes[0]), (*C.size_t)(&disclosedIndices[0][0]), (*C.size_t)(&numOfDisclosedIndices[0]), (*C.uint32_t)(&commitments[0][0]), (*C.uint32_t)(&nonces[0][0]), (*C.size_t)(&merkleProofLen))
+	certProof := C.prove_attributes((C.size_t)(numOfCerts), (*C.uint32_t)(&certs[0]), (*C.size_t)(&numOfAttributes[0]), (*C.size_t)(&disclosedIndices[0][0]), (*C.size_t)(&numOfDisclosedIndices[0]), (*C.uint32_t)(&commitments[0][0]), (*C.uint32_t)(&nonces[0][0]), (*C.size_t)(&merkleProofLen))
 
-	fmt.Println("Cert proof generated in: ", time.Since(start))
+	fmt.Println("\nCert proof generated in: ", time.Since(start))
 
-	var disclosedAttributes [][][]uint32 = make([][][]uint32, numOfCerts)
+	numOfAllDisclosedAttributes := 0
+	for i := 0; i < numOfCerts; i++ {
+		numOfAllDisclosedAttributes += int(numOfDisclosedIndices[i])
+	}
+
+	var disclosedAttributes []uint32 = make([]uint32, numOfAllDisclosedAttributes*12)
 
 	for i := 0; i < numOfCerts; i++ {
-		disclosedAttributes[i] = make([][]uint32, int(numOfDisclosedIndices[i]))
+		numOfAttributes = append(numOfAttributes, uint64(len(attributeList1)))
+		for j := 0; j < len(attributeList1); j++ {
+			attrFes := common.UnpackFesInt(attributeList1[j], common.Q)
+			for k := 0; k < 12; k++ {
+				certs[i*len(attributeList1)+j*12+k] = uint32(attrFes[k])
+			}
+		}
+	}
+
+	for i := 0; i < numOfCerts; i++ {
 		for j := 0; j < int(numOfDisclosedIndices[i]); j++ {
-			disclosedAttributes[i][j] = make([]uint32, len(certs[i][disclosedIndices[i][j]]))
-			copy(disclosedAttributes[i][j], certs[i][disclosedIndices[i][j]])
+			for k := 0; k < 12; k++ {
+				disclosedAttributes[i*int(numOfDisclosedIndices[i])+j*12+k] = certs[i*len(attributeList1)+int(disclosedIndices[i][j])*12+k]
+			}
 		}
 	}
 
 	start = time.Now()
 
-	certResult := C.verify_attributes(certProof, (C.size_t)(merkleProofLen), (C.size_t)(numOfCerts), (*C.uint32_t)(&disclosedAttributes[0][0][0]), (*C.size_t)(&numOfDisclosedIndices[0]), (*C.size_t)(&disclosedIndices[0][0]), (*C.size_t)(&numOfAttributes[0]), (*C.uint32_t)(&commitments[0][0]), (*C.uint32_t)(&nonces[0][0]))
+	certResult := C.verify_attributes(certProof, (C.size_t)(merkleProofLen), (C.size_t)(numOfCerts), (*C.uint32_t)(&disclosedAttributes[0]), (*C.size_t)(&numOfDisclosedIndices[0]), (*C.size_t)(&disclosedIndices[0][0]), (*C.size_t)(&numOfAttributes[0]), (*C.uint32_t)(&commitments[0][0]), (*C.uint32_t)(&nonces[0][0]))
 
-	fmt.Println("Vert verified in: ", time.Since(start))
+	fmt.Println("Cert verified in: ", time.Since(start))
 
 	fmt.Println("Cert verification result ", certResult)
 

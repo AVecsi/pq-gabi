@@ -113,8 +113,8 @@ impl ThinDilProver {
                             bitdec(state[QIND].to_string().parse::<u64>().unwrap(), &mut state[QRANGEIND..(QRANGEIND+QRANGE)]);
                             bitdec(state[RIND].to_string().parse::<u64>().unwrap(), &mut state[RRANGEIND..(RRANGEIND+RRANGE)]);
     
-                            bitdec(state[QIND].to_string().parse::<u64>().unwrap() + (M/(base+1)) as u64, &mut state[QRANGEIND+QRANGE..(QRANGEIND+2*QRANGE)]);
-                            bitdec(state[RIND].to_string().parse::<u64>().unwrap() + 256 - (base+1) as u64, &mut state[RRANGEIND+RRANGE..(RRANGEIND+2*RRANGE)]);
+                            bitdec((M/(base+1)) as u64, &mut state[QRANGEIND+QRANGE..(QRANGEIND+2*QRANGE)]);
+                            bitdec(256 - (base+1) as u64, &mut state[RRANGEIND+RRANGE..(RRANGEIND+2*RRANGE)]);
     
                             // Hashing ctilde to ball
                             // Swapping and negating entries of c as described in Dilithium.v3
@@ -285,6 +285,19 @@ impl ThinDilProver {
                     print!("{} ", state[i]);
                 }
                 println!(); */
+                /* if step < 24 {
+                    print!("{}: ", step);
+                    for i in 0..CTILDEIND {
+                        if i == QIND {
+                            print!("QIND ");
+                        }
+                        if i == SWAPDECIND {
+                            print!("SWAP ");
+                        }
+                        print!("{} ", state[i]);
+                    }
+                    println!();
+                } */
             },
         );
 

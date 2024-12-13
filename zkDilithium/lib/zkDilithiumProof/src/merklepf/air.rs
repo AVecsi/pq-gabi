@@ -170,11 +170,11 @@ impl Air for MerkleAir {
             //Assert that the disclosed attributes were loaded to the hash space on the correct step
             let highest_disclosed_index = self.disclosed_indices[cert_index][self.disclosed_indices[cert_index].len() - 1];
             let mut i = 1;
-            while i < highest_disclosed_index {
+            while i <= highest_disclosed_index {
                 i *= 2;
             }
             let load_attribute_steps = leaf_steps_in_postorder(i - 1);
-
+            
             let mut j = 0;
             for (i, step) in load_attribute_steps.iter().enumerate() {
                 //i*2th and i*2+1th attributes are loaded in step
