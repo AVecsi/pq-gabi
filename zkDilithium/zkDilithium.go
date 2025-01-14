@@ -19,7 +19,7 @@ const BETA = 80 //TAU * ETA
 const CSIZE = 12 // number of field elements to use for c tilde
 const MUSIZE = 24
 
-type zkDilSignature struct {
+type ZkDilSignature struct {
 	CTilde []int        `json:"ctilde"`
 	Z      *algebra.Vec `json:"z"`
 }
@@ -106,7 +106,7 @@ func SampleInBall(h *poseidon.Poseidon) *algebra.Poly {
 	return &algebra.Poly{ret}
 }
 
-func Sign(rho, key, msg []byte, t, s1, s2 *algebra.Vec) zkDilSignature {
+func Sign(rho, key, msg []byte, t, s1, s2 *algebra.Vec) ZkDilSignature {
 
 	// Pack t
 	tPacked := t.Pack()
@@ -121,7 +121,7 @@ func Sign(rho, key, msg []byte, t, s1, s2 *algebra.Vec) zkDilSignature {
 	h.WriteInts(common.UnpackFesLoose(tr))
 	h.Permute()
 	h.WriteInts(common.UnpackFesInt(msg, common.Q))
-	mu, _ := h.Read(MUSIZE)
+	mu := h.Read(MUSIZE)
 
 	// Apply NTT
 	s1Hat := s1.NTT()
@@ -145,7 +145,7 @@ func Sign(rho, key, msg []byte, t, s1, s2 *algebra.Vec) zkDilSignature {
 				h.WriteInts([]int{int(w1.Ps[j].Cs[i])})
 			}
 		}
-		cTilde, _ := h.Read(CSIZE)
+		cTilde := h.Read(CSIZE)
 
 		// Sample challenge c
 		h = poseidon.NewPoseidon([]int{2}, POS_RF, POS_T, POS_RATE, common.Q)
@@ -175,11 +175,11 @@ func Sign(rho, key, msg []byte, t, s1, s2 *algebra.Vec) zkDilSignature {
 		}
 
 		// Return the signature
-		return zkDilSignature{cTilde, z}
+		return ZkDilSignature{cTilde, z}
 	}
 }
 
-func Verify(rho, msg []byte, sig zkDilSignature, t *algebra.Vec) bool {
+func Verify(rho, msg []byte, sig ZkDilSignature, t *algebra.Vec) bool {
 
 	tPacked := t.Pack()
 
@@ -190,7 +190,7 @@ func Verify(rho, msg []byte, sig zkDilSignature, t *algebra.Vec) bool {
 	h.WriteInts(common.UnpackFesLoose(tr))
 	h.Permute()
 	h.WriteInts(common.UnpackFesInt(msg, common.Q))
-	mu, _ := h.Read(MUSIZE)
+	mu := h.Read(MUSIZE)
 
 	// Sample challenge c
 	c := SampleInBall(poseidon.NewPoseidon(append([]int{2}, sig.CTilde...), POS_RF, POS_T, POS_RATE, common.Q))
@@ -220,7 +220,7 @@ func Verify(rho, msg []byte, sig zkDilSignature, t *algebra.Vec) bool {
 			h.WriteInts([]int{int(w1.Ps[j].Cs[i])})
 		}
 	}
-	cTilde2, _ := h.Read(CSIZE)
+	cTilde2 := h.Read(CSIZE)
 
 	// Verify cTilde matches
 	for i := 0; i < len(sig.CTilde); i++ {

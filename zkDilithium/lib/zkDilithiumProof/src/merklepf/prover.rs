@@ -1,8 +1,3 @@
-// Copyright (c) Facebook, Inc. and its affiliates.
-//
-// This source code is licensed under the MIT license found in the
-// LICENSE file in the root directory of this source tree.
-
 use winterfell::{
     crypto::MerkleTree, ConstraintCompositionCoefficients, Trace, TraceInfo, TraceTable,
 };
@@ -14,20 +9,19 @@ use super::{
 
 use crate::utils::poseidon_23_spec::{self};
 
-// FIBONACCI PROVER
-// ================================================================================================
-
 pub struct MerkleProver {
     options: ProofOptions,
     attributes: Vec<Vec<[BaseElement; HASH_DIGEST_WIDTH]>>,
     disclosed_indices: Vec<Vec<usize>>,
-    comm: Vec<[BaseElement; HASH_RATE_WIDTH]>,
-    nonce: Vec<[BaseElement; 12]>
+    merkle_comm: Vec<[BaseElement; HASH_RATE_WIDTH]>,
+    secret_comm: [BaseElement; HASH_RATE_WIDTH],
+    nonce: Vec<[BaseElement; 12]>,
+    secret_nonce: [BaseElement; 12]
 }
 
 impl MerkleProver {
-    pub fn new(options: ProofOptions, attributes: Vec<Vec<[BaseElement; HASH_DIGEST_WIDTH]>>, disclosed_indices: Vec<Vec<usize>>, comm: Vec<[BaseElement; HASH_RATE_WIDTH]>, nonce: Vec<[BaseElement; 12]>) -> Self {
-        Self { options, attributes, disclosed_indices, comm, nonce }
+    pub fn new(options: ProofOptions, attributes: Vec<Vec<[BaseElement; HASH_DIGEST_WIDTH]>>, disclosed_indices: Vec<Vec<usize>>, merkle_comm: Vec<[BaseElement; HASH_RATE_WIDTH]>, secret_comm: [BaseElement; HASH_RATE_WIDTH], nonce: Vec<[BaseElement; 12]>, secret_nonce: [BaseElement; 12]) -> Self {
+        Self { options, attributes, disclosed_indices, merkle_comm, secret_comm, nonce, secret_nonce }
     }
 
     pub fn build_trace(&self) -> TraceTable<BaseElement> {
@@ -41,7 +35,7 @@ impl MerkleProver {
         }
         let trace_width = HASH_STATE_WIDTH*3 + (max_num_of_attributes.trailing_zeros() as usize)*HASH_DIGEST_WIDTH + HASH_DIGEST_WIDTH;
 
-
+        let secret_commitment_length = HASH_CYCLE_LEN;
         let mut merkle_trace_lengths = Vec::new();
         let mut merkle_trace_lengths_sum = 0;
 
@@ -55,7 +49,7 @@ impl MerkleProver {
         //trace length must be power of 2
         let mut i = 32;
         //Added 2 because of the winterfell artifact at the end of trace
-        while i < merkle_trace_lengths_sum + commitment_trace_length_sum + 2 {
+        while i < secret_commitment_length + merkle_trace_lengths_sum + commitment_trace_length_sum + 2 {
             i *= 2;
         }
         let trace_padded_length = i;
@@ -67,14 +61,18 @@ impl MerkleProver {
             |state| {
                 for i in 0..HASH_DIGEST_WIDTH {
                     state[i] = self.attributes[0][0][i];
-                    state[HASH_DIGEST_WIDTH + i] = self.attributes[0][1][i];
+                    state[i + HASH_DIGEST_WIDTH] = self.secret_nonce[i];
                     //TODO If the execution trace is changed it will break, unless it stays at the end
                     state[trace_width - HASH_DIGEST_WIDTH + i] = self.attributes[0][0][i];
                 }
             },
             |step, state| {
-                if step < merkle_trace_lengths_sum + commitment_trace_length_sum {
-                    let mut step_in_cert = step;
+                if step < secret_commitment_length {
+                    if step % HASH_CYCLE_LEN > 0 {
+                        poseidon_23_spec::apply_round(&mut state[0..(3*HASH_STATE_WIDTH)], step - 1);
+                    }
+                } else if step < secret_commitment_length + merkle_trace_lengths_sum + commitment_trace_length_sum {
+                    let mut step_in_cert = step - secret_commitment_length;
                     let mut cert_index = 0;
                     for i in 0..merkle_trace_lengths.len()-1 {
                         if step_in_cert >= merkle_trace_lengths[i] + HASH_CYCLE_LEN {
@@ -84,7 +82,6 @@ impl MerkleProver {
                     }
                     let cycle_pos = step % HASH_CYCLE_LEN;
 
-                    //Not the best as it will redo the init part for the first cert
                     if step_in_cert == 0 {
                         //Init
                         for i in 0..HASH_DIGEST_WIDTH {
@@ -197,7 +194,7 @@ impl Prover for MerkleProver {
         for i in 0.. self.attributes.len() {
             num_of_attributes.push(self.attributes[i].len());
         }
-        PublicInputs{disclosed_attributes: disclosed_attributes, indices: self.disclosed_indices.clone(), num_of_attributes: num_of_attributes, comm: self.comm.clone(), nonce: self.nonce.clone()}
+        PublicInputs{disclosed_attributes: disclosed_attributes, indices: self.disclosed_indices.clone(), num_of_attributes: num_of_attributes, merkle_comm: self.merkle_comm.clone(), secret_comm: self.secret_comm.clone(), nonce: self.nonce.clone(), secret_nonce: self.secret_nonce}
     }
     fn options(&self) -> &ProofOptions {
         &self.options

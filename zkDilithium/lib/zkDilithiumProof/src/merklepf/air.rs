@@ -25,8 +25,10 @@ pub struct PublicInputs {
     pub disclosed_attributes: Vec<Vec<[BaseElement; HASH_DIGEST_WIDTH]>>,
     pub indices: Vec<Vec<usize>>,
     pub num_of_attributes: Vec<usize>,
-    pub comm: Vec<[BaseElement; HASH_RATE_WIDTH]>,
-    pub nonce: Vec<[BaseElement; 12]>
+    pub merkle_comm: Vec<[BaseElement; HASH_RATE_WIDTH]>,
+    pub secret_comm: [BaseElement; HASH_RATE_WIDTH],
+    pub nonce: Vec<[BaseElement; 12]>,
+    pub secret_nonce: [BaseElement; 12]
 }
 
 impl Serializable for PublicInputs {
@@ -37,6 +39,9 @@ impl Serializable for PublicInputs {
                 _target.write(self.nonce[i][j]);
             }
         }
+        for i in 0..self.secret_nonce.len() {
+            _target.write(self.secret_nonce[i]);
+        }
     }
 }
 
@@ -45,8 +50,10 @@ pub struct MerkleAir {
     disclosed_attributes: Vec<Vec<[BaseElement; HASH_DIGEST_WIDTH]>>,
     disclosed_indices: Vec<Vec<usize>>,
     num_of_attributes: Vec<usize>,
-    comm: Vec<[BaseElement; HASH_RATE_WIDTH]>,
-    nonce: Vec<[BaseElement; 12]>
+    merkle_comm: Vec<[BaseElement; HASH_RATE_WIDTH]>,
+    secret_comm: [BaseElement; HASH_RATE_WIDTH],
+    nonce: Vec<[BaseElement; 12]>,
+    secret_nonce: [BaseElement; 12]
 }
 
 impl Air for MerkleAir {
@@ -61,7 +68,7 @@ impl Air for MerkleAir {
         degrees.append(&mut vec![TransitionConstraintDegree::with_cycles(3, vec![trace_info.length()]); 6*HASH_STATE_WIDTH]); //hash_space
         degrees.append(&mut vec![TransitionConstraintDegree::with_cycles(1, vec![trace_info.length()]); trace_info.width()-HASH_DIGEST_WIDTH - STORAGE_START]); //storage
 
-        let mut num_assertions = 0;
+        let mut num_assertions = HASH_DIGEST_WIDTH + HASH_RATE_WIDTH;
         for i in 0..pub_inputs.disclosed_attributes.len() {
             num_assertions += pub_inputs.disclosed_attributes[i].len() * HASH_DIGEST_WIDTH;
             num_assertions += HASH_DIGEST_WIDTH + HASH_RATE_WIDTH;
@@ -79,8 +86,10 @@ impl Air for MerkleAir {
             disclosed_attributes: pub_inputs.disclosed_attributes,
             disclosed_indices: pub_inputs.indices,
             num_of_attributes: pub_inputs.num_of_attributes,
-            comm: pub_inputs.comm,
-            nonce: pub_inputs.nonce
+            merkle_comm: pub_inputs.merkle_comm,
+            secret_comm: pub_inputs.secret_comm,
+            nonce: pub_inputs.nonce,
+            secret_nonce: pub_inputs.secret_nonce
         }
     }
 
@@ -165,7 +174,17 @@ impl Air for MerkleAir {
     fn get_assertions(&self) -> Vec<Assertion<Self::BaseField>> {
         let mut main_assertions = Vec::new();
 
-        let mut steps_done = 0;
+        //Assert that the secret_nonce in the commitment is correct
+        for i in 0..HASH_DIGEST_WIDTH {
+            main_assertions.push(Assertion::single(i + HASH_DIGEST_WIDTH, 1, self.secret_nonce[i]));
+        }
+
+        //Assert that the secret_comm was computed correctly
+        for i in 0..HASH_RATE_WIDTH {
+            main_assertions.push(Assertion::single(i, HASH_CYCLE_LEN, self.secret_comm[i]));
+        }
+
+        let mut steps_done = HASH_CYCLE_LEN;
         for cert_index in 0..self.disclosed_attributes.len() {
             //Assert that the disclosed attributes were loaded to the hash space on the correct step
             let highest_disclosed_index = self.disclosed_indices[cert_index][self.disclosed_indices[cert_index].len() - 1];
@@ -200,7 +219,7 @@ impl Air for MerkleAir {
 
             //Assert the final result is the given commitment
             for i in 0..HASH_RATE_WIDTH {
-                main_assertions.push(Assertion::single(i, steps_done+(self.num_of_attributes[cert_index]) * HASH_CYCLE_LEN, self.comm[cert_index][i]));
+                main_assertions.push(Assertion::single(i, steps_done+(self.num_of_attributes[cert_index]) * HASH_CYCLE_LEN, self.merkle_comm[cert_index][i]));
             }
 
             //Assert that the hash rate was cleaned up correctly
@@ -311,7 +330,7 @@ fn get_hashmask_constants(padded_trace_length: usize, num_of_attributes: Vec<usi
         trace_length += (num_of_attributes[i] as usize) * HASH_CYCLE_LEN;
     }
 
-    for i in 1..trace_length{
+    for i in 1..HASH_CYCLE_LEN + trace_length{
         hashmask_const[i] = HASH_CYCLE_MASK[(i - 1)%HASH_CYCLE_LEN];
     }
 
@@ -321,7 +340,7 @@ fn get_hashmask_constants(padded_trace_length: usize, num_of_attributes: Vec<usi
 fn get_move_to_storage_constants(padded_trace_length: usize, num_of_attributes: Vec<usize>) -> Vec<BaseElement> {
     let mut move_to_storage_const = vec![BaseElement::ZERO; padded_trace_length];
 
-    let mut steps_done = 0;
+    let mut steps_done = HASH_CYCLE_LEN;
     for i in 0..num_of_attributes.len() {
 
         let mut load_steps = leaf_steps_in_postorder(num_of_attributes[i] - 1);
@@ -346,7 +365,7 @@ fn get_move_to_storage_constants(padded_trace_length: usize, num_of_attributes: 
 fn get_move_from_storage_constants(padded_trace_length: usize, num_of_attributes: Vec<usize>) -> Vec<BaseElement> {
     let mut move_from_storage_const = vec![BaseElement::ZERO; padded_trace_length];
     
-    let mut steps_done = 0;
+    let mut steps_done = HASH_CYCLE_LEN;
     for i in 0..num_of_attributes.len() {
 
         let mut load_steps = leaf_steps_in_postorder(num_of_attributes[i] - 1);
@@ -371,7 +390,7 @@ fn get_move_from_storage_constants(padded_trace_length: usize, num_of_attributes
 fn get_merkle_root_copy_constants(padded_trace_length: usize, num_of_attributes: Vec<usize>) -> Vec<BaseElement> {
     let mut merkle_root_copy_const = vec![BaseElement::ZERO; padded_trace_length];
     
-    let mut merkle_trace_end = 0;
+    let mut merkle_trace_end = HASH_CYCLE_LEN;
     for i in 0..num_of_attributes.len() {
         merkle_trace_end += (num_of_attributes[i] as usize - 1) * HASH_CYCLE_LEN;
         merkle_root_copy_const[merkle_trace_end] = BaseElement::ONE;
@@ -387,7 +406,8 @@ fn get_first_attribute_copy_constants(padded_trace_length: usize, num_of_attribu
     let mut first_attribute_copy_const = vec![BaseElement::ZERO; padded_trace_length];
     
     first_attribute_copy_const[0] = BaseElement::ONE;
-    let mut merkle_trace_begin = 1;
+    first_attribute_copy_const[HASH_CYCLE_LEN + 1] = BaseElement::ONE;
+    let mut merkle_trace_begin = HASH_CYCLE_LEN + 1;
     for i in 0..num_of_attributes.len() - 1{
         //Set the counter to the beginning of the next cert
         merkle_trace_begin += (num_of_attributes[i] as usize) * HASH_CYCLE_LEN;

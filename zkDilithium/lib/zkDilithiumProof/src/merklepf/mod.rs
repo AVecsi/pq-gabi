@@ -31,8 +31,10 @@ pub const STORAGE_START: usize = HASH_STATE_WIDTH*3;
 pub(crate) fn prove(
     attributes: Vec<Vec<[BaseElement; HASH_DIGEST_WIDTH]>>,
     disclosed_indices: Vec<Vec<usize>>,
-    comm: Vec<[BaseElement; HASH_RATE_WIDTH]>,
-    nonce: Vec<[BaseElement; 12]>
+    merkle_comm: Vec<[BaseElement; HASH_RATE_WIDTH]>,
+    secret_comm: [BaseElement; HASH_RATE_WIDTH],
+    nonce: Vec<[BaseElement; 12]>,
+    secret_nonce: [BaseElement; 12]
 ) -> StarkProof {
         let options = ProofOptions::new(
             48, // number of queries
@@ -49,7 +51,7 @@ pub(crate) fn prove(
 
         // create a prover
         let now = Instant::now();
-        let prover = MerkleProver::new(options.clone(), attributes, disclosed_indices, comm, nonce);
+        let prover = MerkleProver::new(options.clone(), attributes, disclosed_indices, merkle_comm, secret_comm, nonce, secret_nonce);
 
         // generate execution trace
         let trace = prover.build_trace();
@@ -67,12 +69,12 @@ pub(crate) fn prove(
         prover.prove(trace).unwrap()
     }
 
-pub(crate) fn verify(proof: StarkProof, disclosed_attributes: Vec<Vec<[BaseElement; HASH_DIGEST_WIDTH]>>, indices: Vec<Vec<usize>>, num_of_attributes: Vec<usize>, comm: Vec<[BaseElement; HASH_RATE_WIDTH]>, nonce: Vec<[BaseElement; 12]>) -> Result<(), VerifierError> {
-    let pub_inputs = PublicInputs{disclosed_attributes, indices, num_of_attributes, comm, nonce};
+pub(crate) fn verify(proof: StarkProof, disclosed_attributes: Vec<Vec<[BaseElement; HASH_DIGEST_WIDTH]>>, indices: Vec<Vec<usize>>, num_of_attributes: Vec<usize>, merkle_comm: Vec<[BaseElement; HASH_RATE_WIDTH]>, secret_comm: [BaseElement; HASH_RATE_WIDTH], nonce: Vec<[BaseElement; 12]>,  secret_nonce: [BaseElement; 12]) -> Result<(), VerifierError> {
+    let pub_inputs = PublicInputs{disclosed_attributes, indices, num_of_attributes, merkle_comm, secret_comm, nonce, secret_nonce};
     winterfell::verify::<MerkleAir>(proof, pub_inputs)
 }
 
-pub(crate) fn verify_with_wrong_inputs(proof: StarkProof, disclosed_attributes: Vec<Vec<[BaseElement; HASH_DIGEST_WIDTH]>>, indices: Vec<Vec<usize>>, num_of_attributes: Vec<usize>, comm: Vec<[BaseElement; HASH_RATE_WIDTH]>, nonce: Vec<[BaseElement; 12]>) -> Result<(), VerifierError> {
-    let pub_inputs = PublicInputs{disclosed_attributes, indices, num_of_attributes, comm, nonce};
+pub(crate) fn verify_with_wrong_inputs(proof: StarkProof, disclosed_attributes: Vec<Vec<[BaseElement; HASH_DIGEST_WIDTH]>>, indices: Vec<Vec<usize>>, num_of_attributes: Vec<usize>, merkle_comm: Vec<[BaseElement; HASH_RATE_WIDTH]>, secret_comm: [BaseElement; HASH_RATE_WIDTH], nonce: Vec<[BaseElement; 12]>, secret_nonce: [BaseElement; 12]) -> Result<(), VerifierError> {
+    let pub_inputs = PublicInputs{disclosed_attributes, indices, num_of_attributes, merkle_comm, secret_comm, nonce, secret_nonce};
     winterfell::verify::<MerkleAir>(proof, pub_inputs)
 }

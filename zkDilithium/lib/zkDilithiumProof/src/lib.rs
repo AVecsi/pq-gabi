@@ -102,12 +102,14 @@ pub extern "C" fn verify_signature(proof_bytes_ptr: *const u8, proof_bytes_len: 
 }
 
 #[no_mangle]
-pub extern "C" fn prove_attributes(num_of_certs: usize, cert_list_ptr: *const u32, num_of_attributes: *const usize, disclosed_indices_ptr: *const usize, num_of_disclosed_indices: *const usize, commitments_ptr: *const u32, nonces_ptr: *const u32, out_proof_bytes_len: *mut usize) -> *const u8 {
+pub extern "C" fn prove_attributes(num_of_certs: usize, cert_list_ptr: *const u32, num_of_attributes: *const usize, disclosed_indices_ptr: *const usize, num_of_disclosed_indices: *const usize, merkle_commitments_ptr: *const u32, secret_commitment_ptr: *const u32, nonces_ptr: *const u32, secret_nonce_ptr: *const u32, out_proof_bytes_len: *mut usize) -> *const u8 {
 
     let mut cert_list = Vec::new();
     let mut disclosed_indices= Vec::new();
-    let mut comms = Vec::new();
+    let mut merkle_comms = Vec::new();
+    let mut secret_comm: [BaseElement; HASH_RATE_WIDTH] = [BaseElement::ZERO; HASH_RATE_WIDTH];
     let mut nonces = Vec::new();
+    let mut secret_nonce: [BaseElement; HASH_DIGEST_WIDTH] = [BaseElement::ZERO; HASH_DIGEST_WIDTH];
 
     let mut attributes_counter = 0;
     let mut disclosed_indeces_counter = 0;
@@ -131,11 +133,11 @@ pub extern "C" fn prove_attributes(num_of_certs: usize, cert_list_ptr: *const u3
         }
         disclosed_indeces_counter += current_num_of_disclosed_indices;
 
-        let mut comm: [BaseElement; HASH_RATE_WIDTH] = [BaseElement::ZERO; HASH_RATE_WIDTH];
+        let mut merkle_comm: [BaseElement; HASH_RATE_WIDTH] = [BaseElement::ZERO; HASH_RATE_WIDTH];
         for j in 0..HASH_RATE_WIDTH {
-            comm[j] = BaseElement::new(unsafe{*commitments_ptr.add(i*HASH_RATE_WIDTH+j)});
+            merkle_comm[j] = BaseElement::new(unsafe{*merkle_commitments_ptr.add(i*HASH_RATE_WIDTH+j)});
         }
-        comms.push(comm);
+        merkle_comms.push(merkle_comm);
 
         let mut nonce: [BaseElement; HASH_DIGEST_WIDTH] = [BaseElement::ZERO; HASH_DIGEST_WIDTH];
         for j in 0..HASH_DIGEST_WIDTH {
@@ -144,8 +146,15 @@ pub extern "C" fn prove_attributes(num_of_certs: usize, cert_list_ptr: *const u3
         nonces.push(nonce);
     }
 
+    for j in 0..HASH_RATE_WIDTH {
+        secret_comm[j] = BaseElement::new(unsafe{*secret_commitment_ptr.add(j)});
+    }
 
-    let proof_bytes = merklepf::prove(cert_list.clone(), disclosed_indices.clone(), comms.clone(), nonces.clone()).to_bytes();
+    for j in 0..HASH_DIGEST_WIDTH {
+        secret_nonce[j] = BaseElement::new(unsafe{*secret_nonce_ptr.add(j)});
+    }
+
+    let proof_bytes = merklepf::prove(cert_list.clone(), disclosed_indices.clone(), merkle_comms.clone(), secret_comm,  nonces.clone(), secret_nonce).to_bytes();
 
     unsafe {
         *out_proof_bytes_len = proof_bytes.len();
@@ -155,15 +164,17 @@ pub extern "C" fn prove_attributes(num_of_certs: usize, cert_list_ptr: *const u3
 }
 
 #[no_mangle]
-pub extern "C" fn verify_attributes(proof_bytes_ptr: *const u8, proof_bytes_len: usize, num_of_certs: usize, disclosed_attributes_ptr: *const u32, num_of_disclosed_attributes: *const usize, disclosed_indices_ptr: *const usize, num_of_attributes_ptr: *const usize, commitments_ptr: *const u32, nonces_ptr: *const u32) -> u32 {
+pub extern "C" fn verify_attributes(proof_bytes_ptr: *const u8, proof_bytes_len: usize, num_of_certs: usize, disclosed_attributes_ptr: *const u32, num_of_disclosed_attributes: *const usize, disclosed_indices_ptr: *const usize, num_of_attributes_ptr: *const usize, merkle_commitments_ptr: *const u32, secret_commitment_ptr: *const u32, nonces_ptr: *const u32, secret_nonce_ptr: *const u32) -> u32 {
 
     let proof = StarkProof::from_bytes(unsafe {slice::from_raw_parts(proof_bytes_ptr, proof_bytes_len)}).unwrap();
 
     let mut disclosed_attributes = Vec::new();
     let mut disclosed_indices= Vec::new();
     let mut num_of_attributes = Vec::new();
-    let mut comms = Vec::new();
+    let mut merkle_comms = Vec::new();
+    let mut secret_comm: [BaseElement; HASH_RATE_WIDTH] = [BaseElement::ZERO; HASH_RATE_WIDTH];
     let mut nonces = Vec::new();
+    let mut secret_nonce: [BaseElement; HASH_DIGEST_WIDTH] = [BaseElement::ZERO; HASH_DIGEST_WIDTH];
 
     let mut disclosed_attributes_counter = 0;
 
@@ -184,11 +195,11 @@ pub extern "C" fn verify_attributes(proof_bytes_ptr: *const u8, proof_bytes_len:
 
         num_of_attributes.push(unsafe {*num_of_attributes_ptr.add(i)});
 
-        let mut comm: [BaseElement; HASH_RATE_WIDTH] = [BaseElement::ZERO; HASH_RATE_WIDTH];
+        let mut merkle_comm: [BaseElement; HASH_RATE_WIDTH] = [BaseElement::ZERO; HASH_RATE_WIDTH];
         for j in 0..HASH_RATE_WIDTH {
-            comm[j] = BaseElement::new(unsafe{*commitments_ptr.add(i*HASH_RATE_WIDTH+j)});
+            merkle_comm[j] = BaseElement::new(unsafe{*merkle_commitments_ptr.add(i*HASH_RATE_WIDTH+j)});
         }
-        comms.push(comm);
+        merkle_comms.push(merkle_comm);
 
         let mut nonce: [BaseElement; HASH_DIGEST_WIDTH] = [BaseElement::ZERO; HASH_DIGEST_WIDTH];
         for j in 0..HASH_DIGEST_WIDTH {
@@ -197,7 +208,15 @@ pub extern "C" fn verify_attributes(proof_bytes_ptr: *const u8, proof_bytes_len:
         nonces.push(nonce);
     }
 
-    match merklepf::verify(proof.clone(), disclosed_attributes.clone(), disclosed_indices.clone(), num_of_attributes.clone(), comms.clone(), nonces.clone()) {
+    for j in 0..HASH_RATE_WIDTH {
+        secret_comm[j] = BaseElement::new(unsafe{*secret_commitment_ptr.add(j)});
+    }
+
+    for j in 0..HASH_DIGEST_WIDTH {
+        secret_nonce[j] = BaseElement::new(unsafe{*secret_nonce_ptr.add(j)});
+    }
+
+    match merklepf::verify(proof.clone(), disclosed_attributes.clone(), disclosed_indices.clone(), num_of_attributes.clone(), merkle_comms.clone(), secret_comm, nonces.clone(), secret_nonce) {
         Ok(_) => {
             println!("Verified.");
             return 1;
@@ -210,7 +229,7 @@ pub extern "C" fn verify_attributes(proof_bytes_ptr: *const u8, proof_bytes_len:
     }
 }
 
-#[cfg(test)]
+//#[cfg(test)]
 /* pub mod test1 {
 
     use std::ffi::CString;
@@ -281,6 +300,9 @@ pub mod test2 {
 
         let comm_u32: [u32; HASH_RATE_WIDTH] = [1072033, 2612375, 4472495, 5737496, 1806042, 4788904, 2110758, 1949203, 981614, 6493472, 2941749, 1256222, 3620234, 4878823, 2472280, 2939805, 5175205, 3146359, 5420779, 6346899, 5696743, 4010546, 6632886, 4140035];
         let comm: [BaseElement; HASH_RATE_WIDTH] = comm_u32.map(BaseElement::new);
+
+        let secret_comm_u32: [u32; HASH_RATE_WIDTH] = [3598049, 5948367, 495133, 3537745, 3028752, 4899071, 6361326, 269242, 4399013, 7200862, 4385127, 7111978, 5085508, 1316843, 4254913, 1067592, 4286291, 1568535, 4877137, 1795638, 969826, 4536722, 5895964, 833797];
+        let secret_comm: [BaseElement; HASH_RATE_WIDTH] = secret_comm_u32.map(BaseElement::new);
 
         let nonce0: [BaseElement; HASH_DIGEST_WIDTH] = [BaseElement::ONE; HASH_DIGEST_WIDTH];
 
@@ -360,13 +382,13 @@ pub mod test2 {
 
         let mut start = Instant::now();
 
-        let proof = merklepf::prove(cert_list.clone(), disclosed_indices.clone(), comms.clone(), nonces.clone());
+        let proof = merklepf::prove(cert_list.clone(), disclosed_indices.clone(), comms.clone(), secret_comm, nonces.clone(), nonce0);
         println!("{:?}", start.elapsed());
         let proof_bytes = proof.to_bytes();
         println!("Proof size: {:.1} KB", proof_bytes.len() as f64 / 1024f64);
         println!("Proof security: {} bits", proof.security_level(true));
         start = Instant::now();
-        match merklepf::verify(proof.clone(), disclosed_attributes.clone(), disclosed_indices.clone(), num_of_attributes.clone(), comms.clone(), nonces.clone()) {
+        match merklepf::verify(proof.clone(), disclosed_attributes.clone(), disclosed_indices.clone(), num_of_attributes.clone(), comms.clone(), secret_comm, nonces.clone(), nonce0) {
             Ok(_) => {
                 println!("Verified.");
             },
