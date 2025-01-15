@@ -94,14 +94,9 @@ func Test() {
 		nonceUint32[i] = uint32(nonce[i])
 	}
 
-	h := poseidon.NewPoseidon(nil, zkDilithium.POS_RF, zkDilithium.POS_T, zkDilithium.POS_RATE, common.Q)
-	h.WriteInts(append(msgFes, nonce...))
-	merkleCommFes := h.Read(24)
-
-	merkleCommUint32 := make([]uint32, 24)
-
-	for i := range merkleCommFes {
-		merkleCommUint32[i] = uint32(merkleCommFes[i])
+	merkleComm, err := NewRandomCommitment(msgFes, nonce)
+	if err != nil {
+		panic(err.Error())
 	}
 
 	numOfCerts := 1
@@ -123,17 +118,10 @@ func Test() {
 		}
 	}
 
-	h = poseidon.NewPoseidon(nil, zkDilithium.POS_RF, zkDilithium.POS_T, zkDilithium.POS_RATE, common.Q)
-	h.WriteInts(append(common.UnpackFesInt(attributeList1[0], common.Q), nonce...))
-	secretCommFes := h.Read(24)
-
-	secretCommUint32 := make([]uint32, 24)
-
-	for i := range secretCommFes {
-		secretCommUint32[i] = uint32(secretCommFes[i])
+	secretComm, err := NewRandomCommitment(common.UnpackFesInt(attributeList1[0], common.Q), nonce)
+	if err != nil {
+		panic(err.Error())
 	}
-
-	fmt.Println(secretCommUint32)
 
 	var disclosedIndices [][]uint64
 	var numOfDisclosedIndices []uint64
@@ -142,7 +130,7 @@ func Test() {
 	numOfDisclosedIndices = append(numOfDisclosedIndices, uint64(len(disclosedIndices[0])))
 
 	var merkleCommitments [][]uint32
-	merkleCommitments = append(merkleCommitments, merkleCommUint32)
+	merkleCommitments = append(merkleCommitments, merkleComm.comm)
 
 	var nonces [][]uint32
 	nonces = append(nonces, nonceUint32)
@@ -151,7 +139,7 @@ func Test() {
 
 	start := time.Now()
 
-	certProof := C.prove_attributes((C.size_t)(numOfCerts), (*C.uint32_t)(&certs[0]), (*C.size_t)(&numOfAttributes[0]), (*C.size_t)(&disclosedIndices[0][0]), (*C.size_t)(&numOfDisclosedIndices[0]), (*C.uint32_t)(&merkleCommitments[0][0]), (*C.uint32_t)(&secretCommUint32[0]), (*C.uint32_t)(&nonces[0][0]), (*C.uint32_t)(&nonceUint32[0]), (*C.size_t)(&merkleProofLen))
+	certProof := C.prove_attributes((C.size_t)(numOfCerts), (*C.uint32_t)(&certs[0]), (*C.size_t)(&numOfAttributes[0]), (*C.size_t)(&disclosedIndices[0][0]), (*C.size_t)(&numOfDisclosedIndices[0]), (*C.uint32_t)(&merkleCommitments[0][0]), (*C.uint32_t)(&secretComm.comm[0]), (*C.uint32_t)(&nonces[0][0]), (*C.uint32_t)(&nonceUint32[0]), (*C.size_t)(&merkleProofLen))
 
 	fmt.Println("\nCert proof generated in: ", time.Since(start))
 
@@ -182,7 +170,7 @@ func Test() {
 
 	start = time.Now()
 
-	certResult := C.verify_attributes(certProof, (C.size_t)(merkleProofLen), (C.size_t)(numOfCerts), (*C.uint32_t)(&disclosedAttributes[0]), (*C.size_t)(&numOfDisclosedIndices[0]), (*C.size_t)(&disclosedIndices[0][0]), (*C.size_t)(&numOfAttributes[0]), (*C.uint32_t)(&merkleCommitments[0][0]), (*C.uint32_t)(&secretCommUint32[0]), (*C.uint32_t)(&nonces[0][0]), (*C.uint32_t)(&nonceUint32[0]))
+	certResult := C.verify_attributes(certProof, (C.size_t)(merkleProofLen), (C.size_t)(numOfCerts), (*C.uint32_t)(&disclosedAttributes[0]), (*C.size_t)(&numOfDisclosedIndices[0]), (*C.size_t)(&disclosedIndices[0][0]), (*C.size_t)(&numOfAttributes[0]), (*C.uint32_t)(&merkleCommitments[0][0]), (*C.uint32_t)(&secretComm.comm[0]), (*C.uint32_t)(&nonces[0][0]), (*C.uint32_t)(&nonceUint32[0]))
 
 	fmt.Println("Cert verified in: ", time.Since(start))
 
@@ -199,12 +187,12 @@ func Test() {
 		fmt.Println()
 	} */
 
-	proof := C.prove_signature((*C.uint32_t)(z.IntArray()), (*C.uint32_t)(w.IntArray()), (*C.uint32_t)(qw.IntArray()), (*C.uint32_t)(&cTildeUint32[0]), (*C.uint32_t)(&msgUint32[0]), (*C.uint32_t)(&merkleCommUint32[0]), (*C.uint32_t)(&comr[0]), (*C.uint32_t)(&nonceUint32[0]), (*C.size_t)(unsafe.Pointer(&len)))
+	proof := C.prove_signature((*C.uint32_t)(z.IntArray()), (*C.uint32_t)(w.IntArray()), (*C.uint32_t)(qw.IntArray()), (*C.uint32_t)(&cTildeUint32[0]), (*C.uint32_t)(&msgUint32[0]), (*C.uint32_t)(&merkleComm.comm[0]), (*C.uint32_t)(&comr[0]), (*C.uint32_t)(&nonceUint32[0]), (*C.size_t)(unsafe.Pointer(&len)))
 
 	fmt.Println("Proof generated in: ", time.Since(start))
 	start = time.Now()
 
-	result := C.verify_signature(proof, (C.size_t)(len), (*C.uint32_t)(&merkleCommUint32[0]), (*C.uint32_t)(&nonceUint32[0]))
+	result := C.verify_signature(proof, (C.size_t)(len), (*C.uint32_t)(&merkleComm.comm[0]), (*C.uint32_t)(&nonceUint32[0]))
 
 	fmt.Println("Verified in: ", time.Since(start))
 
