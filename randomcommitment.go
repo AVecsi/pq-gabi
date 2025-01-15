@@ -34,3 +34,6 @@ func NewRandomCommitment(fieldElements []int, nonce []int) (*RandomCommitment, e
 
 	return &RandomCommitment{comm: randomCommUint32}, nil
 }
+
+type Commitment struct {
+}

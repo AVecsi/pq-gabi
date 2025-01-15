@@ -69,7 +69,7 @@ func (p *Poseidon) Write(data []byte) (n int, err error) {
 // Sum appends the hash and returns the resulting slice
 func (p *Poseidon) Sum(b []byte) []byte {
 	// Squeeze output
-	out, _ := p.Read(12)
+	out := p.Read(12)
 	outBytes := common.PackFesInt(out)
 	b = append(b, outBytes...) // Modulo to fit in a byte
 	return b
@@ -151,7 +151,7 @@ func (p *Poseidon) poseidonRound(r int) {
 }
 
 // Read function (squeezing phase)
-func (p *Poseidon) Read(n int) ([]int, error) {
+func (p *Poseidon) Read(n int) []int {
 	if p.absorbing {
 		p.absorbing = false
 		if p.i != 0 {
@@ -171,7 +171,7 @@ func (p *Poseidon) Read(n int) ([]int, error) {
 			p.PoseidonPerm()
 		}
 	}
-	return ret, nil
+	return ret
 }
 
 // ReadNoMod is Read without modulus

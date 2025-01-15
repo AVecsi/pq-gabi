@@ -4,15 +4,10 @@
 
 package gabi
 
-/*
 import (
-	"crypto/rand"
-
-	"github.com/go-errors/errors"
-
 	"github.com/BeardOfDoom/pq-gabi/big"
 	"github.com/BeardOfDoom/pq-gabi/gabikeys"
-	"github.com/BeardOfDoom/pq-gabi/internal/common"
+	"github.com/BeardOfDoom/pq-gabi/zkDilithium"
 )
 
 // Issuer holds the key material for a credential issuer.
@@ -31,80 +26,14 @@ func NewIssuer(sk *gabikeys.PrivateKey, pk *gabikeys.PublicKey, context *big.Int
 // the IssueCommitmentMessage provided. Note that this function DOES NOT check
 // the proofs containted in the IssueCommitmentMessage! That needs to be done at
 // a higher level!
-func (i *Issuer) IssueSignature(U *big.Int, attributes []*Attribute, nonce2 *big.Int, blind []int) (*IssueSignatureMessage, error) {
-	signature, mIssuer, err := i.signCommitmentAndAttributes(U, attributes, blind)
+func (i *Issuer) IssueSignature(U *big.Int, attributes []*Attribute, nonce *big.Int) (*zkDilithium.ZkDilSignature, error) {
+
+	certTree, err := BuildMerkleTree(attributes)
 	if err != nil {
 		return nil, err
 	}
-	proof, err := i.proveSignature(signature, nonce2)
-	if err != nil {
-		return nil, err
-	}
-	return &IssueSignatureMessage{Signature: signature, Proof: proof, MIssuer: mIssuer}, nil
+
+	signature := zkDilithium.Sign(i.Pk.Rho, i.Sk.CNS, certTree.MerkleRoot(), i.Pk.T, i.Sk.S1, i.Sk.S2)
+
+	return &signature, nil
 }
-
-// signCommitmentAndAttributes produces a (partial) signature on the commitment
-// and the attributes (some of which might be unknown to the issuer).
-// Arg "blind" is a list of indices representing the random blind attributes.
-// The signature does not verify (yet) due to blinding factors present.
-func (i *Issuer) signCommitmentAndAttributes(U *big.Int, attributes []*Attribute, blind []int) (*zkDilithium.zkDilSignature, map[int]*big.Int, error) {
-	mIssuer := make(map[int]*big.Int)
-	ms := append([]*big.Int{big.NewInt(0)}, attributes...)
-
-	for _, j := range blind {
-		if attributes[j] != nil {
-			return nil, nil, errors.New("attribute at random blind index should be nil before issuance")
-		}
-		// Replace attribute value with issuer's share
-		r, err := common.RandomBigInt(i.Pk.Params.Lm - 1)
-		if err != nil {
-			return nil, nil, err
-		}
-		mIssuer[j+1] = r
-		ms[j+1] = r
-	}
-
-	cl, err := signMessageBlockAndCommitment(i.Sk, i.Pk, U, ms)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	return cl, mIssuer, nil
-}
-
-// randomElementMultiplicativeGroup returns a random element in the
-// multiplicative group Z_{modulus}^*.
-func randomElementMultiplicativeGroup(modulus *big.Int) (*big.Int, error) {
-	r := big.NewInt(0)
-	t := new(big.Int)
-	var err error
-	for r.Sign() <= 0 || t.GCD(nil, nil, r, modulus).Cmp(big.NewInt(1)) != 0 {
-		r, err = big.RandInt(rand.Reader, modulus)
-		if err != nil {
-			return nil, err
-		}
-	}
-	return r, nil
-}
-
-// proveSignature returns a proof of knowledge of $e^{-1}$ in the signature.
-func (i *Issuer) proveSignature(signature *CLSignature, nonce2 *big.Int) (*ProofS, error) {
-	Q := new(big.Int).Exp(signature.A, signature.E, i.Pk.N)
-	d := new(big.Int).ModInverse(signature.E, i.Sk.Order)
-	if d == nil {
-		return nil, common.ErrNoModInverse
-	}
-
-	eCommit, err := randomElementMultiplicativeGroup(i.Sk.Order)
-	if err != nil {
-		return nil, err
-	}
-	ACommit := new(big.Int).Exp(Q, eCommit, i.Pk.N)
-
-	c := common.HashCommit([]*big.Int{i.Context, Q, signature.A, nonce2, ACommit}, false)
-	eResponse := new(big.Int).Mul(c, d)
-	eResponse.Sub(eCommit, eResponse).Mod(eResponse, i.Sk.Order)
-
-	return &ProofS{c, eResponse}, nil
-}
-*/

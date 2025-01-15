@@ -10,7 +10,23 @@ issuer.go
 - We don't have blind signature, therefore we put more trust in the Issuer, but i am guessing the Issuers should be trusted anyways.
 
 Valószínüleg rosszul használom a poseidon hash-t. a capacityvel sose foglalkozok.
-Megtörténik az elegendő hash a commitment elkészítéséhez?
+
 Kell számolnom tovább a hash-et ha már úgyis csak a padded rész van?
 
-For some input the zkDil STARK fails.
+proofU - proof of correctness of the commitment in the first phase of the issuance protocol. Commitment to attributes (we don't support keyshares and we didnt include a commitment yet to the user secret i think, however latter is easy)
+proofS - proof of signature - zkDil
+proofD - zkp for disclosed attributes
+proofP - keyshare server's knowledge of its part of the secret key.
+
+TODO In our case the proofU is the merkle tree stark that we are making.
+
+proof-ot újraimplementálni
+prooflist-et újraimplementálni
+buildert újraimplementálni
+credential-t újraimplementálni
+
+for now the issues is fully trusted, we will send the first attribute aswell.
+
+a merkle fa gyökerét kell aláírnia.
+
+ellenőrzi hogy a fa valóban előáll-e a commitmentből

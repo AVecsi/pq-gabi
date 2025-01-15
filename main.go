@@ -9,7 +9,6 @@ import "C"
 
 import (
 	"fmt"
-	"hash"
 	"log"
 	"time"
 	"unsafe"
@@ -22,11 +21,11 @@ import (
 	"github.com/cbergoon/merkletree"
 )
 
-func hashStrategy() hash.Hash {
-	h := poseidon.NewPoseidon(nil, zkDilithium.POS_RF, zkDilithium.POS_T, zkDilithium.POS_RATE, common.Q)
+// func hashStrategy() hash.Hash {
+// 	h := poseidon.NewPoseidon(nil, zkDilithium.POS_RF, zkDilithium.POS_T, zkDilithium.POS_RATE, common.Q)
 
-	return h
-}
+// 	return h
+// }
 
 func Test() {
 
