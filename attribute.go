@@ -7,7 +7,6 @@ import (
 
 	"github.com/BeardOfDoom/pq-gabi/internal/common"
 	"github.com/BeardOfDoom/pq-gabi/poseidon"
-	"github.com/BeardOfDoom/pq-gabi/zkDilithium"
 	"github.com/cbergoon/merkletree"
 )
 
@@ -29,7 +28,7 @@ func (t Attribute) CalculateHash() ([]byte, error) {
 
 	valueFes := common.UnpackFesInt(t.value, common.Q)
 
-	h := poseidon.NewPoseidon(nil, zkDilithium.POS_RF, zkDilithium.POS_T, zkDilithium.POS_RATE, common.Q)
+	h := poseidon.NewPoseidon(nil, POS_RF, POS_T, POS_RATE, common.Q)
 
 	if err := h.WriteInts(valueFes); err != nil {
 		return nil, err
@@ -44,7 +43,7 @@ func (t Attribute) Equals(other merkletree.Content) (bool, error) {
 }
 
 func hashStrategy() hash.Hash {
-	h := poseidon.NewPoseidon(nil, zkDilithium.POS_RF, zkDilithium.POS_T, zkDilithium.POS_RATE, common.Q)
+	h := poseidon.NewPoseidon(nil, POS_RF, POS_T, POS_RATE, common.Q)
 
 	return h
 }

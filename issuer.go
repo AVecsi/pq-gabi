@@ -7,7 +7,6 @@ package gabi
 import (
 	"github.com/BeardOfDoom/pq-gabi/big"
 	"github.com/BeardOfDoom/pq-gabi/gabikeys"
-	"github.com/BeardOfDoom/pq-gabi/zkDilithium"
 )
 
 // Issuer holds the key material for a credential issuer.
@@ -26,14 +25,16 @@ func NewIssuer(sk *gabikeys.PrivateKey, pk *gabikeys.PublicKey, context *big.Int
 // the IssueCommitmentMessage provided. Note that this function DOES NOT check
 // the proofs containted in the IssueCommitmentMessage! That needs to be done at
 // a higher level!
-func (i *Issuer) IssueSignature(U *big.Int, attributes []*Attribute, nonce *big.Int) (*zkDilithium.ZkDilSignature, error) {
+func (i *Issuer) IssueSignature(U *big.Int, attributes []*Attribute, nonce *big.Int) (*ZkDilSignature, []byte, error) {
 
-	certTree, err := BuildMerkleTree(attributes)
+	attrTree, err := BuildMerkleTree(attributes)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
-	signature := zkDilithium.Sign(i.Pk.Rho, i.Sk.CNS, certTree.MerkleRoot(), i.Pk.T, i.Sk.S1, i.Sk.S2)
+	attrTreeRoot := attrTree.MerkleRoot()
 
-	return &signature, nil
+	signature := Sign(i.Pk, i.Sk, attrTreeRoot)
+
+	return &signature, attrTreeRoot, nil
 }

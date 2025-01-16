@@ -19,7 +19,7 @@
                 "args": [
                     "test",
                     "--manifest-path",
-                    "${workspaceFolder}/zkDilithium/lib/zkDilithiumProof/Cargo.toml",
+                    "${workspaceFolder}/zkDilithiumProof/Cargo.toml",
                     "--no-run",
                     "--lib",
                     "--",

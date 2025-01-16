@@ -29,4 +29,13 @@ for now the issues is fully trusted, we will send the first attribute aswell.
 
 a merkle fa gyökerét kell aláírnia.
 
-ellenőrzi hogy a fa valóban előáll-e a commitmentből
+A mi esetünkben a credential disclosureProof nem feltétlen egy credentialból áll, jöhetnek többől is attribúrumok és olyankor nem választhatjuk külön a buildert minden credhez, hanem egybe kell dolgozni
+
+
+
+
+right now we disclose attributes, prove that they are part of the merkle tree, to which we commit to.
+
+then we prove that the merkle tree root was signed
+
+we need to make a new proof each time for both to keep indistinguishability

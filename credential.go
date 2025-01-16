@@ -1,134 +1,219 @@
-// // Copyright 2016 Maarten Everts. All rights reserved.
-// // Use of this source code is governed by a BSD-style
-// // license that can be found in the LICENSE file.
+// Copyright 2016 Maarten Everts. All rights reserved.
+// Use of this source code is governed by a BSD-style
+// license that can be found in the LICENSE file.
 
 package gabi
 
+/*
+#cgo LDFLAGS: -L./zkDilithiumProof -lzkDilithiumProof
+#include "./zkDilithiumProof/zkDilithiumProof.h"
+#include <stdlib.h>
+*/
+import "C"
+
 import (
-	"github.com/BeardOfDoom/pq-gabi/big"
-	"github.com/BeardOfDoom/pq-gabi/gabikeys"
+	"fmt"
+	"unsafe"
+
 	"github.com/BeardOfDoom/pq-gabi/internal/common"
-	"github.com/BeardOfDoom/pq-gabi/rangeproof"
-	"github.com/BeardOfDoom/pq-gabi/revocation"
-	"github.com/BeardOfDoom/pq-gabi/zkDilithium"
+	"github.com/go-errors/errors"
 )
 
 type Credential struct {
-	Signature  *zkDilithium.ZkDilSignature `json:"signature"`
-	Pk         *gabikeys.PublicKey         `json:"-"`
-	Attributes []*Attribute                `json:"attributes"`
+	Signature    *ZkDilSignature `json:"signature"`
+	Attributes   []*Attribute    `json:"attributes"`
+	AttrTreeRoot []byte          `json:"attrTreeRoot"`
 }
 
-// DisclosureProofBuilder is an object that holds the state for the protocol to
-// produce a disclosure proof.
-type DisclosureProofBuilder struct {
-	signature *zkDilithium.ZkDilSignature
-	//attrRandomizers       map[int]*big.Int
-	disclosedAttributes   []int
-	undisclosedAttributes []int
-	pk                    *gabikeys.PublicKey
-	attributes            []*Attribute
+type CredentialDisclosure struct {
+	disclosedAttributes       []*Attribute
+	disclosedAttributeIndices []int
+	numOfAllAttributes        int
+	signatureProof            *SignatureProof
 }
 
-// CreateDisclosureProof creates a disclosure proof (ProofD) for the provided
-// indices of disclosed attributes.
-func (ic *Credential) CreateDisclosureProof(
-	disclosedAttributes []int,
-	rangeStatements map[int][]*rangeproof.Statement,
-	nonrev bool,
-	context, nonce1 *big.Int,
-) (*ProofD, error) {
-	builder, err := ic.CreateDisclosureProofBuilder(disclosedAttributes, rangeStatements, nonrev)
-	if err != nil {
-		return nil, err
-	}
-	challenge, err := ProofBuilderList{builder}.Challenge(context, nonce1, false)
-	if err != nil {
-		return nil, err
-	}
-	return builder.CreateProof(challenge).(*ProofD), nil
+type DisclosureProof struct {
+	attrProof             []byte
+	credentialDisclosures []*CredentialDisclosure
+	secretAttrCommitment  *RandomCommitment
 }
 
-// PublicKey returns the Idemix public key against which this disclosure proof will verify.
-func (d *DisclosureProofBuilder) PublicKey() *gabikeys.PublicKey {
-	return d.pk
+func createCredentialDisclosure(credential *Credential, disclosedAttributeIndices []int) *CredentialDisclosure {
+
+	signatureProof := createSignatureProof(credential.Signature, credential.AttrTreeRoot)
+
+	disclosedAttributes := make([]*Attribute, len(disclosedAttributeIndices))
+	for i := range disclosedAttributeIndices {
+		disclosedAttributes[i] = credential.Attributes[disclosedAttributeIndices[i]]
+	}
+
+	return &CredentialDisclosure{
+		disclosedAttributes:       disclosedAttributes,
+		disclosedAttributeIndices: disclosedAttributeIndices,
+		numOfAllAttributes:        len(credential.Attributes),
+		signatureProof:            signatureProof,
+	}
 }
 
-// Commit commits to the first attribute (the secret) using the provided
-// randomizer.
-func (d *DisclosureProofBuilder) Commit() ([]*big.Int, error) {
+func createDisclosureProof(credentials []*Credential, credentialDisclosures []*CredentialDisclosure) (*DisclosureProof, error) {
 
-}
-
-// CreateProof creates a (disclosure) proof with the provided challenge.
-func (d *DisclosureProofBuilder) CreateProof(challenge *big.Int) Proof {
-	ePrime := new(big.Int).Sub(d.randomizedSignature.E, new(big.Int).Lsh(big.NewInt(1), d.pk.Params.Le-1))
-	eResponse := new(big.Int).Mul(challenge, ePrime)
-	eResponse.Add(d.eCommit, eResponse)
-	vResponse := new(big.Int).Mul(challenge, d.randomizedSignature.V)
-	vResponse.Add(d.vCommit, vResponse)
-
-	aResponses := make(map[int]*big.Int)
-	for _, v := range d.undisclosedAttributes {
-		exp := d.attributes[v]
-		if exp.BitLen() > int(d.pk.Params.Lm) {
-			exp = common.IntHashSha256(exp.Bytes())
-		}
-		t := new(big.Int).Mul(challenge, exp)
-		aResponses[v] = t.Add(d.attrRandomizers[v], t)
+	if len(credentials) != len(credentialDisclosures) {
+		return nil, errors.New("The amount of credentials and disclosures should be the same.")
 	}
 
-	aDisclosed := make(map[int]*big.Int)
-	for _, v := range d.disclosedAttributes {
-		aDisclosed[v] = d.attributes[v]
+	numOfAllAttributes := 0
+	numOfAllDisclosedAttributes := 0
+	for i := range credentials {
+		numOfAllAttributes += len(credentials[i].Attributes)
+		numOfAllDisclosedAttributes += len(credentialDisclosures[i].disclosedAttributeIndices)
 	}
 
-	var nonrevProof *revocation.Proof
-	if d.nonrevBuilder != nil {
-		nonrevProof = d.nonrevBuilder.CreateProof(challenge)
-		delete(nonrevProof.Responses, "alpha") // reset from NonRevocationResponse during verification
-	}
+	numOfAttributes := make([]uint64, len(credentials))
+	allAttributes := make([]uint32, numOfAllAttributes*12)
 
-	var rangeProofs map[int][]*rangeproof.Proof
-	if d.rpStructures != nil {
-		rangeProofs = make(map[int][]*rangeproof.Proof)
-		for index, structures := range d.rpStructures {
-			for i, s := range structures {
-				rangeProofs[index] = append(rangeProofs[index],
-					s.BuildProof(d.rpCommits[index][i], challenge))
+	numOfDisclosedIndices := make([]uint64, len(credentialDisclosures))
+	allDisclosedIndices := make([]uint64, numOfAllDisclosedAttributes)
+
+	attrTreeRootCommitments := make([]uint32, len(credentials)*COMMITMENT_LENGTH)
+	attrTreeRootCommitmentNonces := make([]uint32, len(credentials)*NONCE_LENGTH)
+
+	numOfAttributesCollected := 0
+	numOfDisclosedAttributesCollected := 0
+	for i := range credentials {
+		numOfAttributes[i] = uint64(len(credentials[i].Attributes))
+
+		for j := range credentials[i].Attributes {
+			attrHash, err := credentials[i].Attributes[j].CalculateHash()
+			if err != nil {
+				return nil, err
+			}
+			attributeFE := common.UnpackFesInt(attrHash, common.Q)
+			for k := 0; k < 12; k++ {
+				allAttributes[numOfAttributesCollected*12+j*12+k] = uint32(attributeFE[k])
 			}
 		}
+		numOfAttributesCollected += len(credentials[i].Attributes)
+
+		numOfDisclosedIndices[i] = uint64(len(credentialDisclosures[i].disclosedAttributeIndices))
+
+		for j := range credentialDisclosures[i].disclosedAttributeIndices {
+			allDisclosedIndices[numOfDisclosedAttributesCollected+j] = uint64(credentialDisclosures[i].disclosedAttributeIndices[j])
+		}
+		numOfDisclosedAttributesCollected += len(credentialDisclosures[i].disclosedAttributeIndices)
+
+		for j := 0; j < COMMITMENT_LENGTH; j++ {
+			attrTreeRootCommitments[i*COMMITMENT_LENGTH+j] = credentialDisclosures[i].signatureProof.attrTreeRootCommitment.comm[j]
+		}
+
+		for j := 0; j < NONCE_LENGTH; j++ {
+			attrTreeRootCommitmentNonces[i*NONCE_LENGTH+j] = credentialDisclosures[i].signatureProof.attrTreeRootCommitment.nonce[j]
+		}
 	}
 
-	return &ProofD{
-		C:                  challenge,
-		A:                  d.randomizedSignature.A,
-		EResponse:          eResponse,
-		VResponse:          vResponse,
-		AResponses:         aResponses,
-		ADisclosed:         aDisclosed,
-		NonRevocationProof: nonrevProof,
-		RangeProofs:        rangeProofs,
+	//TODO this should be random
+	secretAttributeNonce := []int{1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1}
+
+	secretAttr, err := credentials[0].Attributes[0].CalculateHash()
+	if err != nil {
+		return nil, err
 	}
+
+	secretAttributeCommitment, err := NewRandomCommitment(common.UnpackFesInt(secretAttr, common.Q), secretAttributeNonce)
+	if err != nil {
+		return nil, err
+	}
+
+	disclosureProofLen := 0
+
+	disclosureProof := C.prove_attributes((C.size_t)(len(credentialDisclosures)), (*C.uint32_t)(&allAttributes[0]), (*C.size_t)(&numOfAttributes[0]), (*C.size_t)(&allDisclosedIndices[0]), (*C.size_t)(&numOfDisclosedIndices[0]), (*C.uint32_t)(&attrTreeRootCommitments[0]), (*C.uint32_t)(&(secretAttributeCommitment.comm[0])), (*C.uint32_t)(&attrTreeRootCommitmentNonces[0]), (*C.uint32_t)(&secretAttributeCommitment.nonce[0]), (*C.size_t)(unsafe.Pointer(&disclosureProofLen)))
+
+	return &DisclosureProof{
+		attrProof:             C.GoBytes(unsafe.Pointer(disclosureProof), C.int(disclosureProofLen)),
+		credentialDisclosures: credentialDisclosures,
+		secretAttrCommitment:  secretAttributeCommitment,
+	}, nil
+}
+
+func (proof *DisclosureProof) Verify() bool {
+
+	for i := range proof.credentialDisclosures {
+		if !proof.credentialDisclosures[i].signatureProof.Verify() {
+			fmt.Println("Signature proof verification failed.")
+			return false
+		} else {
+			fmt.Println("Signature proof verified successfully!")
+		}
+	}
+
+	numOfAllDisclosedAttributes := 0
+	for i := range proof.credentialDisclosures {
+		numOfAllDisclosedAttributes += len(proof.credentialDisclosures[i].disclosedAttributeIndices)
+	}
+
+	disclosedAttributes := make([]uint32, numOfAllDisclosedAttributes*12)
+	disclosedIndices := make([]uint64, numOfAllDisclosedAttributes)
+	numOfDisclosedIndices := make([]uint64, len(proof.credentialDisclosures))
+	numOfAttributes := make([]uint64, len(proof.credentialDisclosures))
+
+	attrTreeRootCommitments := make([]uint32, len(proof.credentialDisclosures)*COMMITMENT_LENGTH)
+	attrTreeRootCommitmentNonces := make([]uint32, len(proof.credentialDisclosures)*NONCE_LENGTH)
+
+	numOfDisclosedAttributesCollected := 0
+	for i := range proof.credentialDisclosures {
+
+		for j := range proof.credentialDisclosures[i].disclosedAttributes {
+			disclosedAttrHash, err := proof.credentialDisclosures[i].disclosedAttributes[j].CalculateHash()
+			//TODO return err
+			if err != nil {
+				panic(err)
+			}
+
+			disclosedAttributeFE := common.UnpackFesInt(disclosedAttrHash, common.Q)
+			for k := 0; k < 12; k++ {
+				disclosedAttributes[numOfDisclosedAttributesCollected*12+j*12+k] = uint32(disclosedAttributeFE[k])
+			}
+
+			disclosedIndices[numOfDisclosedAttributesCollected+j] = uint64(proof.credentialDisclosures[i].disclosedAttributeIndices[j])
+		}
+		numOfDisclosedAttributesCollected += len(proof.credentialDisclosures[i].disclosedAttributes)
+
+		numOfDisclosedIndices[i] = uint64(len(proof.credentialDisclosures[i].disclosedAttributeIndices))
+
+		numOfAttributes[i] = uint64(proof.credentialDisclosures[i].numOfAllAttributes)
+
+		for j := 0; j < COMMITMENT_LENGTH; j++ {
+			attrTreeRootCommitments[i*COMMITMENT_LENGTH+j] = proof.credentialDisclosures[i].signatureProof.attrTreeRootCommitment.comm[j]
+		}
+
+		for j := 0; j < NONCE_LENGTH; j++ {
+			attrTreeRootCommitmentNonces[i*NONCE_LENGTH+j] = proof.credentialDisclosures[i].signatureProof.attrTreeRootCommitment.nonce[j]
+		}
+	}
+
+	if C.verify_attributes((*C.uchar)(C.CBytes(proof.attrProof)), (C.size_t)(len(proof.attrProof)), (C.size_t)(len(proof.credentialDisclosures)), (*C.uint32_t)(&disclosedAttributes[0]), (*C.size_t)(&numOfDisclosedIndices[0]), (*C.size_t)(&disclosedIndices[0]), (*C.size_t)(&numOfAttributes[0]), (*C.uint32_t)(&attrTreeRootCommitments[0]), (*C.uint32_t)(&proof.secretAttrCommitment.comm[0]), (*C.uint32_t)(&attrTreeRootCommitmentNonces[0]), (*C.uint32_t)(&proof.secretAttrCommitment.nonce[0])) == 1 {
+		return true
+	}
+
+	return false
 }
 
 // TimestampRequestContributions returns the contributions of this disclosure proof
 // to the message that is to be signed by the timestamp server:
 // - A of the randomized CL-signature
 // - Slice of big.Int populated with the disclosed attributes and 0 for the undisclosed ones.
-func (d *DisclosureProofBuilder) TimestampRequestContributions() (*big.Int, []*big.Int) {
-	zero := big.NewInt(0)
-	disclosed := make([]*big.Int, len(d.attributes))
-	for i := 0; i < len(d.attributes); i++ {
-		disclosed[i] = zero
-	}
-	for _, i := range d.disclosedAttributes {
-		disclosed[i] = d.attributes[i]
-	}
-	return d.randomizedSignature.A, disclosed
-}
+// func (d *DisclosureProofBuilder) TimestampRequestContributions() (*big.Int, []*big.Int) {
+// 	zero := big.NewInt(0)
+// 	disclosed := make([]*big.Int, len(d.attributes))
+// 	for i := 0; i < len(d.attributes); i++ {
+// 		disclosed[i] = zero
+// 	}
+// 	for _, i := range d.disclosedAttributes {
+// 		disclosed[i] = d.attributes[i]
+// 	}
+// 	return d.randomizedSignature.A, disclosed
+// }
 
 // GenerateSecretAttribute generates secret attribute used prove ownership and links between credentials from the same user.
-func GenerateSecretAttribute() (*big.Int, error) {
-	return common.RandomBigInt(gabikeys.DefaultSystemParameters[1024].Lm - 1)
-}
+// func GenerateSecretAttribute() (*big.Int, error) {
+// 	return common.RandomBigInt(gabikeys.DefaultSystemParameters[1024].Lm - 1)
+// }

@@ -1,5 +1,5 @@
 {
     "rust-analyzer.linkedProjects": [
-        "${workspaceFolder}/zkDilithium/lib/zkDilithiumProof/Cargo.toml"
+        "${workspaceFolder}/zkDilithiumProof/Cargo.toml"
     ]
 }

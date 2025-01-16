@@ -12,7 +12,6 @@ import (
 
 	"github.com/BeardOfDoom/pq-gabi/big"
 	"github.com/BeardOfDoom/pq-gabi/gabikeys"
-	"github.com/BeardOfDoom/pq-gabi/zkDilithium"
 	"github.com/go-errors/errors"
 	"github.com/stretchr/testify/assert"
 )
@@ -164,11 +163,11 @@ func TestTestKeys(t *testing.T) {
 
 func TestZkDilSignature(t *testing.T) {
 	m := []byte("123")
-	sig := zkDilithium.Sign(testPubK.Rho, testPrivK.CNS, m, testPubK.T, testPrivK.S1, testPrivK.S2)
+	sig := Sign(testPubK, testPrivK, m)
 
-	assert.True(t, zkDilithium.Verify(testPubK.Rho, m, sig, testPubK.T), "zkDilithium did not verify, whereas it should.")
+	assert.True(t, sig.Verify(m), "zkDilithium did not verify, whereas it should.")
 	m[0] = 0
-	assert.True(t, !zkDilithium.Verify(testPubK.Rho, m, sig, testPubK.T), "zkDilithium verifies, whereas it should not.")
+	assert.True(t, !sig.Verify(m), "zkDilithium verifies, whereas it should not.")
 }
 
 // TODO In our case the proofU is the merkle tree stark that we are making.

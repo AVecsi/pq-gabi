@@ -9,7 +9,6 @@ package gabi
 // 	"github.com/BeardOfDoom/pq-gabi/gabikeys"
 // 	"github.com/BeardOfDoom/pq-gabi/internal/common"
 // 	"github.com/BeardOfDoom/pq-gabi/rangeproof"
-// 	"github.com/BeardOfDoom/pq-gabi/revocation"
 
 // 	"github.com/go-errors/errors"
 // )
@@ -128,107 +127,14 @@ package gabi
 
 // // ProofD represents a proof in the showing protocol.
 // type ProofD struct {
-// 	C                  *big.Int                    `json:"c"`
-// 	A                  *big.Int                    `json:"A"`
-// 	EResponse          *big.Int                    `json:"e_response"`
-// 	VResponse          *big.Int                    `json:"v_response"`
-// 	AResponses         map[int]*big.Int            `json:"a_responses"`
-// 	ADisclosed         map[int]*big.Int            `json:"a_disclosed"`
-// 	NonRevocationProof *revocation.Proof           `json:"nonrev_proof,omitempty"`
-// 	RangeProofs        map[int][]*rangeproof.Proof `json:"rangeproofs,omitempty"`
+// 	C          *big.Int         `json:"c"`
+// 	A          *big.Int         `json:"A"`
+// 	EResponse  *big.Int         `json:"e_response"`
+// 	VResponse  *big.Int         `json:"v_response"`
+// 	AResponses map[int]*big.Int `json:"a_responses"`
+// 	ADisclosed map[int]*big.Int `json:"a_disclosed"`
 
 // 	cachedRangeStructures map[int][]*rangeproof.ProofStructure
-// }
-
-// // MergeProofP merges a ProofP into the ProofD.
-// func (p *ProofD) MergeProofP(proofP *ProofP, _ *gabikeys.PublicKey) {
-// 	if proofP.P == nil { // new protocol version
-// 		p.C.Set(proofP.C)
-// 		p.AResponses[0].Set(proofP.SResponse)
-// 	} else {
-// 		p.AResponses[0].Add(p.AResponses[0], proofP.SResponse)
-// 	}
-// }
-
-// func (p *ProofD) reconstructRangeProofStructures(pk *gabikeys.PublicKey) error {
-// 	p.cachedRangeStructures = make(map[int][]*rangeproof.ProofStructure)
-// 	for index, proofs := range p.RangeProofs {
-// 		p.cachedRangeStructures[index] = []*rangeproof.ProofStructure{}
-// 		for _, proof := range proofs {
-// 			s, err := proof.ExtractStructure(index, pk)
-// 			if err != nil {
-// 				return err
-// 			}
-// 			p.cachedRangeStructures[index] = append(p.cachedRangeStructures[index], s)
-// 		}
-// 	}
-// 	return nil
-// }
-
-// // correctResponseSizes checks the sizes of the elements in the ProofD proof.
-// func (p *ProofD) correctResponseSizes(pk *gabikeys.PublicKey) bool {
-// 	minimum := big.NewInt(0)
-// 	// Check range on the AResponses
-// 	maximum := new(big.Int).Lsh(big.NewInt(1), pk.Params.LmCommit+1)
-// 	maximum.Sub(maximum, big.NewInt(1))
-// 	for _, aResponse := range p.AResponses {
-// 		if aResponse.Cmp(minimum) < 0 || aResponse.Cmp(maximum) > 0 {
-// 			return false
-// 		}
-// 	}
-
-// 	// Check range EResponse
-// 	maximum.Lsh(big.NewInt(1), pk.Params.LeCommit+1)
-// 	maximum.Sub(maximum, big.NewInt(1))
-
-// 	return p.EResponse.Cmp(minimum) >= 0 && p.EResponse.Cmp(maximum) <= 0
-// }
-
-// // reconstructZ reconstructs Z from the information in the proof and the
-// // provided public key.
-// func (p *ProofD) reconstructZ(pk *gabikeys.PublicKey) (*big.Int, error) {
-// 	// known = Z / ( prod_{disclosed} R_i^{a_i} * A^{2^{l_e - 1}} )
-// 	numerator := new(big.Int).Lsh(big.NewInt(1), pk.Params.Le-1)
-// 	numerator.Exp(p.A, numerator, pk.N)
-// 	for i, attribute := range p.ADisclosed {
-// 		exp := attribute
-// 		if exp.BitLen() > int(pk.Params.Lm) {
-// 			exp = common.IntHashSha256(exp.Bytes())
-// 		}
-// 		numerator.Mul(numerator, new(big.Int).Exp(pk.R[i], exp, pk.N))
-// 	}
-
-// 	known := new(big.Int).ModInverse(numerator, pk.N)
-// 	if known == nil {
-// 		return nil, common.ErrNoModInverse
-// 	}
-
-// 	known.Mul(pk.Z, known)
-
-// 	knownC, err := common.ModPow(known, new(big.Int).Neg(p.C), pk.N)
-// 	if err != nil {
-// 		return nil, err
-// 	}
-// 	Ae, err := common.ModPow(p.A, p.EResponse, pk.N)
-// 	if err != nil {
-// 		return nil, err
-// 	}
-// 	Sv, err := common.ModPow(pk.S, p.VResponse, pk.N)
-// 	if err != nil {
-// 		return nil, err
-// 	}
-// 	Rs := big.NewInt(1)
-// 	for i, response := range p.AResponses {
-// 		t, err := common.ModPow(pk.R[i], response, pk.N)
-// 		if err != nil {
-// 			return nil, err
-// 		}
-// 		Rs.Mul(Rs, t)
-// 	}
-// 	Z := new(big.Int).Mul(knownC, Ae)
-// 	Z.Mul(Z, Rs).Mul(Z, Sv).Mod(Z, pk.N)
-
-// 	return Z, nil
 // }
 
 // // Verify verifies the proof against the given public key, context, and nonce.
@@ -238,10 +144,6 @@ package gabi
 // 		return false
 // 	}
 // 	return p.VerifyWithChallenge(pk, createChallenge(context, nonce1, contrib, issig))
-// }
-
-// func (p *ProofD) HasNonRevocationProof() bool {
-// 	return p.NonRevocationProof != nil
 // }
 
 // // VerifyWithChallenge verifies the proof against the given public key and the provided
@@ -315,28 +217,6 @@ package gabi
 // 	}
 
 // 	return l, nil
-// }
-
-// // SecretKeyResponse returns the secret key response (as part of Proof
-// // interface).
-// func (p *ProofD) SecretKeyResponse() *big.Int {
-// 	return p.AResponses[0]
-// }
-
-// func (p *ProofD) revocationAttrIndex() int {
-// 	params := revocation.Parameters
-// 	max := new(big.Int).Lsh(big.NewInt(1), params.AttributeSize+params.ChallengeLength+params.ZkStat+1)
-// 	for idx, i := range p.AResponses {
-// 		if i.Cmp(max) < 0 {
-// 			return idx
-// 		}
-// 	}
-// 	return -1
-// }
-
-// // Challenge returns the challenge in the proof (part of the Proof interface).
-// func (p *ProofD) Challenge() *big.Int {
-// 	return p.C
 // }
 
 // // GenerateNonce generates a nonce for use in proofs

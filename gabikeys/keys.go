@@ -8,7 +8,6 @@ import (
 
 	"github.com/BeardOfDoom/pq-gabi/algebra"
 	"github.com/BeardOfDoom/pq-gabi/internal/common"
-	"github.com/BeardOfDoom/pq-gabi/zkDilithium"
 )
 
 type (
@@ -333,10 +332,32 @@ func (pubk *PublicKey) WriteToFile(filename string, forceOverwrite bool) (int64,
 
 // GenerateKeyPair generates a private/public keypair for an Issuer
 func GenerateKeyPair(seed []byte, counter uint, expiryDate time.Time) (*PrivateKey, *PublicKey, error) {
-	rho, t, cns, s1, s2, err := zkDilithium.Gen(seed)
-	if err != nil {
-		return nil, nil, err
+
+	if len(seed) != 32 {
+		panic("Seed length must be 32 bytes")
 	}
+
+	// Expand the seed: H(seed, 32 + 64 + 32)
+	expandedSeed := common.H(seed, 32+64+32)
+
+	rho := make([]byte, 32)
+	copy(rho, expandedSeed[:32])
+	rho2 := make([]byte, 64)
+	copy(rho2, expandedSeed[32:32+64])
+	cns := make([]byte, 32)
+	copy(cns, expandedSeed[32+64:])
+
+	// Sample matrix and secret vectors
+	Ahat := algebra.SampleMatrix(rho)
+	s1, s2 := algebra.SampleSecret(rho2)
+
+	// Compute t = InvNTT(Ahat * NTT(s1) + NTT(s2))
+	t := Ahat.MulNTT(s1.NTT()).Add(s2.NTT()).InvNTT()
+
+	//rho, t, cns, s1, s2, err := Gen(seed)
+	// if err != nil {
+	// 	return nil, nil, err
+	// }
 
 	priv := &PrivateKey{
 		CNS:        cns,

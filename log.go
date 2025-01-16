@@ -1,7 +1,6 @@
 package gabi
 
-/* import (
-	"github.com/BeardOfDoom/pq-gabi/revocation"
+import (
 	"github.com/sirupsen/logrus"
 )
 
@@ -9,5 +8,4 @@ var Logger *logrus.Logger
 
 func init() {
 	Logger = logrus.StandardLogger()
-	revocation.Logger = Logger
-} */
+}
