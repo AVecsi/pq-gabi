@@ -4,8 +4,8 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/BeardOfDoom/pq-gabi/big"
-	"github.com/BeardOfDoom/pq-gabi/zkproof"
+	"github.com/AVecsi/pq-gabi/big"
+	"github.com/AVecsi/pq-gabi/zkproof"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

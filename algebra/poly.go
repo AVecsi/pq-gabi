@@ -4,8 +4,8 @@ import (
 	"bytes"
 	"fmt"
 
-	"github.com/BeardOfDoom/pq-gabi/big"
-	"github.com/BeardOfDoom/pq-gabi/internal/common"
+	"github.com/AVecsi/pq-gabi/big"
+	"github.com/AVecsi/pq-gabi/internal/common"
 )
 
 // Poly represents an element of the polynomial ring Z_q[x]/<x^256+1>.

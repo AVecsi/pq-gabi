@@ -8,7 +8,7 @@ import (
 	"crypto/rand"
 	mathRand "math/rand"
 
-	"github.com/BeardOfDoom/pq-gabi/big"
+	"github.com/AVecsi/pq-gabi/big"
 	"github.com/go-errors/errors"
 )
 

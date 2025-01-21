@@ -4,7 +4,7 @@ package gabikeys
 	"encoding/xml"
 	"strconv"
 
-	"github.com/BeardOfDoom/pq-gabi/big"
+	"github.com/AVecsi/pq-gabi/big"
 )
 
 // Helper structs for (un)marshaling

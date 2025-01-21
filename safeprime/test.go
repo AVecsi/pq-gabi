@@ -1,6 +1,6 @@
 package safeprime
 
-import "github.com/BeardOfDoom/pq-gabi/big"
+import "github.com/AVecsi/pq-gabi/big"
 
 // ProbablySafePrime reports whether x is probably a safe prime, by calling big.Int.ProbablyPrime(n)
 // on x as well as on (x-1)/2.

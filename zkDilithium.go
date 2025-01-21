@@ -12,10 +12,10 @@ import (
 
 	"unsafe"
 
-	"github.com/BeardOfDoom/pq-gabi/algebra"
-	"github.com/BeardOfDoom/pq-gabi/gabikeys"
-	"github.com/BeardOfDoom/pq-gabi/internal/common"
-	"github.com/BeardOfDoom/pq-gabi/poseidon"
+	"github.com/AVecsi/pq-gabi/algebra"
+	"github.com/AVecsi/pq-gabi/gabikeys"
+	"github.com/AVecsi/pq-gabi/internal/common"
+	"github.com/AVecsi/pq-gabi/poseidon"
 )
 
 const POS_T = 35

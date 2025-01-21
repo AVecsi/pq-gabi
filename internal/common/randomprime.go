@@ -9,7 +9,7 @@ import (
 
 	"github.com/go-errors/errors"
 
-	"github.com/BeardOfDoom/pq-gabi/big"
+	"github.com/AVecsi/pq-gabi/big"
 )
 
 // SmallPrimes is a list of small prime numbers that allows us to rapidly

@@ -1,7 +1,7 @@
 package algebra
 
 import (
-	"github.com/BeardOfDoom/pq-gabi/internal/common"
+	"github.com/AVecsi/pq-gabi/internal/common"
 )
 
 type Matrix struct {

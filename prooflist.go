@@ -5,9 +5,9 @@
 package gabi
 
 // import (
-// 	"github.com/BeardOfDoom/pq-gabi/big"
-// 	"github.com/BeardOfDoom/pq-gabi/gabikeys"
-// 	"github.com/BeardOfDoom/pq-gabi/internal/common"
+// 	"github.com/AVecsi/pq-gabi/big"
+// 	"github.com/AVecsi/pq-gabi/gabikeys"
+// 	"github.com/AVecsi/pq-gabi/internal/common"
 // 	"github.com/go-errors/errors"
 // )
 

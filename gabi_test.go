@@ -10,8 +10,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/BeardOfDoom/pq-gabi/big"
-	"github.com/BeardOfDoom/pq-gabi/gabikeys"
+	"github.com/AVecsi/pq-gabi/big"
+	"github.com/AVecsi/pq-gabi/gabikeys"
 	"github.com/go-errors/errors"
 	"github.com/stretchr/testify/assert"
 )

@@ -2,8 +2,8 @@ package zkproof
 
 /*
 import (
-	"github.com/BeardOfDoom/pq-gabi/big"
-	"github.com/BeardOfDoom/pq-gabi/gabikeys"
+	"github.com/AVecsi/pq-gabi/big"
+	"github.com/AVecsi/pq-gabi/gabikeys"
 )
 
 type (

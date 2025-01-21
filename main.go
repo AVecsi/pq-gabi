@@ -5,7 +5,7 @@ import (
 	"log"
 	"time"
 
-	"github.com/BeardOfDoom/pq-gabi/gabikeys"
+	"github.com/AVecsi/pq-gabi/gabikeys"
 	"github.com/cbergoon/merkletree"
 )
 

@@ -5,12 +5,12 @@ package revocation
 // 	"testing"
 // 	"time"
 
-// 	"github.com/BeardOfDoom/pq-gabi/big"
-// 	"github.com/BeardOfDoom/pq-gabi/gabikeys"
-// 	"github.com/BeardOfDoom/pq-gabi/internal/common"
-// 	"github.com/BeardOfDoom/pq-gabi/safeprime"
-// 	"github.com/BeardOfDoom/pq-gabi/signed"
-// 	"github.com/BeardOfDoom/pq-gabi/zkproof"
+// 	"github.com/AVecsi/pq-gabi/big"
+// 	"github.com/AVecsi/pq-gabi/gabikeys"
+// 	"github.com/AVecsi/pq-gabi/internal/common"
+// 	"github.com/AVecsi/pq-gabi/safeprime"
+// 	"github.com/AVecsi/pq-gabi/signed"
+// 	"github.com/AVecsi/pq-gabi/zkproof"
 
 // 	"github.com/sirupsen/logrus"
 // 	"github.com/stretchr/testify/require"

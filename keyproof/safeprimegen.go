@@ -1,8 +1,8 @@
 package keyproof
 
 import (
-	"github.com/BeardOfDoom/pq-gabi/big"
-	"github.com/BeardOfDoom/pq-gabi/safeprime"
+	"github.com/AVecsi/pq-gabi/big"
+	"github.com/AVecsi/pq-gabi/safeprime"
 )
 
 // Performance parameter, defines amount of extra bits allowed when using a convenient safe prime

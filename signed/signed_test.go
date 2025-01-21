@@ -5,7 +5,7 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/BeardOfDoom/pq-gabi/big"
+	"github.com/AVecsi/pq-gabi/big"
 	"github.com/stretchr/testify/require"
 )
 

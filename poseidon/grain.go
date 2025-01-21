@@ -1,7 +1,7 @@
 package poseidon
 
 import (
-	"github.com/BeardOfDoom/pq-gabi/big"
+	"github.com/AVecsi/pq-gabi/big"
 )
 
 // Grain struct

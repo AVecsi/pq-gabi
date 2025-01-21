@@ -10,10 +10,10 @@ package gabi
 
 // 	"github.com/go-errors/errors"
 
-// 	"github.com/BeardOfDoom/pq-gabi/big"
-// 	"github.com/BeardOfDoom/pq-gabi/gabikeys"
-// 	"github.com/BeardOfDoom/pq-gabi/internal/common"
-// 	"github.com/BeardOfDoom/pq-gabi/revocation"
+// 	"github.com/AVecsi/pq-gabi/big"
+// 	"github.com/AVecsi/pq-gabi/gabikeys"
+// 	"github.com/AVecsi/pq-gabi/internal/common"
+// 	"github.com/AVecsi/pq-gabi/revocation"
 // )
 
 // // IssueCommitmentMessage encapsulates the messages sent by the receiver to the

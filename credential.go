@@ -15,7 +15,7 @@ import (
 	"fmt"
 	"unsafe"
 
-	"github.com/BeardOfDoom/pq-gabi/internal/common"
+	"github.com/AVecsi/pq-gabi/internal/common"
 	"github.com/go-errors/errors"
 )
 

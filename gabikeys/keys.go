@@ -6,8 +6,8 @@ import (
 	"os"
 	"time"
 
-	"github.com/BeardOfDoom/pq-gabi/algebra"
-	"github.com/BeardOfDoom/pq-gabi/internal/common"
+	"github.com/AVecsi/pq-gabi/algebra"
+	"github.com/AVecsi/pq-gabi/internal/common"
 )
 
 type (

@@ -1,4 +1,4 @@
-module github.com/BeardOfDoom/pq-gabi
+module github.com/AVecsi/pq-gabi
 
 go 1.23.2
 

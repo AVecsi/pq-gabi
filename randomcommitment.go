@@ -3,8 +3,8 @@ package gabi
 import (
 	"fmt"
 
-	"github.com/BeardOfDoom/pq-gabi/internal/common"
-	"github.com/BeardOfDoom/pq-gabi/poseidon"
+	"github.com/AVecsi/pq-gabi/internal/common"
+	"github.com/AVecsi/pq-gabi/poseidon"
 	"github.com/go-errors/errors"
 )
 

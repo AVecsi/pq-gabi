@@ -3,7 +3,7 @@ package common
 import (
 	"bytes"
 
-	"github.com/BeardOfDoom/pq-gabi/big"
+	"github.com/AVecsi/pq-gabi/big"
 	"golang.org/x/crypto/sha3"
 )
 
