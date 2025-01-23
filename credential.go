@@ -110,7 +110,7 @@ func createDisclosureProof(credentials []*Credential, credentialDisclosures []*C
 		}
 	}
 
-	//TODO this should be random
+	//TODO this should be random and should come from the verifier
 	secretAttributeNonce := []int{1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1}
 
 	secretAttr, err := credentials[0].Attributes[0].CalculateHash()

@@ -53,14 +53,25 @@ func Test() {
 	}
 	disclosedAttributeIndices := []int{3, 4, 5}
 
-	credDisclosure := createCredentialDisclosure(&cred, disclosedAttributeIndices)
+	start := time.Now()
 
-	disclosureProof, err := createDisclosureProof([]*Credential{&cred}, []*CredentialDisclosure{credDisclosure})
+	credDisclosure := createCredentialDisclosure(&cred, disclosedAttributeIndices)
+	credDisclosure2 := createCredentialDisclosure(&cred, disclosedAttributeIndices)
+	credDisclosure3 := createCredentialDisclosure(&cred, disclosedAttributeIndices)
+
+	disclosureProof, err := createDisclosureProof([]*Credential{&cred, &cred, &cred}, []*CredentialDisclosure{credDisclosure, credDisclosure2, credDisclosure3})
 	if err != nil {
 		panic(err.Error())
 	}
 
+	fmt.Println(len(disclosureProof.attrProof))
+
+	fmt.Println("It took ", time.Since(start), " to create the disclosure.")
+
+	start = time.Now()
+
 	if disclosureProof.Verify() {
+		fmt.Println("It took ", time.Since(start), " to verify the disclosure.")
 		fmt.Println("Disclosure proof verified successfully!")
 	} else {
 		fmt.Println("Disclosure proof verification failed.")

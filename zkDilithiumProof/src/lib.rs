@@ -120,7 +120,7 @@ pub extern "C" fn prove_attributes(num_of_certs: usize, cert_list_ptr: *const u3
         for j in 0..current_num_of_attributes {
             let mut attribute: [BaseElement; HASH_DIGEST_WIDTH] = [BaseElement::ZERO; HASH_DIGEST_WIDTH];
             for k in 0..HASH_DIGEST_WIDTH {
-                attribute[k] = BaseElement::new(unsafe{*cert_list_ptr.add(attributes_counter+j*HASH_DIGEST_WIDTH+k)});
+                attribute[k] = BaseElement::new(unsafe{*cert_list_ptr.add(attributes_counter*HASH_DIGEST_WIDTH+j*HASH_DIGEST_WIDTH+k)});
             }
             cert_list[i].push(attribute);
         }
@@ -185,7 +185,7 @@ pub extern "C" fn verify_attributes(proof_bytes_ptr: *const u8, proof_bytes_len:
         for j in 0..current_num_of_disclosed_attributes {
             let mut attribute: [BaseElement; HASH_DIGEST_WIDTH] = [BaseElement::ZERO; HASH_DIGEST_WIDTH];
             for k in 0..HASH_DIGEST_WIDTH {
-                attribute[k] = BaseElement::new(unsafe{*disclosed_attributes_ptr.add(disclosed_attributes_counter+j*HASH_DIGEST_WIDTH+k)})
+                attribute[k] = BaseElement::new(unsafe{*disclosed_attributes_ptr.add(disclosed_attributes_counter*HASH_DIGEST_WIDTH+j*HASH_DIGEST_WIDTH+k)})
             }
             disclosed_attributes[i].push(attribute);
 
@@ -290,7 +290,22 @@ pub mod test2 {
     fn test_merkle_proof () {
 
 
-        let example_attrs_u32: [[u32; HASH_DIGEST_WIDTH]; 16] = [[291936, 12402, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, ],[291936, 12658, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, ],[291936, 12914, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, ],[291936, 13170, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, ],[291936, 13426, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, ],[291936, 13682, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, ],[291936, 13938, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, ],[291936, 14194, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, ],[291936, 14450, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, ],[291936, 14706, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, ],[291936, 3158386, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, ],[291936, 3223922, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, ],[291936, 3289458, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, ],[291936, 3354994, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, ],[291936, 3420530, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, ],[291936, 3486066, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, ]];
+        let example_attrs_u32: [[u32; HASH_DIGEST_WIDTH]; 16] = [[6709091, 6169249, 5628887, 4660270, 6942066, 760301, 7289375, 4651720, 3272026, 5191140, 1168225, 3249879, ],
+        [1883096, 3334600, 2419478, 625713, 1304525, 7321007, 200660, 3654382, 6947786, 1446773, 4142099, 1534900, ],
+        [2166230, 6046054, 1729067, 6806663, 6712661, 5211053, 1800327, 1965301, 2578585, 2595240, 1941328, 1688092, ],
+        [1903665, 2302439, 3742632, 4673238, 3702981, 7267099, 2703170, 3795636, 2560825, 1463000, 5038689, 6962979, ],
+        [5261978, 6376561, 6334061, 2439191, 4256727, 3431320, 838223, 2156492, 5566949, 196716, 6772525, 4086382, ],
+        [6267255, 3287990, 2730841, 2580225, 5577307, 2023051, 3124779, 1260312, 2238516, 5480509, 2169133, 3875935, ],
+        [5294687, 5349395, 6077507, 4161172, 4821248, 6288095, 1239158, 4408471, 2498506, 2545645, 3580392, 2523776, ],
+        [4292661, 7186432, 4005510, 4596007, 5426302, 3519061, 5015946, 6889555, 4572833, 1879075, 5963844, 4018330, ],
+        [1051056, 6625906, 166797, 3038796, 3963215, 4267920, 5928947, 6951298, 5207067, 5553312, 1279897, 809137, ],
+        [4517713, 1282452, 4932912, 1490070, 6225174, 4647588, 6199104, 5096281, 1913974, 7223470, 2067186, 2771324, ],
+        [700963, 5152205, 6154482, 636882, 5538262, 255152, 5950538, 2076935, 3885714, 4054122, 4678293, 815884, ],
+        [3629804, 652587, 6512855, 6885016, 1883773, 3445290, 2408204, 5827794, 1801908, 4653391, 3839995, 4436, ],
+        [951587, 3526714, 5912568, 6016870, 341122, 4238883, 1468158, 6578567, 341610, 2634026, 4100685, 4788968, ],
+        [3289041, 6717852, 3156578, 3050773, 6237040, 4122505, 2793174, 1852424, 4610830, 1391938, 1160802, 2370928, ],
+        [7261957, 638429, 2489791, 5588808, 810406, 6004723, 6270530, 6802187, 3130153, 5044087, 3946977, 1239117, ],
+        [5767991, 4585105, 5129167, 4965230, 6506881, 752062, 3433833, 4379951, 2053525, 5917503, 2188161, 3154167, ]];
 
         let mut example_attrs: [[BaseElement; HASH_DIGEST_WIDTH]; 16] = [[Default::default(); 12]; 16];
         
@@ -301,17 +316,17 @@ pub mod test2 {
         let comm_u32: [u32; HASH_RATE_WIDTH] = [434031, 793865, 2790115, 2641619, 3779823, 4687400, 5043245, 2179103, 1525361, 1548302, 5061098, 3487740, 7282711, 3416983, 2970685, 1683956, 5938759, 7331637, 4939426, 3516863, 378218, 3627887, 131057, 1048311, ];
         let comm: [BaseElement; HASH_RATE_WIDTH] = comm_u32.map(BaseElement::new);
 
-        let secret_comm_u32: [u32; HASH_RATE_WIDTH] = [6027458, 6292976, 6710889, 4119533, 4248610, 1100150, 3459560, 4824933, 1178525, 2173611, 5333255, 6677546, 6280263, 879345, 2642238, 1453571, 762590, 3243183, 4411973, 3334870, 1357688, 4088878, 2720005, 4500293, ];
+        let secret_comm_u32: [u32; HASH_RATE_WIDTH] = [3598049, 5948367, 495133, 3537745, 3028752, 4899071, 6361326, 269242, 4399013, 7200862, 4385127, 7111978, 5085508, 1316843, 4254913, 1067592, 4286291, 1568535, 4877137, 1795638, 969826, 4536722, 5895964, 833797, ];
         let secret_comm: [BaseElement; HASH_RATE_WIDTH] = secret_comm_u32.map(BaseElement::new);
 
         let nonce0: [BaseElement; HASH_DIGEST_WIDTH] = [BaseElement::ONE; HASH_DIGEST_WIDTH];
 
-        let mut cert_list: Vec<Vec<[BaseElement; HASH_DIGEST_WIDTH]>> = vec![example_attrs.to_vec()];
-        let mut comms = vec![comm];
-        let mut nonces = vec![nonce0.clone()];
-        let mut num_of_attributes = vec![16];
+        let mut cert_list: Vec<Vec<[BaseElement; HASH_DIGEST_WIDTH]>> = vec![example_attrs.to_vec() , example_attrs.to_vec(), example_attrs.to_vec() ];
+        let mut comms = vec![comm , comm, comm ];
+        let mut nonces = vec![nonce0.clone() , nonce0.clone(), nonce0.clone()];
+        let mut num_of_attributes = vec![16 , 16, 16];
 
-        let disclosed_indices: Vec<Vec<usize>> = [[3,4,5].to_vec()].to_vec();
+        let disclosed_indices: Vec<Vec<usize>> = [[3,4,5].to_vec() , [3,4,5].to_vec(), [3,4,5].to_vec()].to_vec();
 
         /* let example_attr_u32_0: [u32; HASH_DIGEST_WIDTH] = [5324, 1251, 43534, 124235, 432241, 6436, 2341, 23523, 2525, 658965, 4583, 245389];
         let example_attr0: [BaseElement; HASH_DIGEST_WIDTH] = example_attr_u32_0.map(BaseElement::new);
@@ -383,6 +398,7 @@ pub mod test2 {
         let mut start = Instant::now();
 
         let proof = merklepf::prove(cert_list.clone(), disclosed_indices.clone(), comms.clone(), secret_comm, nonces.clone(), nonce0);
+        println!("proof len {}", proof.to_bytes().len());
         println!("{:?}", start.elapsed());
         let proof_bytes = proof.to_bytes();
         println!("Proof size: {:.1} KB", proof_bytes.len() as f64 / 1024f64);
