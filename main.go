@@ -64,7 +64,7 @@ func Test() {
 		panic(err.Error())
 	}
 
-	fmt.Println(len(disclosureProof.attrProof))
+	fmt.Println(len(disclosureProof.AttrProof))
 
 	fmt.Println("It took ", time.Since(start), " to create the disclosure.")
 

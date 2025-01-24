@@ -26,16 +26,16 @@ type Credential struct {
 }
 
 type CredentialDisclosure struct {
-	disclosedAttributes       []*Attribute
-	disclosedAttributeIndices []int
-	numOfAllAttributes        int
-	signatureProof            *SignatureProof
+	DisclosedAttributes       []*Attribute
+	DisclosedAttributeIndices []int
+	NumOfAllAttributes        int
+	SignatureProof            *SignatureProof
 }
 
 type DisclosureProof struct {
-	attrProof             []byte
-	credentialDisclosures []*CredentialDisclosure
-	secretAttrCommitment  *RandomCommitment
+	AttrProof             []byte
+	CredentialDisclosures []*CredentialDisclosure
+	SecretAttrCommitment  *RandomCommitment
 }
 
 func createCredentialDisclosure(credential *Credential, disclosedAttributeIndices []int) *CredentialDisclosure {
@@ -48,10 +48,10 @@ func createCredentialDisclosure(credential *Credential, disclosedAttributeIndice
 	}
 
 	return &CredentialDisclosure{
-		disclosedAttributes:       disclosedAttributes,
-		disclosedAttributeIndices: disclosedAttributeIndices,
-		numOfAllAttributes:        len(credential.Attributes),
-		signatureProof:            signatureProof,
+		DisclosedAttributes:       disclosedAttributes,
+		DisclosedAttributeIndices: disclosedAttributeIndices,
+		NumOfAllAttributes:        len(credential.Attributes),
+		SignatureProof:            signatureProof,
 	}
 }
 
@@ -65,7 +65,7 @@ func createDisclosureProof(credentials []*Credential, credentialDisclosures []*C
 	numOfAllDisclosedAttributes := 0
 	for i := range credentials {
 		numOfAllAttributes += len(credentials[i].Attributes)
-		numOfAllDisclosedAttributes += len(credentialDisclosures[i].disclosedAttributeIndices)
+		numOfAllDisclosedAttributes += len(credentialDisclosures[i].DisclosedAttributeIndices)
 	}
 
 	numOfAttributes := make([]uint64, len(credentials))
@@ -94,19 +94,19 @@ func createDisclosureProof(credentials []*Credential, credentialDisclosures []*C
 		}
 		numOfAttributesCollected += len(credentials[i].Attributes)
 
-		numOfDisclosedIndices[i] = uint64(len(credentialDisclosures[i].disclosedAttributeIndices))
+		numOfDisclosedIndices[i] = uint64(len(credentialDisclosures[i].DisclosedAttributeIndices))
 
-		for j := range credentialDisclosures[i].disclosedAttributeIndices {
-			allDisclosedIndices[numOfDisclosedAttributesCollected+j] = uint64(credentialDisclosures[i].disclosedAttributeIndices[j])
+		for j := range credentialDisclosures[i].DisclosedAttributeIndices {
+			allDisclosedIndices[numOfDisclosedAttributesCollected+j] = uint64(credentialDisclosures[i].DisclosedAttributeIndices[j])
 		}
-		numOfDisclosedAttributesCollected += len(credentialDisclosures[i].disclosedAttributeIndices)
+		numOfDisclosedAttributesCollected += len(credentialDisclosures[i].DisclosedAttributeIndices)
 
 		for j := 0; j < COMMITMENT_LENGTH; j++ {
-			attrTreeRootCommitments[i*COMMITMENT_LENGTH+j] = credentialDisclosures[i].signatureProof.attrTreeRootCommitment.comm[j]
+			attrTreeRootCommitments[i*COMMITMENT_LENGTH+j] = credentialDisclosures[i].SignatureProof.attrTreeRootCommitment.comm[j]
 		}
 
 		for j := 0; j < NONCE_LENGTH; j++ {
-			attrTreeRootCommitmentNonces[i*NONCE_LENGTH+j] = credentialDisclosures[i].signatureProof.attrTreeRootCommitment.nonce[j]
+			attrTreeRootCommitmentNonces[i*NONCE_LENGTH+j] = credentialDisclosures[i].SignatureProof.attrTreeRootCommitment.nonce[j]
 		}
 	}
 
@@ -128,16 +128,16 @@ func createDisclosureProof(credentials []*Credential, credentialDisclosures []*C
 	disclosureProof := C.prove_attributes((C.size_t)(len(credentialDisclosures)), (*C.uint32_t)(&allAttributes[0]), (*C.size_t)(&numOfAttributes[0]), (*C.size_t)(&allDisclosedIndices[0]), (*C.size_t)(&numOfDisclosedIndices[0]), (*C.uint32_t)(&attrTreeRootCommitments[0]), (*C.uint32_t)(&(secretAttributeCommitment.comm[0])), (*C.uint32_t)(&attrTreeRootCommitmentNonces[0]), (*C.uint32_t)(&secretAttributeCommitment.nonce[0]), (*C.size_t)(unsafe.Pointer(&disclosureProofLen)))
 
 	return &DisclosureProof{
-		attrProof:             C.GoBytes(unsafe.Pointer(disclosureProof), C.int(disclosureProofLen)),
-		credentialDisclosures: credentialDisclosures,
-		secretAttrCommitment:  secretAttributeCommitment,
+		AttrProof:             C.GoBytes(unsafe.Pointer(disclosureProof), C.int(disclosureProofLen)),
+		CredentialDisclosures: credentialDisclosures,
+		SecretAttrCommitment:  secretAttributeCommitment,
 	}, nil
 }
 
 func (proof *DisclosureProof) Verify() bool {
 
-	for i := range proof.credentialDisclosures {
-		if !proof.credentialDisclosures[i].signatureProof.Verify() {
+	for i := range proof.CredentialDisclosures {
+		if !proof.CredentialDisclosures[i].SignatureProof.Verify() {
 			fmt.Println("Signature proof verification failed.")
 			return false
 		} else {
@@ -146,23 +146,23 @@ func (proof *DisclosureProof) Verify() bool {
 	}
 
 	numOfAllDisclosedAttributes := 0
-	for i := range proof.credentialDisclosures {
-		numOfAllDisclosedAttributes += len(proof.credentialDisclosures[i].disclosedAttributeIndices)
+	for i := range proof.CredentialDisclosures {
+		numOfAllDisclosedAttributes += len(proof.CredentialDisclosures[i].DisclosedAttributeIndices)
 	}
 
 	disclosedAttributes := make([]uint32, numOfAllDisclosedAttributes*12)
 	disclosedIndices := make([]uint64, numOfAllDisclosedAttributes)
-	numOfDisclosedIndices := make([]uint64, len(proof.credentialDisclosures))
-	numOfAttributes := make([]uint64, len(proof.credentialDisclosures))
+	numOfDisclosedIndices := make([]uint64, len(proof.CredentialDisclosures))
+	numOfAttributes := make([]uint64, len(proof.CredentialDisclosures))
 
-	attrTreeRootCommitments := make([]uint32, len(proof.credentialDisclosures)*COMMITMENT_LENGTH)
-	attrTreeRootCommitmentNonces := make([]uint32, len(proof.credentialDisclosures)*NONCE_LENGTH)
+	attrTreeRootCommitments := make([]uint32, len(proof.CredentialDisclosures)*COMMITMENT_LENGTH)
+	attrTreeRootCommitmentNonces := make([]uint32, len(proof.CredentialDisclosures)*NONCE_LENGTH)
 
 	numOfDisclosedAttributesCollected := 0
-	for i := range proof.credentialDisclosures {
+	for i := range proof.CredentialDisclosures {
 
-		for j := range proof.credentialDisclosures[i].disclosedAttributes {
-			disclosedAttrHash, err := proof.credentialDisclosures[i].disclosedAttributes[j].CalculateHash()
+		for j := range proof.CredentialDisclosures[i].DisclosedAttributes {
+			disclosedAttrHash, err := proof.CredentialDisclosures[i].DisclosedAttributes[j].CalculateHash()
 			//TODO return err
 			if err != nil {
 				panic(err)
@@ -173,24 +173,24 @@ func (proof *DisclosureProof) Verify() bool {
 				disclosedAttributes[numOfDisclosedAttributesCollected*12+j*12+k] = uint32(disclosedAttributeFE[k])
 			}
 
-			disclosedIndices[numOfDisclosedAttributesCollected+j] = uint64(proof.credentialDisclosures[i].disclosedAttributeIndices[j])
+			disclosedIndices[numOfDisclosedAttributesCollected+j] = uint64(proof.CredentialDisclosures[i].DisclosedAttributeIndices[j])
 		}
-		numOfDisclosedAttributesCollected += len(proof.credentialDisclosures[i].disclosedAttributes)
+		numOfDisclosedAttributesCollected += len(proof.CredentialDisclosures[i].DisclosedAttributes)
 
-		numOfDisclosedIndices[i] = uint64(len(proof.credentialDisclosures[i].disclosedAttributeIndices))
+		numOfDisclosedIndices[i] = uint64(len(proof.CredentialDisclosures[i].DisclosedAttributeIndices))
 
-		numOfAttributes[i] = uint64(proof.credentialDisclosures[i].numOfAllAttributes)
+		numOfAttributes[i] = uint64(proof.CredentialDisclosures[i].NumOfAllAttributes)
 
 		for j := 0; j < COMMITMENT_LENGTH; j++ {
-			attrTreeRootCommitments[i*COMMITMENT_LENGTH+j] = proof.credentialDisclosures[i].signatureProof.attrTreeRootCommitment.comm[j]
+			attrTreeRootCommitments[i*COMMITMENT_LENGTH+j] = proof.CredentialDisclosures[i].SignatureProof.attrTreeRootCommitment.comm[j]
 		}
 
 		for j := 0; j < NONCE_LENGTH; j++ {
-			attrTreeRootCommitmentNonces[i*NONCE_LENGTH+j] = proof.credentialDisclosures[i].signatureProof.attrTreeRootCommitment.nonce[j]
+			attrTreeRootCommitmentNonces[i*NONCE_LENGTH+j] = proof.CredentialDisclosures[i].SignatureProof.attrTreeRootCommitment.nonce[j]
 		}
 	}
 
-	if C.verify_attributes((*C.uchar)(C.CBytes(proof.attrProof)), (C.size_t)(len(proof.attrProof)), (C.size_t)(len(proof.credentialDisclosures)), (*C.uint32_t)(&disclosedAttributes[0]), (*C.size_t)(&numOfDisclosedIndices[0]), (*C.size_t)(&disclosedIndices[0]), (*C.size_t)(&numOfAttributes[0]), (*C.uint32_t)(&attrTreeRootCommitments[0]), (*C.uint32_t)(&proof.secretAttrCommitment.comm[0]), (*C.uint32_t)(&attrTreeRootCommitmentNonces[0]), (*C.uint32_t)(&proof.secretAttrCommitment.nonce[0])) == 1 {
+	if C.verify_attributes((*C.uchar)(C.CBytes(proof.AttrProof)), (C.size_t)(len(proof.AttrProof)), (C.size_t)(len(proof.CredentialDisclosures)), (*C.uint32_t)(&disclosedAttributes[0]), (*C.size_t)(&numOfDisclosedIndices[0]), (*C.size_t)(&disclosedIndices[0]), (*C.size_t)(&numOfAttributes[0]), (*C.uint32_t)(&attrTreeRootCommitments[0]), (*C.uint32_t)(&proof.SecretAttrCommitment.comm[0]), (*C.uint32_t)(&attrTreeRootCommitmentNonces[0]), (*C.uint32_t)(&proof.SecretAttrCommitment.nonce[0])) == 1 {
 		return true
 	}
 
