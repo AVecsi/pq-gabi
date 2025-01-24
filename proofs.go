@@ -4,6 +4,11 @@
 
 package gabi
 
+import (
+	"github.com/AVecsi/pq-gabi/big"
+	"github.com/AVecsi/pq-gabi/internal/common"
+)
+
 // import (
 // 	"github.com/AVecsi/pq-gabi/big"
 // 	"github.com/AVecsi/pq-gabi/gabikeys"
@@ -219,8 +224,8 @@ package gabi
 // 	return l, nil
 // }
 
-// // GenerateNonce generates a nonce for use in proofs
-// func GenerateNonce() (*big.Int, error) {
-// 	//TODO reimplement to generate 12 field elements
-// 	return common.RandomBigInt(gabikeys.DefaultSystemParameters[2048].Lstatzk)
-// }
+// GenerateNonce generates a nonce for use in proofs
+func GenerateNonce() (*big.Int, error) {
+	//12*3 byte for lazy field elements
+	return common.RandomBigInt(288)
+}
