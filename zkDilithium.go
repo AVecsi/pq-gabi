@@ -244,8 +244,8 @@ func (sig *ZkDilSignature) Verify(msg []byte) bool {
 }
 
 type SignatureProof struct {
-	proof                  []byte
-	attrTreeRootCommitment *RandomCommitment
+	Proof                  []byte
+	AttrTreeRootCommitment *RandomCommitment
 }
 
 func createSignatureProof(signature *ZkDilSignature, attrTreeRoot []byte) *SignatureProof {
@@ -286,12 +286,12 @@ func createSignatureProof(signature *ZkDilSignature, attrTreeRoot []byte) *Signa
 
 	proof := C.prove_signature((*C.uint32_t)(signature.Z.IntArray()), (*C.uint32_t)(w.IntArray()), (*C.uint32_t)(qw.IntArray()), (*C.uint32_t)(&cTildeUint32[0]), (*C.uint32_t)(&msgUint32[0]), (*C.uint32_t)(&merkleComm.comm[0]), (*C.uint32_t)(&comr[0]), (*C.uint32_t)(&merkleComm.nonce[0]), (*C.size_t)(unsafe.Pointer(&len)))
 
-	return &SignatureProof{proof: C.GoBytes(unsafe.Pointer(proof), C.int(len)), attrTreeRootCommitment: merkleComm}
+	return &SignatureProof{Proof: C.GoBytes(unsafe.Pointer(proof), C.int(len)), AttrTreeRootCommitment: merkleComm}
 }
 
 func (proof *SignatureProof) Verify() bool {
 
-	if C.verify_signature((*C.uchar)(C.CBytes(proof.proof)), (C.size_t)(len(proof.proof)), (*C.uint32_t)(&proof.attrTreeRootCommitment.comm[0]), (*C.uint32_t)(&proof.attrTreeRootCommitment.nonce[0])) == 1 {
+	if C.verify_signature((*C.uchar)(C.CBytes(proof.Proof)), (C.size_t)(len(proof.Proof)), (*C.uint32_t)(&proof.AttrTreeRootCommitment.comm[0]), (*C.uint32_t)(&proof.AttrTreeRootCommitment.nonce[0])) == 1 {
 		return true
 	}
 

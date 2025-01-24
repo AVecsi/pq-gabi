@@ -102,11 +102,11 @@ func createDisclosureProof(credentials []*Credential, credentialDisclosures []*C
 		numOfDisclosedAttributesCollected += len(credentialDisclosures[i].DisclosedAttributeIndices)
 
 		for j := 0; j < COMMITMENT_LENGTH; j++ {
-			attrTreeRootCommitments[i*COMMITMENT_LENGTH+j] = credentialDisclosures[i].SignatureProof.attrTreeRootCommitment.comm[j]
+			attrTreeRootCommitments[i*COMMITMENT_LENGTH+j] = credentialDisclosures[i].SignatureProof.AttrTreeRootCommitment.comm[j]
 		}
 
 		for j := 0; j < NONCE_LENGTH; j++ {
-			attrTreeRootCommitmentNonces[i*NONCE_LENGTH+j] = credentialDisclosures[i].SignatureProof.attrTreeRootCommitment.nonce[j]
+			attrTreeRootCommitmentNonces[i*NONCE_LENGTH+j] = credentialDisclosures[i].SignatureProof.AttrTreeRootCommitment.nonce[j]
 		}
 	}
 
@@ -182,11 +182,11 @@ func (proof *DisclosureProof) Verify() bool {
 		numOfAttributes[i] = uint64(proof.CredentialDisclosures[i].NumOfAllAttributes)
 
 		for j := 0; j < COMMITMENT_LENGTH; j++ {
-			attrTreeRootCommitments[i*COMMITMENT_LENGTH+j] = proof.CredentialDisclosures[i].SignatureProof.attrTreeRootCommitment.comm[j]
+			attrTreeRootCommitments[i*COMMITMENT_LENGTH+j] = proof.CredentialDisclosures[i].SignatureProof.AttrTreeRootCommitment.comm[j]
 		}
 
 		for j := 0; j < NONCE_LENGTH; j++ {
-			attrTreeRootCommitmentNonces[i*NONCE_LENGTH+j] = proof.CredentialDisclosures[i].SignatureProof.attrTreeRootCommitment.nonce[j]
+			attrTreeRootCommitmentNonces[i*NONCE_LENGTH+j] = proof.CredentialDisclosures[i].SignatureProof.AttrTreeRootCommitment.nonce[j]
 		}
 	}
 
