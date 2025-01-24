@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"hash"
 
+	"github.com/AVecsi/pq-gabi/big"
 	"github.com/AVecsi/pq-gabi/internal/common"
 	"github.com/AVecsi/pq-gabi/poseidon"
 	"github.com/cbergoon/merkletree"
@@ -13,6 +14,10 @@ import (
 // Attribute implements the Content interface provided by merkletree and represents the content stored in the tree.
 type Attribute struct {
 	value []byte
+}
+
+func (t Attribute) IntValue() *big.Int {
+	return new(big.Int).SetBytes(t.value)
 }
 
 // CalculateHash hashes the values of a Attribute
