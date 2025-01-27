@@ -24,7 +24,7 @@ func Test() {
 		for len(value) < 36 {
 			value = append(value, 0)
 		}
-		attribute := Attribute{value: value}
+		attribute := Attribute{Value: value}
 		merkleLeaves1 = append(merkleLeaves1, attribute)
 		attributes = append(attributes, &attribute)
 	}

@@ -13,25 +13,25 @@ import (
 
 // Attribute implements the Content interface provided by merkletree and represents the content stored in the tree.
 type Attribute struct {
-	value []byte
+	Value []byte
 }
 
 func (t Attribute) IntValue() *big.Int {
-	return new(big.Int).SetBytes(t.value)
+	return new(big.Int).SetBytes(t.Value)
 }
 
 // CalculateHash hashes the values of a Attribute
 func (t Attribute) CalculateHash() ([]byte, error) {
 
-	if len(t.value) > 36 {
-		fmt.Println("The value ", t.value, " is too long.")
+	if len(t.Value) > 36 {
+		fmt.Println("The value ", t.Value, " is too long.")
 	}
 
-	for len(t.value) < 36 {
-		t.value = append(t.value, 0)
+	for len(t.Value) < 36 {
+		t.Value = append(t.Value, 0)
 	}
 
-	valueFes := common.UnpackFesInt(t.value, common.Q)
+	valueFes := common.UnpackFesInt(t.Value, common.Q)
 
 	h := poseidon.NewPoseidon(nil, POS_RF, POS_T, POS_RATE, common.Q)
 
@@ -44,7 +44,7 @@ func (t Attribute) CalculateHash() ([]byte, error) {
 
 // Equals tests for equality of two Attributes
 func (t Attribute) Equals(other merkletree.Content) (bool, error) {
-	return bytes.Equal(t.value, other.(Attribute).value), nil
+	return bytes.Equal(t.Value, other.(Attribute).Value), nil
 }
 
 func hashStrategy() hash.Hash {
