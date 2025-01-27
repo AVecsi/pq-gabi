@@ -25,7 +25,7 @@ func NewIssuer(sk *gabikeys.PrivateKey, pk *gabikeys.PublicKey, context *big.Int
 // the IssueCommitmentMessage provided. Note that this function DOES NOT check
 // the proofs containted in the IssueCommitmentMessage! That needs to be done at
 // a higher level!
-func (i *Issuer) IssueSignature(U *big.Int, attributes []*Attribute, nonce *big.Int) (*ZkDilSignature, []byte, error) {
+func (i *Issuer) IssueSignature(U *big.Int, attributes []*Attribute) (*ZkDilSignature, []byte, error) {
 
 	attrTree, err := BuildMerkleTree(attributes)
 	if err != nil {
