@@ -12,8 +12,8 @@ const COMMITMENT_LENGTH = 24
 const NONCE_LENGTH = 12
 
 type RandomCommitment struct {
-	comm  []uint32
-	nonce []uint32
+	Comm  []uint32
+	Nonce []uint32
 }
 
 func NewRandomCommitment(fieldElements []int, nonce []int) (*RandomCommitment, error) {
@@ -41,5 +41,5 @@ func NewRandomCommitment(fieldElements []int, nonce []int) (*RandomCommitment, e
 		randomCommUint32[i] = uint32(randomCommFes[i])
 	}
 
-	return &RandomCommitment{comm: randomCommUint32, nonce: nonceUint32}, nil
+	return &RandomCommitment{Comm: randomCommUint32, Nonce: nonceUint32}, nil
 }
