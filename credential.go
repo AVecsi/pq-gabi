@@ -15,6 +15,7 @@ import (
 	"fmt"
 	"unsafe"
 
+	"github.com/AVecsi/pq-gabi/big"
 	"github.com/AVecsi/pq-gabi/internal/common"
 	"github.com/go-errors/errors"
 )
@@ -214,6 +215,7 @@ func (proof *DisclosureProof) Verify() bool {
 // }
 
 // GenerateSecretAttribute generates secret attribute used prove ownership and links between credentials from the same user.
-// func GenerateSecretAttribute() (*big.Int, error) {
-// 	return common.RandomBigInt(gabikeys.DefaultSystemParameters[1024].Lm - 1)
-// }
+func GenerateSecretAttribute() (*big.Int, error) {
+	//12*3 byte for lazy field elements
+	return common.RandomBigInt(288)
+}
