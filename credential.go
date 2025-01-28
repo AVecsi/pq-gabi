@@ -39,7 +39,7 @@ type DisclosureProof struct {
 	SecretAttrCommitment  *RandomCommitment
 }
 
-func createCredentialDisclosure(credential *Credential, disclosedAttributeIndices []int) *CredentialDisclosure {
+func CreateCredentialDisclosure(credential *Credential, disclosedAttributeIndices []int) *CredentialDisclosure {
 
 	signatureProof := createSignatureProof(credential.Signature, credential.AttrTreeRoot)
 
@@ -56,7 +56,7 @@ func createCredentialDisclosure(credential *Credential, disclosedAttributeIndice
 	}
 }
 
-func createDisclosureProof(credentials []*Credential, credentialDisclosures []*CredentialDisclosure) (*DisclosureProof, error) {
+func CreateDisclosureProof(credentials []*Credential, credentialDisclosures []*CredentialDisclosure) (*DisclosureProof, error) {
 
 	if len(credentials) != len(credentialDisclosures) {
 		return nil, errors.New("The amount of credentials and disclosures should be the same.")

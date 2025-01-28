@@ -55,11 +55,11 @@ func Test() {
 
 	start := time.Now()
 
-	credDisclosure := createCredentialDisclosure(&cred, disclosedAttributeIndices)
-	credDisclosure2 := createCredentialDisclosure(&cred, disclosedAttributeIndices)
-	credDisclosure3 := createCredentialDisclosure(&cred, disclosedAttributeIndices)
+	credDisclosure := CreateCredentialDisclosure(&cred, disclosedAttributeIndices)
+	credDisclosure2 := CreateCredentialDisclosure(&cred, disclosedAttributeIndices)
+	credDisclosure3 := CreateCredentialDisclosure(&cred, disclosedAttributeIndices)
 
-	disclosureProof, err := createDisclosureProof([]*Credential{&cred, &cred, &cred}, []*CredentialDisclosure{credDisclosure, credDisclosure2, credDisclosure3})
+	disclosureProof, err := CreateDisclosureProof([]*Credential{&cred, &cred, &cred}, []*CredentialDisclosure{credDisclosure, credDisclosure2, credDisclosure3})
 	if err != nil {
 		panic(err.Error())
 	}
