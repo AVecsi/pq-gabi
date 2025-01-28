@@ -47,7 +47,7 @@ func (t Attribute) Equals(other merkletree.Content) (bool, error) {
 	return bytes.Equal(t.Value, other.(Attribute).Value), nil
 }
 
-func hashStrategy() hash.Hash {
+func HashStrategy() hash.Hash {
 	h := poseidon.NewPoseidon(nil, POS_RF, POS_T, POS_RATE, common.Q)
 
 	return h
@@ -60,7 +60,7 @@ func BuildMerkleTree(attributes []*Attribute) (*merkletree.MerkleTree, error) {
 		merkleLeaves = append(merkleLeaves, attributes[i])
 	}
 
-	merkleTree, err := merkletree.NewTreeWithHashStrategy(merkleLeaves, hashStrategy)
+	merkleTree, err := merkletree.NewTreeWithHashStrategy(merkleLeaves, HashStrategy)
 	if err != nil {
 		return nil, err
 	}

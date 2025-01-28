@@ -29,7 +29,7 @@ func Test() {
 		attributes = append(attributes, &attribute)
 	}
 
-	merkleTree1, err := merkletree.NewTreeWithHashStrategy(merkleLeaves1, hashStrategy)
+	merkleTree1, err := merkletree.NewTreeWithHashStrategy(merkleLeaves1, HashStrategy)
 	if err != nil {
 		log.Fatal(err)
 	}
