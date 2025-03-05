@@ -9,7 +9,6 @@ package gabi
 #include "./zkDilithiumProof/zkDilithiumProof.h"
 #include <stdlib.h>
 */
-
 import "C"
 
 import (
