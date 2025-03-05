@@ -1,0 +1,44 @@
+[DEBUG]  Testing '! ( -n  )'
+[INFO ]  Performing some trivial sanity checks
+[DEBUG]  Testing '! ( -n  )'
+[DEBUG]  Testing '! ( -n  )'
+[DEBUG]  Testing '! ( -n  )'
+[DEBUG]  Testing '! ( -n  )'
+[DEBUG]  Testing '! ( -n  )'
+[DEBUG]  Testing '! ( -n  )'
+[DEBUG]  Testing '! ( -n  )'
+[DEBUG]  Testing '! ( -n  )'
+[DEBUG]  Testing '! ( -n  )'
+[DEBUG]  Testing '! ( -n  )'
+[DEBUG]  Testing '! ( -n  )'
+[DEBUG]  Testing '! ( -n  )'
+[DEBUG]  Sanitized 'CT_INSTALL_DIR': '/Users/vecsiadam/Documents/MPI-SP/PQ-ABC/pq-gabi/zkDilithiumProof/' -> '/Users/vecsiadam/Documents/MPI-SP/PQ-ABC/pq-gabi/zkDilithiumProof/'
+[WARN ]  Number of open files 256 may not be sufficient to build the toolchain; increasing to 2048
+[DEBUG]  ==> Executing:  'mkdir' '-p' '/Users/vecsiadam/Documents/MPI-SP/PQ-ABC/pq-gabi/zkDilithiumProof/.build'
+[DEBUG]  ==> Return status 0
+[DEBUG]  ==> Executing:  'rm' '-f' '/Users/vecsiadam/Documents/MPI-SP/PQ-ABC/pq-gabi/zkDilithiumProof/.build/backtrace'
+[DEBUG]  ==> Return status 0
+[DEBUG]  ==> Executing:  'touch' '/Users/vecsiadam/Documents/MPI-SP/PQ-ABC/pq-gabi/zkDilithiumProof/.build/foo'
+[DEBUG]  ==> Return status 0
+[DEBUG]  Testing '! ( -f /Users/vecsiadam/Documents/MPI-SP/PQ-ABC/pq-gabi/zkDilithiumProof/.build/FOO )'
+[ERROR]  Your file system in '/Users/vecsiadam/Documents/MPI-SP/PQ-ABC/pq-gabi/zkDilithiumProof/.build' is *not* case-sensitive!
+[ERROR]  
+[ERROR]  >>
+[ERROR]  >>  Build failed in step '(top-level)'
+[ERROR]  >>
+[ERROR]  >>  Error happened in: CT_Abort[scripts/functions@488]
+[ERROR]  >>        called from: CT_TestAndAbort[scripts/functions@508]
+[ERROR]  >>        called from: main[scripts/crosstool-NG.sh@122]
+[ERROR]  >>
+[ERROR]  >>  For more info on this error, look at the file: 'build.log'
+[ERROR]  >>  There is a list of known issues, some with workarounds, in:
+[ERROR]  >>      https://crosstool-ng.github.io/docs/known-issues/
+[ERROR]  >>
+[ERROR]  >>  If you feel this is a bug in crosstool-NG, report it at:
+[ERROR]  >>      https://github.com/crosstool-ng/crosstool-ng/issues/
+[ERROR]  >>
+[ERROR]  >>  Make sure your report includes all the information pertinent to this issue.
+[ERROR]  >>  Read the bug reporting guidelines here:
+[ERROR]  >>      http://crosstool-ng.github.io/support/
+[ERROR]  
+[ERROR]  (elapsed: 28977680:35.00)

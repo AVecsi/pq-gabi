@@ -5,6 +5,7 @@ package gabi
 #cgo android,arm64 LDFLAGS: -L./zkDilithiumProof/jniLibs/arm64-v8a -lzkDilithiumProof
 #cgo android,386 LDFLAGS: -L./zkDilithiumProof/jniLibs/x86 -lzkDilithiumProof
 #cgo android,amd64 LDFLAGS: -L./zkDilithiumProof/jniLibs/x86_64 -lzkDilithiumProof
+#cgo arch,arm64 LDFLAGS: -L./zkDilithiumProof/jniLibs/release -lzkDilithiumProof
 #include "./zkDilithiumProof/zkDilithiumProof.h"
 #include <stdlib.h>
 */

@@ -11,13 +11,13 @@ run-all: run-dynamic run-static
 .PHONY: build-dynamic
 build-dynamic:
 	@cd zkDilithiumProof && cargo build --release
-	@cp zkDilithiumProof/target/release/libzkDilithiumProof.dylib zkDilithiumProof
+	@cp zkDilithiumProof/target/release/libzkDilithiumProof.dylib zkDilithiumProof/jniLibs/release/
 	go build -ldflags="-r $(ROOT_DIR)zkDilithiumProof"
 
 .PHONY: build-static
 build-static:
 	@cd zkDilithiumProof && cargo build --release
-	@cp zkDilithiumProof/target/release/libzkDilithiumProof.a zkDilithiumProof
+	@cp zkDilithiumProof/target/release/libzkDilithiumProof.a zkDilithiumProof/jniLibs/release/
 	go build
 
 .PHONY: run-dynamic

@@ -39,3 +39,7 @@ right now we disclose attributes, prove that they are part of the merkle tree, t
 then we prove that the merkle tree root was signed
 
 we need to make a new proof each time for both to keep indistinguishability
+
+
+
+// index 1 is metadata attribute
