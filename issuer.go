@@ -27,6 +27,13 @@ func NewIssuer(sk *gabikeys.PrivateKey, pk *gabikeys.PublicKey, context *big.Int
 // a higher level!
 func (i *Issuer) IssueSignature(U *big.Int, attributes []*Attribute) (*ZkDilSignature, []byte, error) {
 
+	if len(attributes) != 0 {
+		attributes = append(attributes, nil)
+		copy(attributes[1:], attributes[:len(attributes)-1])
+	}
+
+	attributes[0] = &Attribute{Value: U.Bytes()}
+
 	attrTree, err := BuildMerkleTree(attributes)
 	if err != nil {
 		return nil, nil, err

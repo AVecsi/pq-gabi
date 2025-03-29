@@ -19,7 +19,7 @@ func Test() {
 
 	var merkleLeaves1 []merkletree.Content
 	var attributes []*Attribute
-	for i := 0; i < 4; i++ {
+	for i := 0; i < 16; i++ {
 		value := []byte(fmt.Sprintf("attr%d", i))
 		for len(value) < 36 {
 			value = append(value, 0)
@@ -51,20 +51,20 @@ func Test() {
 		Attributes:   attributes,
 		AttrTreeRoot: msg1,
 	}
-	disclosedAttributeIndices := []int{2, 3}
+	disclosedAttributeIndices := []int{3, 4, 5}
 
 	start := time.Now()
 
 	credDisclosure := CreateCredentialDisclosure(&cred, disclosedAttributeIndices)
-	/* credDisclosure2 := CreateCredentialDisclosure(&cred, disclosedAttributeIndices)
-	credDisclosure3 := CreateCredentialDisclosure(&cred, disclosedAttributeIndices) */
+	credDisclosure2 := CreateCredentialDisclosure(&cred, disclosedAttributeIndices)
+	credDisclosure3 := CreateCredentialDisclosure(&cred, disclosedAttributeIndices)
 
-	disclosureProof, err := CreateDisclosureProof([]*Credential{&cred /* , &cred, &cred */}, []*CredentialDisclosure{credDisclosure /* , credDisclosure2, credDisclosure3 */})
+	disclosureProof, err := CreateDisclosureProof([]*Credential{&cred, &cred, &cred}, []*CredentialDisclosure{credDisclosure, credDisclosure2, credDisclosure3})
 	if err != nil {
 		panic(err.Error())
 	}
 
-	fmt.Println("Proof size: ", len(disclosureProof.AttrProof)+ /* 3* */ len(disclosureProof.CredentialDisclosures[0].SignatureProof.Proof))
+	fmt.Println(len(disclosureProof.AttrProof))
 
 	fmt.Println("It took ", time.Since(start), " to create the disclosure.")
 

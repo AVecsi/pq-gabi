@@ -34,7 +34,7 @@ const CSIZE = 12 // number of field elements to use for c tilde
 const MUSIZE = 24
 
 type ZkDilSignature struct {
-	Pk     *gabikeys.PublicKey `json:"-"`
+	Pk     *gabikeys.PublicKey `json:"pk"`
 	CTilde []int               `json:"ctilde"`
 	Z      *algebra.Vec        `json:"z"`
 }
@@ -145,6 +145,7 @@ func Sign(pubK *gabikeys.PublicKey, privK *gabikeys.PrivateKey, msg []byte) ZkDi
 	// Challenge generation loop
 	yNonce := 0 //TODO
 	rho2 := common.H(append(privK.CNS, common.H(append(tr, msg...), 64)...), 64)
+
 	for {
 		// Sample Y and compute w
 		y := algebra.SampleY(rho2, yNonce)
