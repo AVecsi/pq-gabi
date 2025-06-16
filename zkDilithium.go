@@ -179,14 +179,14 @@ func Sign(pubK *gabikeys.PublicKey, privK *gabikeys.PrivateKey, msg []byte) ZkDi
 		// Compute r0 and check norm
 		r0, _ := (w.Sub(cs2)).Decompose()
 		if r0.Norm() >= common.GAMMA2-BETA {
-			fmt.Println("Retrying because of r0 check")
+			//fmt.Println("Retrying because of r0 check")
 			continue
 		}
 
 		// Compute z and check norm
 		z := y.Add(s1Hat.ScalarMulNTT(cHat).InvNTT())
 		if z.Norm() >= common.GAMMA1-BETA {
-			fmt.Println("Retrying because of z check")
+			//fmt.Println("Retrying because of z check")
 			continue
 		}
 

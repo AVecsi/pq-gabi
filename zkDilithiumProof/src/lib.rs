@@ -63,7 +63,12 @@ pub extern "C" fn prove_signature(z_ptr: *const u32, w_ptr: *const u32, qw_ptr: 
             nonce[i] = BaseElement::new(*(nonce_ptr.add(i)));
         }
     }
+    let now = Instant::now();
     let proof_bytes = starkpf::prove(z, w, qw, ctilde, m, comm, com_r, nonce).to_bytes();
+    print!(
+        "Generated proof in {} ms\n",
+        now.elapsed().as_millis()
+    );
 
     unsafe {
         *out_proof_bytes_len = proof_bytes.len();

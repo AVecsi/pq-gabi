@@ -32,7 +32,11 @@ func (i *Issuer) IssueSignature(U *big.Int, attributes []*Attribute) (*ZkDilSign
 		copy(attributes[1:], attributes[:len(attributes)-1])
 	}
 
-	attributes[0] = &Attribute{Value: U.Bytes()}
+	var err error
+	attributes[0], err = NewAttribute(U.Bytes())
+	if err != nil {
+		return nil, nil, err
+	}
 
 	attrTree, err := BuildMerkleTree(attributes)
 	if err != nil {

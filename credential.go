@@ -17,6 +17,7 @@ import "C"
 
 import (
 	"fmt"
+	"time"
 	"unsafe"
 
 	"github.com/AVecsi/pq-gabi/big"
@@ -62,6 +63,7 @@ func CreateCredentialDisclosure(credential *Credential, disclosedAttributeIndice
 
 func CreateDisclosureProof(credentials []*Credential, credentialDisclosures []*CredentialDisclosure) (*DisclosureProof, error) {
 
+	//TODO This part probably will be more efficient if the data stored better. Repeating this computation here is useless.
 	if len(credentials) != len(credentialDisclosures) {
 		return nil, errors.New("The amount of credentials and disclosures should be the same.")
 	}
@@ -85,14 +87,12 @@ func CreateDisclosureProof(credentials []*Credential, credentialDisclosures []*C
 	numOfAttributesCollected := 0
 	numOfDisclosedAttributesCollected := 0
 	for i := range credentials {
+
 		numOfAttributes[i] = C.size_t(len(credentials[i].Attributes))
 
 		for j := range credentials[i].Attributes {
-			attrHash, err := credentials[i].Attributes[j].CalculateHash()
-			if err != nil {
-				return nil, err
-			}
-			attributeFE := common.UnpackFesInt(attrHash, common.Q)
+
+			attributeFE := common.UnpackFesInt(credentials[i].Attributes[j].Hash, common.Q)
 			for k := 0; k < 12; k++ {
 				allAttributes[numOfAttributesCollected*12+j*12+k] = uint32(attributeFE[k])
 			}
@@ -115,22 +115,21 @@ func CreateDisclosureProof(credentials []*Credential, credentialDisclosures []*C
 		}
 	}
 
-	//TODO this should be random and should come from the verifier
+	//TODO this should be random and should come from the verifier?
 	secretAttributeNonce := []int{1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1}
 
-	secretAttr, err := credentials[0].Attributes[0].CalculateHash()
-	if err != nil {
-		return nil, err
-	}
-
-	secretAttributeCommitment, err := NewRandomCommitment(common.UnpackFesInt(secretAttr, common.Q), secretAttributeNonce)
+	secretAttributeCommitment, err := NewRandomCommitment(common.UnpackFesInt(credentials[0].Attributes[0].Hash, common.Q), secretAttributeNonce)
 	if err != nil {
 		return nil, err
 	}
 
 	disclosureProofLen := 0
 
+	start := time.Now()
+
 	disclosureProof := C.prove_attributes((C.size_t)(len(credentialDisclosures)), (*C.uint32_t)(&allAttributes[0]), &numOfAttributes[0], &allDisclosedIndices[0], &numOfDisclosedIndices[0], (*C.uint32_t)(&attrTreeRootCommitments[0]), (*C.uint32_t)(&(secretAttributeCommitment.Comm[0])), (*C.uint32_t)(&attrTreeRootCommitmentNonces[0]), (*C.uint32_t)(&secretAttributeCommitment.Nonce[0]), (*C.size_t)(unsafe.Pointer(&disclosureProofLen)))
+
+	fmt.Println(time.Since(start))
 
 	return &DisclosureProof{
 		AttrProof:             C.GoBytes(unsafe.Pointer(disclosureProof), C.int(disclosureProofLen)),
@@ -167,11 +166,7 @@ func (proof *DisclosureProof) Verify() bool {
 	for i := range proof.CredentialDisclosures {
 
 		for j := range proof.CredentialDisclosures[i].DisclosedAttributes {
-			disclosedAttrHash, err := proof.CredentialDisclosures[i].DisclosedAttributes[j].CalculateHash()
-			//TODO return err
-			if err != nil {
-				panic(err)
-			}
+			disclosedAttrHash := proof.CredentialDisclosures[i].DisclosedAttributes[j].Hash
 
 			disclosedAttributeFE := common.UnpackFesInt(disclosedAttrHash, common.Q)
 			for k := 0; k < 12; k++ {

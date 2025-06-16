@@ -14,6 +14,19 @@ import (
 // Attribute implements the Content interface provided by merkletree and represents the content stored in the tree.
 type Attribute struct {
 	Value []byte `json:"value"`
+	Hash  []byte `json:"hash"`
+}
+
+func NewAttribute(value []byte) (*Attribute, error) {
+	attr := new(Attribute)
+	attr.Value = value
+	var err error
+	attr.Hash, err = attr.CalculateHash()
+	if err != nil {
+		return nil, err
+	}
+
+	return attr, nil
 }
 
 func (t Attribute) IntValue() *big.Int {

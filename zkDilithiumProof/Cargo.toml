@@ -28,5 +28,12 @@ generic_singleton = "0.4.1"
 atomic_refcell = "0.1.9"
 libc = "0.2.2"
 
+[dev-dependencies]
+criterion = { version = "0.5", features = ["html_reports"] }
+
+[[bench]]
+name = "benchmarks"
+harness = false
+
 [profile.release]
 panic = "unwind"  # Allows the panic message to propagate

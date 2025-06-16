@@ -196,8 +196,15 @@ pub(crate) fn prove(
         now.elapsed().as_millis()
     );
 
+    let now = Instant::now();
+        let result = prover.prove(trace).unwrap();
+    print!(
+        "Only the prove call, without the trace build is {} ms\n",
+        now.elapsed().as_millis()
+    );
+
     // generate the proof
-    prover.prove(trace).unwrap()
+    result
 }
 
 pub(crate) fn verify(proof: StarkProof, comm: [BaseElement; HASH_RATE_WIDTH], nonce: [BaseElement; 12]) -> Result<(), VerifierError> {
