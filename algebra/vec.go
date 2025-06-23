@@ -208,6 +208,18 @@ func (v *Vec) Norm() int64 {
 	return maxNorm
 }
 
+// Norm computes the maximum norm of the Polys in the Vec
+func (v *Vec) RNorm() int64 {
+	maxNorm := int64(0)
+	for _, p := range v.Ps {
+		norm := p.RNorm()
+		if norm > maxNorm {
+			maxNorm = norm
+		}
+	}
+	return maxNorm
+}
+
 func (v *Vec) IntArray() *uint32 {
 	intPs := make([]uint32, len(v.Ps)*len(v.Ps[0].Cs))
 	for i, p := range v.Ps {

@@ -1,3 +1,5 @@
+use winterfell::math::StarkField;
+
 use super::{
     BaseElement, ThinDilAir, FieldElement, ProofOptions, Prover, aux_trace_table::RapTraceTable, TRACE_WIDTH, N, M, air::PublicInputs,
     HASH_CYCLE_LEN, HASH_STATE_WIDTH, HASH_RATE_WIDTH, NUM_HASH_ROUNDS, HASH_DIGEST_WIDTH, ZIND, QIND, RIND, CIND, 
@@ -257,7 +259,7 @@ impl ThinDilProver {
                             (state[WLOWIND+j]+wlowlimitf).to_string().parse::<u64>().unwrap(),
                             &mut state[WLOWRANGEIND+(j)*WLOWRANGE..(WLOWRANGEIND+(j+1)*WLOWRANGE)]
                         );
-                    } 
+                    }
 
                     // WHIGH rangeproof
                     for j in 0..K{
@@ -280,11 +282,11 @@ impl ThinDilProver {
                     }
                 }
 
-                /* print!("{}: ", step);
-                for i in 0..state.len() {
-                    print!("{} ", state[i]);
-                }
-                println!(); */
+                // print!("{}: ", step);
+                // for i in 0..state.len() {
+                //     print!("{} ", state[i]);
+                // }
+                // println!();
                 /* if step < 24 {
                     print!("{}: ", step);
                     for i in 0..CTILDEIND {
@@ -297,7 +299,7 @@ impl ThinDilProver {
                         print!("{} ", state[i]);
                     }
                     println!();
-                } */
+                }  */
             },
         );
 

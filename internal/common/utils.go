@@ -2,6 +2,7 @@ package common
 
 import (
 	"bytes"
+	"fmt"
 
 	"github.com/AVecsi/pq-gabi/big"
 	"golang.org/x/crypto/sha3"
@@ -113,6 +114,7 @@ func UnpackFesLoose(bs []byte) []int {
 
 func UnpackFes22Bit(bs []byte) []int {
 	if len(bs) > 32 {
+		fmt.Println("Len is: ", len(bs))
 		panic("invalid byte array length")
 	} else if len(bs) < 32 {
 		for i := len(bs); i < 32; i++ {
@@ -141,6 +143,41 @@ func UnpackFes22Bit(bs []byte) []int {
 	fieldElements[11] = int(bigInt.Int64()) // The remaining bits are 14 bits
 
 	return fieldElements
+}
+
+func PackFes22Bit(fieldElements []int) []byte {
+	if len(fieldElements) != 12 {
+		panic("fieldElements must contain exactly 12 elements")
+	}
+
+	bigInt := big.NewInt(0)
+	shift := uint(0)
+
+	// Add the first 11 22-bit field elements
+	for i := 0; i < 11; i++ {
+		part := big.NewInt(int64(fieldElements[i]))
+		part.Lsh(part, shift)
+		bigInt.Or(bigInt, part)
+		shift += 22
+	}
+
+	// Add the final 14-bit field element, masking to keep only 14 bits
+	last := big.NewInt(int64(fieldElements[11] & ((1 << 14) - 1))) // mask to 14 bits
+	last.Lsh(last, shift)
+	bigInt.Or(bigInt, last)
+
+	// Convert the big integer into a 32-byte array
+	result := bigInt.Bytes()
+
+	// Ensure the result is exactly 32 bytes long
+	if len(result) < 32 {
+		padded := make([]byte, 32)
+		copy(padded[32-len(result):], result)
+		return padded
+	} else if len(result) > 32 {
+		panic("encoded value exceeds 32 bytes")
+	}
+	return result
 }
 
 func XOF128(seed []byte, nonce int) *bytes.Reader {

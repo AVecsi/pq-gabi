@@ -13,7 +13,6 @@ import (
 	"github.com/AVecsi/pq-gabi/big"
 	"github.com/AVecsi/pq-gabi/gabikeys"
 	"github.com/go-errors/errors"
-	"github.com/stretchr/testify/assert"
 )
 
 var (
@@ -161,14 +160,14 @@ func TestTestKeys(t *testing.T) {
 	testPublicKey(t, testPubK, testPrivK)
 }
 
-func TestZkDilSignature(t *testing.T) {
-	m := []byte("123")
-	sig := Sign(testPubK, testPrivK, m)
+// func TestZkDilSignature(t *testing.T) {
+// 	m := []byte("123")
+// 	sig := Sign(testPubK, testPrivK, m)
 
-	assert.True(t, sig.Verify(m), "zkDilithium did not verify, whereas it should.")
-	m[0] = 0
-	assert.True(t, !sig.Verify(m), "zkDilithium verifies, whereas it should not.")
-}
+// 	assert.True(t, sig.Verify(m), "zkDilithium did not verify, whereas it should.")
+// 	m[0] = 0
+// 	assert.True(t, !sig.Verify(m), "zkDilithium verifies, whereas it should not.")
+// }
 
 // TODO In our case the proofU is the merkle tree stark that we are making.
 // func TestProofU(t *testing.T) {

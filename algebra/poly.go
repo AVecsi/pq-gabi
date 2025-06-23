@@ -271,6 +271,19 @@ func (p *Poly) Norm() int64 {
 	return n
 }
 
+func (p *Poly) RNorm() int64 {
+	n := int64(0)
+	for _, c := range p.Cs {
+		if c < 0 {
+			c = -c
+		}
+		if c > n {
+			n = c
+		}
+	}
+	return n
+}
+
 // decompose splits the polynomial into two parts.
 func (p *Poly) Decompose() (*Poly, *Poly) {
 	p0 := make([]int64, common.N)

@@ -5,7 +5,7 @@ package gabi
 #cgo android,arm64 LDFLAGS: -L./zkDilithiumProof/jniLibs/arm64-v8a -lzkDilithiumProof
 #cgo android,386 LDFLAGS: -L./zkDilithiumProof/jniLibs/x86 -lzkDilithiumProof
 #cgo android,amd64 LDFLAGS: -L./zkDilithiumProof/jniLibs/x86_64 -lzkDilithiumProof
-#cgo arm64 LDFLAGS: -L./zkDilithiumProof/jniLibs/release -lzkDilithiumProof
+#cgo arm64 LDFLAGS: -L./zkDilithiumProof -lzkDilithiumProof
 #include "./zkDilithiumProof/zkDilithiumProof.h"
 #include <stdlib.h>
 */
@@ -178,7 +178,7 @@ func Sign(pubK *gabikeys.PublicKey, privK *gabikeys.PrivateKey, msg []byte) ZkDi
 
 		// Compute r0 and check norm
 		r0, _ := (w.Sub(cs2)).Decompose()
-		if r0.Norm() >= common.GAMMA2-BETA {
+		if r0.RNorm() >= common.GAMMA2-BETA {
 			//fmt.Println("Retrying because of r0 check")
 			continue
 		}

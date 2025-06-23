@@ -37,7 +37,7 @@ func (t Attribute) IntValue() *big.Int {
 func (t Attribute) CalculateHash() ([]byte, error) {
 
 	if len(t.Value) > 36 {
-		fmt.Println("The value ", t.Value, " is too long.")
+		fmt.Println("The value ", t.Value, " is too long.", len(t.Value))
 	}
 
 	for len(t.Value) < 36 {

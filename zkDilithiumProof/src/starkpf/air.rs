@@ -231,8 +231,8 @@ impl Air for ThinDilAir {
         let wlowlimitf = E::from(WLOWLIMIT);
         let (head, tail) = result.split_at_mut(WLOWASSERT);
         for i in 0..4{
-            let value = current[WLOWIND + i] + wlowlimitf;
-            
+            let value = current[WLOWIND + i] + wlowlimitf;    
+
             assert_bitdec(
                 &mut head[WLOWRANGEIND+i*WLOWRANGE..WLOWRANGEIND+(i+1)*WLOWRANGE], 
                 &current[WLOWRANGEIND+i*WLOWRANGE..WLOWRANGEIND+(i+1)*WLOWRANGE], 
@@ -404,7 +404,7 @@ impl Air for ThinDilAir {
         for i in 0..HASH_DIGEST_WIDTH {
             result.agg_constraint(
                 CTILDEASSERT + i, 
-                ctilde_flag.into(), 
+                ctilde_flag.into(),
                 are_equal(current[CTILDEIND+i],current[HASHIND+i])
             );
         }
@@ -761,6 +761,7 @@ fn get_mball_mask() -> Vec<BaseElement> {
 
 fn get_matmul_mask() -> Vec<BaseElement> {
     let mut matmul_mask = vec![BaseElement::ZERO; PADDED_TRACE_LENGTH];
+
     for i in PIT_START..PIT_END-4{
         if i%HASH_CYCLE_LEN < HASH_CYCLE_LEN-2 {
             matmul_mask[i] = BaseElement::ONE;
