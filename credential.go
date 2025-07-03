@@ -9,7 +9,7 @@ package gabi
 #cgo android,arm64 LDFLAGS: -L./zkDilithiumProof/jniLibs/arm64-v8a -lzkDilithiumProof
 #cgo android,386 LDFLAGS: -L./zkDilithiumProof/jniLibs/x86 -lzkDilithiumProof
 #cgo android,amd64 LDFLAGS: -L./zkDilithiumProof/jniLibs/x86_64 -lzkDilithiumProof
-#cgo arm64 LDFLAGS: -L./zkDilithiumProof/ -lzkDilithiumProof
+#cgo arm64 LDFLAGS: -L./zkDilithiumProof/target/release -lzkDilithiumProof
 #include "./zkDilithiumProof/zkDilithiumProof.h"
 #include <stdlib.h>
 */
@@ -145,9 +145,59 @@ func (proof *DisclosureProof) Verify() bool {
 			fmt.Println("Signature proof verification failed.")
 			return false
 		} else {
-			fmt.Println("Signature proof verified successfully!")
+			//fmt.Println("Signature proof verified successfully!")
 		}
 	}
+
+	numOfAllDisclosedAttributes := 0
+	for i := range proof.CredentialDisclosures {
+		numOfAllDisclosedAttributes += len(proof.CredentialDisclosures[i].DisclosedAttributeIndices)
+	}
+
+	disclosedAttributes := make([]uint32, numOfAllDisclosedAttributes*12)
+	disclosedIndices := make([]C.size_t, numOfAllDisclosedAttributes)
+	numOfDisclosedIndices := make([]C.size_t, len(proof.CredentialDisclosures))
+	numOfAttributes := make([]C.size_t, len(proof.CredentialDisclosures))
+
+	attrTreeRootCommitments := make([]uint32, len(proof.CredentialDisclosures)*COMMITMENT_LENGTH)
+	attrTreeRootCommitmentNonces := make([]uint32, len(proof.CredentialDisclosures)*NONCE_LENGTH)
+
+	numOfDisclosedAttributesCollected := 0
+	for i := range proof.CredentialDisclosures {
+
+		for j := range proof.CredentialDisclosures[i].DisclosedAttributes {
+			disclosedAttrHash := proof.CredentialDisclosures[i].DisclosedAttributes[j].Hash
+
+			disclosedAttributeFE := common.UnpackFesInt(disclosedAttrHash, common.Q)
+			for k := 0; k < 12; k++ {
+				disclosedAttributes[numOfDisclosedAttributesCollected*12+j*12+k] = uint32(disclosedAttributeFE[k])
+			}
+
+			disclosedIndices[numOfDisclosedAttributesCollected+j] = C.size_t(proof.CredentialDisclosures[i].DisclosedAttributeIndices[j])
+		}
+		numOfDisclosedAttributesCollected += len(proof.CredentialDisclosures[i].DisclosedAttributes)
+
+		numOfDisclosedIndices[i] = C.size_t(len(proof.CredentialDisclosures[i].DisclosedAttributeIndices))
+
+		numOfAttributes[i] = C.size_t(proof.CredentialDisclosures[i].NumOfAllAttributes)
+
+		for j := 0; j < COMMITMENT_LENGTH; j++ {
+			attrTreeRootCommitments[i*COMMITMENT_LENGTH+j] = proof.CredentialDisclosures[i].SignatureProof.AttrTreeRootCommitment.Comm[j]
+		}
+
+		for j := 0; j < NONCE_LENGTH; j++ {
+			attrTreeRootCommitmentNonces[i*NONCE_LENGTH+j] = proof.CredentialDisclosures[i].SignatureProof.AttrTreeRootCommitment.Nonce[j]
+		}
+	}
+
+	if C.verify_attributes((*C.uchar)(C.CBytes(proof.AttrProof)), (C.size_t)(len(proof.AttrProof)), (C.size_t)(len(proof.CredentialDisclosures)), (*C.uint32_t)(&disclosedAttributes[0]), &numOfDisclosedIndices[0], &disclosedIndices[0], &numOfAttributes[0], (*C.uint32_t)(&attrTreeRootCommitments[0]), (*C.uint32_t)(&proof.SecretAttrCommitment.Comm[0]), (*C.uint32_t)(&attrTreeRootCommitmentNonces[0]), (*C.uint32_t)(&proof.SecretAttrCommitment.Nonce[0])) == 1 {
+		return true
+	}
+
+	return false
+}
+
+func (proof *DisclosureProof) VerifyWithoutSignature() bool {
 
 	numOfAllDisclosedAttributes := 0
 	for i := range proof.CredentialDisclosures {

@@ -54,7 +54,7 @@ impl MerkleProver {
         }
         let trace_padded_length = i;
 
-        let load_attribute_steps = leaf_steps_in_postorder(max_num_of_attributes - 1);
+        let load_attribute_steps: Vec<usize> = leaf_steps_in_postorder(max_num_of_attributes - 1);
 
         let mut trace = TraceTable::new(trace_width, trace_padded_length);
         trace.fill(
@@ -95,7 +95,7 @@ impl MerkleProver {
                     } else if cycle_pos > 0 {
                         // apply poseidon round in all round of HASH_CYCLE, leave the init rounds in the trace
                         poseidon_23_spec::apply_round(&mut state[0..(3*HASH_STATE_WIDTH)], step-1);
-                    } else if merkle_trace_lengths.contains(&step_in_cert) {
+                    } else if merkle_trace_lengths[cert_index] == step_in_cert {
                         // Init commitment
                         for i in 0..HASH_DIGEST_WIDTH {
                             state[i + HASH_DIGEST_WIDTH] = self.nonce[cert_index][i];
@@ -165,11 +165,11 @@ impl MerkleProver {
                     }
                 }
 
-                /* print!("{}: ", step);
-                for i in 0..state.len() {
-                    print!("{} ", state[i]);
-                }
-                println!(); */
+                // print!("{}: ", step);
+                // for i in 0..state.len() {
+                //     print!("{} ", state[i]);
+                // }
+                // println!();
             },
         );
 

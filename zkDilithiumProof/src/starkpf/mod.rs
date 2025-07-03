@@ -196,12 +196,8 @@ pub(crate) fn prove(
         now.elapsed().as_millis()
     );
 
-    let now = Instant::now();
         let result = prover.prove(trace).unwrap();
-    print!(
-        "Only the prove call, without the trace build is {} ms\n",
-        now.elapsed().as_millis()
-    );
+
 
     // generate the proof
     result

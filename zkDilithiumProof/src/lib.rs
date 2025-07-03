@@ -63,12 +63,8 @@ pub extern "C" fn prove_signature(z_ptr: *const u32, w_ptr: *const u32, qw_ptr: 
             nonce[i] = BaseElement::new(*(nonce_ptr.add(i)));
         }
     }
-    let now = Instant::now();
     let proof_bytes = starkpf::prove(z, w, qw, ctilde, m, comm, com_r, nonce).to_bytes();
-    print!(
-        "Generated proof in {} ms\n",
-        now.elapsed().as_millis()
-    );
+
 
     unsafe {
         *out_proof_bytes_len = proof_bytes.len();
@@ -95,7 +91,7 @@ pub extern "C" fn verify_signature(proof_bytes_ptr: *const u8, proof_bytes_len: 
 
     match starkpf::verify(proof.clone(), comm, nonce) {
         Ok(_) => {
-            println!("Verified.");
+            //println!("Verified.");
             return 1;
         },
         Err(msg) => 
@@ -223,7 +219,7 @@ pub extern "C" fn verify_attributes(proof_bytes_ptr: *const u8, proof_bytes_len:
 
     match merklepf::verify(proof.clone(), disclosed_attributes.clone(), disclosed_indices.clone(), num_of_attributes.clone(), merkle_comms.clone(), secret_comm, nonces.clone(), secret_nonce) {
         Ok(_) => {
-            println!("Verified.");
+            //println!("Verified.");
             return 1;
         },
         Err(msg) => 

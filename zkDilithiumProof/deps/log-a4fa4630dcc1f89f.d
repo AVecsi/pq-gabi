@@ -1,0 +1,10 @@
+/Users/vecsiadam/go/pkg/mod/github.com/!a!vecsi/pq-gabi@v0.0.0-20250305093521-935800638225/zkDilithiumProof/target/release/deps/liblog-a4fa4630dcc1f89f.rmeta: /Users/vecsiadam/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/log-0.4.26/src/lib.rs /Users/vecsiadam/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/log-0.4.26/src/macros.rs /Users/vecsiadam/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/log-0.4.26/src/serde.rs /Users/vecsiadam/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/log-0.4.26/src/__private_api.rs
+
+/Users/vecsiadam/go/pkg/mod/github.com/!a!vecsi/pq-gabi@v0.0.0-20250305093521-935800638225/zkDilithiumProof/target/release/deps/liblog-a4fa4630dcc1f89f.rlib: /Users/vecsiadam/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/log-0.4.26/src/lib.rs /Users/vecsiadam/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/log-0.4.26/src/macros.rs /Users/vecsiadam/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/log-0.4.26/src/serde.rs /Users/vecsiadam/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/log-0.4.26/src/__private_api.rs
+
+/Users/vecsiadam/go/pkg/mod/github.com/!a!vecsi/pq-gabi@v0.0.0-20250305093521-935800638225/zkDilithiumProof/target/release/deps/log-a4fa4630dcc1f89f.d: /Users/vecsiadam/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/log-0.4.26/src/lib.rs /Users/vecsiadam/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/log-0.4.26/src/macros.rs /Users/vecsiadam/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/log-0.4.26/src/serde.rs /Users/vecsiadam/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/log-0.4.26/src/__private_api.rs
+
+/Users/vecsiadam/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/log-0.4.26/src/lib.rs:
+/Users/vecsiadam/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/log-0.4.26/src/macros.rs:
+/Users/vecsiadam/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/log-0.4.26/src/serde.rs:
+/Users/vecsiadam/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/log-0.4.26/src/__private_api.rs:
