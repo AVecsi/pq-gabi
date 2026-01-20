@@ -1446,7 +1446,7 @@ func TestMain(m *testing.M) {
 }
 
 func TestEverything(test *testing.T) {
-	//Test()
-	TestTwoCert()
+	Test()
+	//TestTwoCert()
 	//TestThreeCert()
 }

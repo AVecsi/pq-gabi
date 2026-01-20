@@ -3,13 +3,12 @@ package gabi
 import (
 	"crypto/rand"
 	"fmt"
-	"log"
 	"math"
 	"time"
 
 	"github.com/AVecsi/pq-gabi/gabikeys"
 	"github.com/AVecsi/pq-gabi/internal/common"
-	"github.com/cbergoon/merkletree"
+	"github.com/AVecsi/pq-gabi/poseidon"
 )
 
 // func hashStrategy() hash.Hash {
@@ -18,13 +17,13 @@ import (
 // 	return h
 // }
 
-const NumOfIterations = 1000
+const NumOfIterations = 100
 
 func Test() {
 
 	attrCount := 4
 
-	for attrCount <= 32 {
+	for attrCount <= 4 {
 		sigProofSum := time.Duration(0)
 		sigProofMin := time.Duration(math.MaxInt64)
 		sigProofMinIter := 0
@@ -64,9 +63,10 @@ func Test() {
 		verifyOnlyDisclosureMax := time.Duration(0)
 		verifyOnlyDisclosureMaxIter := 0
 
+		//TOOD ADAM reimplement instead of merkle tree use a simple hash.
 		for counter := 0; counter < NumOfIterations; counter++ {
 
-			var merkleLeaves1 []merkletree.Content
+			//var merkleLeaves1 []merkletree.Content
 			var attributes []*Attribute
 			for i := 0; i < attrCount; i++ {
 
@@ -79,14 +79,31 @@ func Test() {
 				if err != nil {
 					panic(err)
 				}
-				merkleLeaves1 = append(merkleLeaves1, attribute)
+				//merkleLeaves1 = append(merkleLeaves1, attribute)
 				attributes = append(attributes, attribute)
 			}
 
-			merkleTree1, err := merkletree.NewTreeWithHashStrategy(merkleLeaves1, HashStrategy)
-			if err != nil {
-				log.Fatal(err)
+			//attributes[0] is the secret attr of the user
+			//attributes[1] is a nonce
+			//In the benchmark we just generate them randomly
+			h := poseidon.NewPoseidon(nil, POS_RF, POS_T, POS_RATE, common.Q)
+			h.Write(attributes[0].Hash)
+			h.Write(attributes[1].Hash)
+			hiddenHashFes := h.Read(12)
+
+			h.Reset()
+			for i := 2; i < attrCount; i += 2 {
+				h.Write(attributes[i].Hash)
+				h.Write(attributes[i+1].Hash)
 			}
+
+			publicHashFes := h.Read(12)
+
+			h.Reset()
+			h.WriteInts(hiddenHashFes)
+			h.WriteInts(publicHashFes)
+
+			combinedHash := common.PackFesInt(h.Read(12))
 
 			seed := make([]byte, 32)
 
@@ -95,17 +112,17 @@ func Test() {
 				return
 			}
 
-			msg1 := merkleTree1.MerkleRoot()
-
 			// Sign the message
-			sig := Sign(pk, sk, msg1)
+			sig := Sign(pk, sk, combinedHash)
+			fmt.Println(sig.Verify(combinedHash))
 
 			cred := Credential{
-				Signature:    &sig,
-				Attributes:   attributes,
-				AttrTreeRoot: msg1,
+				Signature:     &sig,
+				Attributes:    attributes,
+				UserAttrCount: 2,
+				AttrHash:      combinedHash,
 			}
-			disclosedAttributeIndices := []int{1}
+			disclosedAttributeIndices := []int{2}
 
 			start := time.Now()
 
@@ -188,8 +205,13 @@ func Test() {
 				succeedcounter += 1
 			} else {
 				failcounter += 1
+				for i := 0; i < attrCount; i++ {
+					fmt.Println(common.UnpackFes(attributes[i].Hash, common.Q))
+				}
+				fmt.Println(disclosureProof.CredentialDisclosures[0].SignatureProof.AttrHashCommitment.Comm)
+				fmt.Println(disclosureProof.CredentialDisclosures[0].SignatureProof.AttrHashCommitment.Nonce)
 				fmt.Println("*******************************")
-				fmt.Println("Disclosure proof verification failed. ", msg1)
+				fmt.Println("Disclosure proof verification failed. ", combinedHash)
 				fmt.Println("*******************************")
 			}
 
@@ -248,7 +270,7 @@ func Test() {
 }
 
 // TestTwoCert
-func TestTwoCert() {
+/* func TestTwoCert() {
 
 	attrCount1 := 4
 
@@ -306,9 +328,9 @@ func TestTwoCert() {
 				msg1 := merkleTree1.MerkleRoot()
 
 				cred1 := Credential{
-					Signature:    nil,
-					Attributes:   attributes1,
-					AttrTreeRoot: msg1,
+					Signature:  nil,
+					Attributes: attributes1,
+					AttrHash:   msg1,
 				}
 
 				disclosedAttributes1 := make([]*Attribute, len(disclosedAttributeIndices))
@@ -328,7 +350,7 @@ func TestTwoCert() {
 					DisclosedAttributes:       disclosedAttributes1,
 					DisclosedAttributeIndices: disclosedAttributeIndices,
 					NumOfAllAttributes:        len(cred1.Attributes),
-					SignatureProof:            &SignatureProof{Proof: nil, AttrTreeRootCommitment: merkleComm1},
+					SignatureProof:            &SignatureProof{Proof: nil, AttrHashCommitment: merkleComm1},
 				}
 
 				//Second cred
@@ -361,9 +383,9 @@ func TestTwoCert() {
 				msg2 := merkleTree2.MerkleRoot()
 
 				cred2 := Credential{
-					Signature:    nil,
-					Attributes:   attributes2,
-					AttrTreeRoot: msg2,
+					Signature:  nil,
+					Attributes: attributes2,
+					AttrHash:   msg2,
 				}
 
 				disclosedAttributes2 := make([]*Attribute, len(disclosedAttributeIndices))
@@ -383,7 +405,7 @@ func TestTwoCert() {
 					DisclosedAttributes:       disclosedAttributes2,
 					DisclosedAttributeIndices: disclosedAttributeIndices,
 					NumOfAllAttributes:        len(cred2.Attributes),
-					SignatureProof:            &SignatureProof{Proof: nil, AttrTreeRootCommitment: merkleComm2},
+					SignatureProof:            &SignatureProof{Proof: nil, AttrHashCommitment: merkleComm2},
 				}
 
 				start := time.Now()
@@ -533,9 +555,9 @@ func TestThreeCert() {
 					msg1 := merkleTree1.MerkleRoot()
 
 					cred1 := Credential{
-						Signature:    nil,
-						Attributes:   attributes1,
-						AttrTreeRoot: msg1,
+						Signature:  nil,
+						Attributes: attributes1,
+						AttrHash:   msg1,
 					}
 
 					disclosedAttributes1 := make([]*Attribute, len(disclosedAttributeIndices))
@@ -555,7 +577,7 @@ func TestThreeCert() {
 						DisclosedAttributes:       disclosedAttributes1,
 						DisclosedAttributeIndices: disclosedAttributeIndices,
 						NumOfAllAttributes:        len(cred1.Attributes),
-						SignatureProof:            &SignatureProof{Proof: nil, AttrTreeRootCommitment: merkleComm1},
+						SignatureProof:            &SignatureProof{Proof: nil, AttrHashCommitment: merkleComm1},
 					}
 
 					//Second cred
@@ -588,9 +610,9 @@ func TestThreeCert() {
 					msg2 := merkleTree2.MerkleRoot()
 
 					cred2 := Credential{
-						Signature:    nil,
-						Attributes:   attributes2,
-						AttrTreeRoot: msg2,
+						Signature:  nil,
+						Attributes: attributes2,
+						AttrHash:   msg2,
 					}
 
 					disclosedAttributes2 := make([]*Attribute, len(disclosedAttributeIndices))
@@ -610,7 +632,7 @@ func TestThreeCert() {
 						DisclosedAttributes:       disclosedAttributes2,
 						DisclosedAttributeIndices: disclosedAttributeIndices,
 						NumOfAllAttributes:        len(cred2.Attributes),
-						SignatureProof:            &SignatureProof{Proof: nil, AttrTreeRootCommitment: merkleComm2},
+						SignatureProof:            &SignatureProof{Proof: nil, AttrHashCommitment: merkleComm2},
 					}
 
 					//Third cred
@@ -643,9 +665,9 @@ func TestThreeCert() {
 					msg3 := merkleTree3.MerkleRoot()
 
 					cred3 := Credential{
-						Signature:    nil,
-						Attributes:   attributes3,
-						AttrTreeRoot: msg3,
+						Signature:  nil,
+						Attributes: attributes3,
+						AttrHash:   msg3,
 					}
 
 					disclosedAttributes3 := make([]*Attribute, len(disclosedAttributeIndices))
@@ -665,7 +687,7 @@ func TestThreeCert() {
 						DisclosedAttributes:       disclosedAttributes3,
 						DisclosedAttributeIndices: disclosedAttributeIndices,
 						NumOfAllAttributes:        len(cred3.Attributes),
-						SignatureProof:            &SignatureProof{Proof: nil, AttrTreeRootCommitment: merkleComm3},
+						SignatureProof:            &SignatureProof{Proof: nil, AttrHashCommitment: merkleComm3},
 					}
 
 					start := time.Now()
@@ -756,3 +778,4 @@ func TestThreeCert() {
 		attrCount1 = attrCount1 * 2
 	}
 }
+*/

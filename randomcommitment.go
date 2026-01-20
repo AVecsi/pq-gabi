@@ -8,7 +8,7 @@ import (
 	"github.com/go-errors/errors"
 )
 
-const COMMITMENT_LENGTH = 24
+const COMMITMENT_LENGTH = 12
 const NONCE_LENGTH = 12
 
 type RandomCommitment struct {

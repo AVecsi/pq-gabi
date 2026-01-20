@@ -249,11 +249,11 @@ func (sig *ZkDilSignature) Verify(msg []byte) bool {
 }
 
 type SignatureProof struct {
-	Proof                  []byte
-	AttrTreeRootCommitment *RandomCommitment
+	Proof              []byte
+	AttrHashCommitment *RandomCommitment
 }
 
-func createSignatureProof(signature *ZkDilSignature, attrTreeRoot []byte) *SignatureProof {
+func createSignatureProof(signature *ZkDilSignature, attrHash []byte) *SignatureProof {
 	Ahat := algebra.SampleMatrix(signature.Pk.Rho)
 
 	c := SampleInBall(poseidon.NewPoseidon(append([]int{2}, signature.CTilde...), POS_RF, POS_T, POS_RATE, common.Q))
@@ -271,32 +271,66 @@ func createSignatureProof(signature *ZkDilSignature, attrTreeRoot []byte) *Signa
 		cTildeUint32[i] = uint32(signature.CTilde[i])
 	}
 
-	msgUint32 := make([]uint32, 12)
+	attrHashUint32 := make([]uint32, 12)
 
-	msgFes := common.UnpackFesInt(attrTreeRoot, common.Q)
+	attrHashFes := common.UnpackFesInt(attrHash, common.Q)
 
-	for i := range msgFes {
-		msgUint32[i] = uint32(msgFes[i])
+	for i := range attrHashFes {
+		attrHashUint32[i] = uint32(attrHashFes[i])
 	}
 
-	//TODO this should be random
+	//TODO this should be fresh, based on sessionID + random?
 	nonce := []int{1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1}
 
-	merkleComm, err := NewRandomCommitment(msgFes, nonce)
+	attrHashComm, err := NewRandomCommitment(attrHashFes, nonce)
 	if err != nil {
 		panic(err.Error())
 	}
 
 	len := 0
 
-	proof := C.prove_signature((*C.uint32_t)(signature.Z.IntArray()), (*C.uint32_t)(w.IntArray()), (*C.uint32_t)(qw.IntArray()), (*C.uint32_t)(&cTildeUint32[0]), (*C.uint32_t)(&msgUint32[0]), (*C.uint32_t)(&merkleComm.Comm[0]), (*C.uint32_t)(&comr[0]), (*C.uint32_t)(&merkleComm.Nonce[0]), (*C.size_t)(unsafe.Pointer(&len)))
+	// fmt.Println("===================================================")
 
-	return &SignatureProof{Proof: C.GoBytes(unsafe.Pointer(proof), C.int(len)), AttrTreeRootCommitment: merkleComm}
+	// fmt.Println("Z")
+	// for i := 0; i < 4; i++ {
+	// 	fmt.Println(signature.Z.Ps[i])
+	// }
+
+	// fmt.Println("W")
+	// for i := 0; i < 4; i++ {
+	// 	fmt.Println(w.Ps[i])
+	// }
+
+	// fmt.Println("qW")
+	// for i := 0; i < 4; i++ {
+	// 	fmt.Println(qw.Ps[i])
+	// }
+
+	// fmt.Println("ctilde")
+	// fmt.Println(cTildeUint32)
+
+	// fmt.Println("m")
+	// fmt.Println(attrHashUint32)
+
+	// fmt.Println("comm")
+	// fmt.Println(attrHashComm.Comm)
+
+	// fmt.Println("comr")
+	// fmt.Println(comr)
+
+	// fmt.Println("Nonce")
+	// fmt.Println(attrHashComm.Nonce)
+
+	// fmt.Println("===================================================")
+
+	proof := C.prove_signature((*C.uint32_t)(signature.Z.IntArray()), (*C.uint32_t)(w.IntArray()), (*C.uint32_t)(qw.IntArray()), (*C.uint32_t)(&cTildeUint32[0]), (*C.uint32_t)(&attrHashUint32[0]), (*C.uint32_t)(&attrHashComm.Comm[0]), (*C.uint32_t)(&comr[0]), (*C.uint32_t)(&attrHashComm.Nonce[0]), (*C.size_t)(unsafe.Pointer(&len)))
+
+	return &SignatureProof{Proof: C.GoBytes(unsafe.Pointer(proof), C.int(len)), AttrHashCommitment: attrHashComm}
 }
 
 func (proof *SignatureProof) Verify() bool {
 
-	if C.verify_signature((*C.uchar)(C.CBytes(proof.Proof)), (C.size_t)(len(proof.Proof)), (*C.uint32_t)(&proof.AttrTreeRootCommitment.Comm[0]), (*C.uint32_t)(&proof.AttrTreeRootCommitment.Nonce[0])) == 1 {
+	if C.verify_signature((*C.uchar)(C.CBytes(proof.Proof)), (C.size_t)(len(proof.Proof)), (*C.uint32_t)(&proof.AttrHashCommitment.Comm[0]), (*C.uint32_t)(&proof.AttrHashCommitment.Nonce[0])) == 1 {
 		return true
 	}
 
