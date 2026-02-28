@@ -17,7 +17,6 @@ import "C"
 
 import (
 	"fmt"
-	"time"
 	"unsafe"
 
 	"github.com/AVecsi/pq-gabi/big"
@@ -123,11 +122,11 @@ func CreateDisclosureProof(credentials []*Credential, credentialDisclosures []*C
 
 	disclosureProofLen := 0
 
-	start := time.Now()
+	//start := time.Now()
 
 	disclosureProof := C.prove_attributes((C.size_t)(len(credentialDisclosures)), (*C.uint32_t)(&allAttributes[0]), &numOfAttributes[0], &numOfUserAttributes[0], &allDisclosedIndices[0], &numOfDisclosedIndices[0], (*C.uint32_t)(&attrHashCommitments[0]), (*C.uint32_t)(&attrHashCommitmentNonces[0]), (*C.size_t)(unsafe.Pointer(&disclosureProofLen)))
 
-	fmt.Println(time.Since(start))
+	//fmt.Println(time.Since(start))
 
 	return &DisclosureProof{
 		AttrProof:             C.GoBytes(unsafe.Pointer(disclosureProof), C.int(disclosureProofLen)),

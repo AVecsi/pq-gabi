@@ -254,6 +254,7 @@ type SignatureProof struct {
 }
 
 func createSignatureProof(signature *ZkDilSignature, attrHash []byte) *SignatureProof {
+
 	Ahat := algebra.SampleMatrix(signature.Pk.Rho)
 
 	c := SampleInBall(poseidon.NewPoseidon(append([]int{2}, signature.CTilde...), POS_RF, POS_T, POS_RATE, common.Q))
@@ -323,7 +324,13 @@ func createSignatureProof(signature *ZkDilSignature, attrHash []byte) *Signature
 
 	// fmt.Println("===================================================")
 
+	//start := time.Now()
+
 	proof := C.prove_signature((*C.uint32_t)(signature.Z.IntArray()), (*C.uint32_t)(w.IntArray()), (*C.uint32_t)(qw.IntArray()), (*C.uint32_t)(&cTildeUint32[0]), (*C.uint32_t)(&attrHashUint32[0]), (*C.uint32_t)(&attrHashComm.Comm[0]), (*C.uint32_t)(&comr[0]), (*C.uint32_t)(&attrHashComm.Nonce[0]), (*C.size_t)(unsafe.Pointer(&len)))
+
+	//sigProofTime := time.Since(start)
+
+	//fmt.Println(sigProofTime)
 
 	return &SignatureProof{Proof: C.GoBytes(unsafe.Pointer(proof), C.int(len)), AttrHashCommitment: attrHashComm}
 }

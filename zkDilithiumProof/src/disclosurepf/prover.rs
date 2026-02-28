@@ -1,5 +1,3 @@
-use std::os::macos::raw::stat;
-
 use rand_chacha::ChaCha20Rng;
 use winterfell::{
     crypto::{hashers::Blake3_256, DefaultRandomCoin, MerkleTree}, matrix::ColMatrix, AuxRandElements, CompositionPoly, CompositionPolyTrace, ConstraintCompositionCoefficients, DefaultConstraintCommitment, DefaultConstraintEvaluator, DefaultTraceLde, MockPrng, PartitionOptions, StarkDomain, Trace, TraceInfo, TracePolyTable, TraceTable, ZkParameters

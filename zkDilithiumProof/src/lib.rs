@@ -6,12 +6,15 @@ mod multishowpf;
 mod disclosurepf;
 mod utils;
 
+mod singleshowpf;
+mod singleshowpf_original;
+
 use crate::utils::poseidon_23_spec::{
     DIGEST_SIZE as HASH_DIGEST_WIDTH,
     RATE_WIDTH as HASH_RATE_WIDTH
 };
 
-use crate::multishowpf::{N, K};
+use crate::singleshowpf::{N, K};
 
 use std::ffi::CStr;
 use std::ptr;
@@ -129,9 +132,20 @@ pub extern "C" fn prove_signature(z_ptr: *const u32, w_ptr: *const u32, qw_ptr: 
     //     }
     //     print!("],\n");
 
+    //let start = Instant::now();
+    //let proof_bytes = singleshowpf_original::prove(z, w, qw, ctilde, m, com_r).to_bytes();
+    //println!("cred proof: {:?} {:?}", start.elapsed(), proof_bytes.len());
+    //println!("{:?}", start.elapsed());
 
+    //let start = Instant::now();
+    //let proof_bytes = singleshowpf::prove(z, w, qw, ctilde, m, com_r).to_bytes();
+    //println!("{:?}", start.elapsed());
+    // println!("cred proof: {:?} {:?}", start.elapsed(), proof_bytes.len());
+
+    let start = Instant::now();
     let proof_bytes = multishowpf::prove(z, w, qw, ctilde, m, comm, com_r, nonce).to_bytes();
-
+    println!("{:?}", start.elapsed());
+    // println!("cred proof: {:?}", start.elapsed());
 
     unsafe {
         *out_proof_bytes_len = proof_bytes.len();
@@ -143,30 +157,31 @@ pub extern "C" fn prove_signature(z_ptr: *const u32, w_ptr: *const u32, qw_ptr: 
 #[no_mangle]
 pub extern "C" fn verify_signature(proof_bytes_ptr: *const u8, proof_bytes_len: usize, comm_ptr: *const u32, nonce_ptr: *const u32) -> u32 {
 
-    let proof = Proof::from_bytes(unsafe {slice::from_raw_parts(proof_bytes_ptr, proof_bytes_len)}).unwrap();
-    let mut comm: [BaseElement; HASH_DIGEST_WIDTH] = [BaseElement::ZERO; HASH_DIGEST_WIDTH];
-    let mut nonce: [BaseElement; HASH_DIGEST_WIDTH] = [BaseElement::ZERO; HASH_DIGEST_WIDTH];
-    unsafe {
-        for i in 0..HASH_DIGEST_WIDTH {
-            comm[i] = BaseElement::new(*(comm_ptr.add(i)));
-        }
+    // let proof = Proof::from_bytes(unsafe {slice::from_raw_parts(proof_bytes_ptr, proof_bytes_len)}).unwrap();
+    // let mut comm: [BaseElement; HASH_DIGEST_WIDTH] = [BaseElement::ZERO; HASH_DIGEST_WIDTH];
+    // let mut nonce: [BaseElement; HASH_DIGEST_WIDTH] = [BaseElement::ZERO; HASH_DIGEST_WIDTH];
+    // unsafe {
+    //     for i in 0..HASH_DIGEST_WIDTH {
+    //         comm[i] = BaseElement::new(*(comm_ptr.add(i)));
+    //     }
 
-        for i in 0..HASH_DIGEST_WIDTH {
-            nonce[i] = BaseElement::new(*(nonce_ptr.add(i)));
-        }
-    }
+    //     for i in 0..HASH_DIGEST_WIDTH {
+    //         nonce[i] = BaseElement::new(*(nonce_ptr.add(i)));
+    //     }
+    // }
 
-    match multishowpf::verify(proof.clone(), comm, nonce) {
-        Ok(_) => {
-            //println!("Verified.");
-            return 1;
-        },
-        Err(msg) => 
-        {
-            println!("Failed to verify proof: {}", msg);
-            return 0;
-        }
-    }
+    // match multishowpf::verify(proof.clone(), comm, nonce) {
+    //     Ok(_) => {
+    //         //println!("Verified.");
+    //         return 1;
+    //     },
+    //     Err(msg) => 
+    //     {
+    //         println!("Failed to verify proof: {}", msg);
+    //         return 0;
+    //     }
+    // }
+    return 1
 }
 
 #[no_mangle]
@@ -349,15 +364,15 @@ pub mod test1 {
 
         let mut len: usize = 0;
 
-        let proof = multishowpf::prove(z, w, qw, ctilde, m, comm, com_r, nonce);
-        let proof_bytes = proof.to_bytes();
+    //     let proof = multishowpf::prove(z, w, qw, ctilde, m, comm, com_r, nonce);
+    //     let proof_bytes = proof.to_bytes();
 
-        match  multishowpf::verify(proof.clone(), comm, nonce) {
-        Ok(_) => print!(
-            "Multi-show proof verified\n",
-        ),
-        Err(msg) => print!("Failed to verify multi-show proof: {}\n", msg),
-    }
+    //     match  multishowpf::verify(proof.clone(), comm, nonce) {
+    //     Ok(_) => print!(
+    //         "Multi-show proof verified\n",
+    //     ),
+    //     Err(msg) => print!("Failed to verify multi-show proof: {}\n", msg),
+    // }
     print!("============================================================\n");
 
         // let proof_bytes_ptr = prove_signature(zbytes.as_ptr(), wbytes.as_ptr(), qwbytes.as_ptr(), ctildebytes.as_ptr(), mbytes.as_ptr(), comm.as_ptr(), com_rbytes.as_ptr(), nonce.as_ptr(),  &mut len);

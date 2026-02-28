@@ -114,7 +114,6 @@ func Test() {
 
 			// Sign the message
 			sig := Sign(pk, sk, combinedHash)
-			fmt.Println(sig.Verify(combinedHash))
 
 			cred := Credential{
 				Signature:     &sig,
@@ -215,20 +214,20 @@ func Test() {
 				fmt.Println("*******************************")
 			}
 
-			start = time.Now()
-			disclosureProof.VerifyWithoutSignature()
-			verifyOnlyDisclosureTime := time.Since(start)
-			verifyOnlyDisclosureSum += verifyOnlyDisclosureTime
+			// start = time.Now()
+			// disclosureProof.VerifyWithoutSignature()
+			// verifyOnlyDisclosureTime := time.Since(start)
+			// verifyOnlyDisclosureSum += verifyOnlyDisclosureTime
 
-			if verifyOnlyDisclosureTime < verifyOnlyDisclosureMin {
-				verifyOnlyDisclosureMin = verifyOnlyDisclosureTime
-				verifyOnlyDisclosureMinIter = counter
-			}
+			// if verifyOnlyDisclosureTime < verifyOnlyDisclosureMin {
+			// 	verifyOnlyDisclosureMin = verifyOnlyDisclosureTime
+			// 	verifyOnlyDisclosureMinIter = counter
+			// }
 
-			if verifyOnlyDisclosureTime > verifyOnlyDisclosureMax {
-				verifyOnlyDisclosureMax = verifyOnlyDisclosureTime
-				verifyOnlyDisclosureMaxIter = counter
-			}
+			// if verifyOnlyDisclosureTime > verifyOnlyDisclosureMax {
+			// 	verifyOnlyDisclosureMax = verifyOnlyDisclosureTime
+			// 	verifyOnlyDisclosureMaxIter = counter
+			// }
 		}
 
 		fmt.Println("=======================================================")

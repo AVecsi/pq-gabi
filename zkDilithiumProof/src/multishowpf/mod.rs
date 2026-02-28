@@ -176,8 +176,8 @@ pub(crate) fn prove(
     // 16,64,20
     // 14,128,20
         let options = ProofOptions::new(
-            48, // number of queries
-            4,  // blowup factor
+            14, // number of queries
+            128,  // blowup factor
             20,  // grinding factor
             FieldExtension::Sextic,
             8,   // FRI folding factor

@@ -10,14 +10,15 @@ run-all: run-dynamic run-static
 
 .PHONY: build-dynamic
 build-dynamic:
-	@cd zkDilithiumProof && cargo build --release
-	@cp zkDilithiumProof/target/release/libzkDilithiumProof.dylib zkDilithiumProof/jniLibs/release/
+	@cd zkDilithiumProof && cargo build --target aarch64-linux-android --release --features concurrent
+	@cp zkDilithiumProof/target/release/libzkDilithiumProof.dylib zkDilithiumProof/jniLibs/armeabi-v7a/
 	go build -ldflags="-r $(ROOT_DIR)zkDilithiumProof"
 
+# --features concurrent
 .PHONY: build-static
 build-static:
-	@cd zkDilithiumProof && cargo build --release
-	@cp zkDilithiumProof/target/release/libzkDilithiumProof.a zkDilithiumProof/jniLibs/release/
+	@cd zkDilithiumProof && cargo build --target aarch64-linux-android --release --features concurrent
+	@cp zkDilithiumProof/target/release/libzkDilithiumProof.a zkDilithiumProof/jniLibs/armeabi-v7a/
 	go build
 
 .PHONY: run-dynamic
