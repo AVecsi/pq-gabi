@@ -69,7 +69,7 @@ impl DisclosureProver {
                 }
             },
             |step, state| {
-                if step <= trace_length {
+                if step < trace_length {
 
                     if step % HASH_CYCLE_LEN > 0 {
                         poseidon_23_spec::apply_round(&mut state[HASH_IND..HASH_IND + (3*HASH_STATE_WIDTH)], step - 1);
@@ -87,7 +87,13 @@ impl DisclosureProver {
                         let _cycle_num = step_in_cert / HASH_CYCLE_LEN;
                         
                         if step_in_cert == 0 {
-                            //clear hash capacity
+                            //Init
+                            for i in 0..HASH_DIGEST_WIDTH {
+                                state[HASH_IND + i] = self.attributes[cert_index][0][i];
+                                state[HASH_IND + HASH_DIGEST_WIDTH + i] = self.attributes[cert_index][1][i];
+                            }
+
+                            //clear hash state
                             for i in HASH_RATE_WIDTH..HASH_STATE_WIDTH {
                                 state[HASH_IND + i] = BaseElement::ZERO;
                             }
@@ -96,21 +102,21 @@ impl DisclosureProver {
                             if step_in_cert == self.num_of_user_attributes[cert_index] / 2 * HASH_CYCLE_LEN {
                                 //Finished user hash
 
-                                //Save result to storage
+                                //Save result of hidden attributes to storage
                                 for i in 0..HASH_DIGEST_WIDTH {
                                     state[STORAGE_IND + i] = state[HASH_IND + i];
                                 }
                                 
-                                //Clear capacity
-                                for i in HASH_RATE_WIDTH..HASH_STATE_WIDTH {
+                                //Clear hash state for non-blind attributes
+                                for i in 0..HASH_STATE_WIDTH {
                                     state[HASH_IND + i] = BaseElement::ZERO;
-                                }
+                            }
                             }
                             //load attributes
                             for i in 0..HASH_DIGEST_WIDTH {
 
-                                state[HASH_IND + i] = self.attributes[cert_index][2 * _cycle_num][i];
-                                state[HASH_IND + HASH_DIGEST_WIDTH + i] = self.attributes[cert_index][2 * _cycle_num + 1][i];
+                                state[HASH_IND + i] += self.attributes[cert_index][2 * _cycle_num][i];
+                                state[HASH_IND + HASH_DIGEST_WIDTH + i] += self.attributes[cert_index][2 * _cycle_num + 1][i];
                             }
                         } else if step_in_cert == hash_trace_lengths[cert_index] {
                             //Final hash for the attributes
@@ -144,20 +150,19 @@ impl DisclosureProver {
                         }
                     }
 
-                    // Artifact of winterfell. Used to prevent constant polynomial when interpolating
-                    if step==trace_padded_length-2 {
-                        for i in 0..TRACE_WIDTH{
-                            state[i] = BaseElement::new(123 as u32);
-                        }
+                    // print!("{}: ", step);
+                    // for i in 0..state.len() {
+                    //     print!("{} ", state[i]);
+                    // }
+                    // println!();
+                }
+
+                // Artifact of winterfell. Used to prevent constant polynomial when interpolating
+                if step==trace_padded_length-2 {
+                    for i in 0..TRACE_WIDTH{
+                        state[i] = BaseElement::new(123 as u32);
                     }
                 }
-                
-
-                // print!("{}: ", step);
-                // for i in 0..state.len() {
-                //     print!("{} ", state[i]);
-                // }
-                // println!();
             },
         );
 

@@ -21,9 +21,9 @@ const NumOfIterations = 100
 
 func Test() {
 
-	attrCount := 4
+	attrCount := 8
 
-	for attrCount <= 4 {
+	for attrCount <= 8 {
 		sigProofSum := time.Duration(0)
 		sigProofMin := time.Duration(math.MaxInt64)
 		sigProofMinIter := 0
@@ -91,13 +91,30 @@ func Test() {
 			h.Write(attributes[1].Hash)
 			hiddenHashFes := h.Read(12)
 
+			//fmt.Println("=================================")
 			h.Reset()
 			for i := 2; i < attrCount; i += 2 {
 				h.Write(attributes[i].Hash)
+				// attri := common.UnpackFesInt(attributes[i].Hash, common.Q)
+				// for j := 0; j < 12; j++ {
+				// 	print(attri[j], " ")
+				// }
+				// println()
 				h.Write(attributes[i+1].Hash)
+				// attri1 := common.UnpackFesInt(attributes[i+1].Hash, common.Q)
+				// for j := 0; j < 12; j++ {
+				// 	print(attri1[j], " ")
+				// }
+				// println()
+				//fmt.Println("wrote two attrs")
 			}
+			//fmt.Println("=================================")
 
 			publicHashFes := h.Read(12)
+			// for j := 0; j < 12; j++ {
+			// 	print(publicHashFes[j], " ")
+			// }
+			// println()
 
 			h.Reset()
 			h.WriteInts(hiddenHashFes)
@@ -187,7 +204,7 @@ func Test() {
 
 			start = time.Now()
 
-			if disclosureProof.Verify() {
+			if disclosureProof.VerifyWithoutSignature() {
 				verifyTime := time.Since(start)
 				verifySum += verifyTime
 
@@ -207,6 +224,7 @@ func Test() {
 				for i := 0; i < attrCount; i++ {
 					fmt.Println(common.UnpackFes(attributes[i].Hash, common.Q))
 				}
+				fmt.Println()
 				fmt.Println(disclosureProof.CredentialDisclosures[0].SignatureProof.AttrHashCommitment.Comm)
 				fmt.Println(disclosureProof.CredentialDisclosures[0].SignatureProof.AttrHashCommitment.Nonce)
 				fmt.Println("*******************************")

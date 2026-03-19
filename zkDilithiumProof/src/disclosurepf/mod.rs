@@ -1,8 +1,3 @@
-// Copyright (c) Facebook, Inc. and its affiliates.
-//
-// This source code is licensed under the MIT license found in the
-// LICENSE file in the root directory of this source tree.
-
 use log::debug;
 use rand_chacha::{rand_core::SeedableRng, ChaCha20Rng};
 use std::{time::Instant};
@@ -46,15 +41,15 @@ pub(crate) fn prove(
     cred_nonce: Vec<[BaseElement; 12]>
 ) -> Proof {
         let options = ProofOptions::new(
-            48, // number of queries
-            4,  // blowup factor
+            24, // number of queries
+            16,  // blowup factor
             20,  // grinding factor
             FieldExtension::Sextic,
             8,   // FRI folding factor
             127, // FRI max remainder length
             winterfell::BatchingMethod::Linear, //TODO
             winterfell::BatchingMethod::Linear, //TODO
-            false
+            true
         );
         debug!(
             "Generating proof for correctness of Disclosure tree"

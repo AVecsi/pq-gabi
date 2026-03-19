@@ -290,47 +290,7 @@ func createSignatureProof(signature *ZkDilSignature, attrHash []byte) *Signature
 
 	len := 0
 
-	// fmt.Println("===================================================")
-
-	// fmt.Println("Z")
-	// for i := 0; i < 4; i++ {
-	// 	fmt.Println(signature.Z.Ps[i])
-	// }
-
-	// fmt.Println("W")
-	// for i := 0; i < 4; i++ {
-	// 	fmt.Println(w.Ps[i])
-	// }
-
-	// fmt.Println("qW")
-	// for i := 0; i < 4; i++ {
-	// 	fmt.Println(qw.Ps[i])
-	// }
-
-	// fmt.Println("ctilde")
-	// fmt.Println(cTildeUint32)
-
-	// fmt.Println("m")
-	// fmt.Println(attrHashUint32)
-
-	// fmt.Println("comm")
-	// fmt.Println(attrHashComm.Comm)
-
-	// fmt.Println("comr")
-	// fmt.Println(comr)
-
-	// fmt.Println("Nonce")
-	// fmt.Println(attrHashComm.Nonce)
-
-	// fmt.Println("===================================================")
-
-	//start := time.Now()
-
 	proof := C.prove_signature((*C.uint32_t)(signature.Z.IntArray()), (*C.uint32_t)(w.IntArray()), (*C.uint32_t)(qw.IntArray()), (*C.uint32_t)(&cTildeUint32[0]), (*C.uint32_t)(&attrHashUint32[0]), (*C.uint32_t)(&attrHashComm.Comm[0]), (*C.uint32_t)(&comr[0]), (*C.uint32_t)(&attrHashComm.Nonce[0]), (*C.size_t)(unsafe.Pointer(&len)))
-
-	//sigProofTime := time.Since(start)
-
-	//fmt.Println(sigProofTime)
 
 	return &SignatureProof{Proof: C.GoBytes(unsafe.Pointer(proof), C.int(len)), AttrHashCommitment: attrHashComm}
 }

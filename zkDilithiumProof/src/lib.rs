@@ -142,16 +142,22 @@ pub extern "C" fn prove_signature(z_ptr: *const u32, w_ptr: *const u32, qw_ptr: 
     //println!("{:?}", start.elapsed());
     // println!("cred proof: {:?} {:?}", start.elapsed(), proof_bytes.len());
 
-    let start = Instant::now();
-    let proof_bytes = multishowpf::prove(z, w, qw, ctilde, m, comm, com_r, nonce).to_bytes();
-    println!("{:?}", start.elapsed());
+    //let start = Instant::now();
+    //let proof_bytes = multishowpf::prove(z, w, qw, ctilde, m, comm, com_r, nonce).to_bytes();
+    //println!("{:?}", start.elapsed());
     // println!("cred proof: {:?}", start.elapsed());
+
+    let proof_bytes: Vec<u8> = Vec::new();
 
     unsafe {
         *out_proof_bytes_len = proof_bytes.len();
     }
 
-    return &proof_bytes[0]
+    //return &proof_bytes[0]
+    let ptr = proof_bytes.as_ptr();
+    std::mem::forget(proof_bytes); // prevent Rust from dropping it
+
+    return ptr;
 }
 
 #[no_mangle]
@@ -230,7 +236,9 @@ pub extern "C" fn prove_attributes(num_of_certs: usize, cert_list_ptr: *const u3
         nonces.push(nonce);
     }
 
+    let start = Instant::now();
     let proof_bytes = disclosurepf::prove(cert_list.clone(), num_of_user_attributes, disclosed_indices.clone(), comms.clone(),  nonces.clone()).to_bytes();
+    println!("{:?}", start.elapsed());
 
     unsafe {
         *out_proof_bytes_len = proof_bytes.len();
@@ -421,31 +429,35 @@ pub mod test2 {
         // let discl_comm_u32: [u32; HASH_DIGEST_WIDTH] = [4310780, 6944601, 6811452, 6001447, 1854431, 5006528, 1228042, 476424, 6179395, 4081949, 1042927, 563427];
         // let discl_comm: [BaseElement; HASH_DIGEST_WIDTH] = discl_comm_u32.map(BaseElement::new);
 
-        let example_attrs_u32: [[u32; HASH_DIGEST_WIDTH]; 4] = [[4904901, 5668469, 223469, 421844, 2498657, 4433797, 5328067, 1870545, 2495261, 4595487, 562922, 4957665],
-[3541257, 7116097, 331189, 1643170, 960252, 28794, 3857381, 6275082, 1454711, 2975036, 6687406, 6010446],
-[1267060, 7047922, 5192801, 2032660, 6698970, 1900018, 1097770, 5676885, 4736127, 92852, 5987420, 4900327],
-[7083534, 2970628, 3757017, 5179271, 4258230, 3889963, 200777, 1398088, 4974983, 5651529, 6868093, 1419312],];
+        let example_attrs_u32: [[u32; HASH_DIGEST_WIDTH]; 8] = 
+        [[947899, 4816158, 2817282, 4890326, 5604282, 1828345, 6915697, 611711, 2693115, 2351265, 3710856, 1439125],
+        [1847785, 4167531, 4340846, 5968592, 1264955, 1876464, 5224233, 4157375, 1833859, 2897857, 3112667, 4534654],
+        [3476723, 2063659, 2247669, 2741253, 6428503, 459456, 1863462, 335713, 816707, 3321713, 7129352, 1256552],
+        [6212034, 3886607, 3040404, 4453797, 3941327, 789383, 2188465, 3525417, 7322813, 6771192, 1290873, 5580143],
+        [6104134, 1386824, 3817940, 6766801, 1250462, 1777444, 4288851, 5308055, 5562824, 6349532, 1985871, 1127909],
+        [2546853, 1048693, 5280190, 3810246, 5042117, 3980379, 592137, 5906918, 2985826, 290791, 383785, 1973657],
+        [4027608, 6756441, 682608, 5683807, 4616766, 2496866, 2488415, 1590846, 2885484, 3161864, 241958, 1583045],
+        [7074785, 3466202, 3773815, 4144745, 3774915, 4878975, 3269575, 20099, 3938385, 468280, 1108858, 4724147]];
 
-        let mut example_attrs: [[BaseElement; HASH_DIGEST_WIDTH]; 4] = [[Default::default(); 12]; 4];
+        let mut example_attrs: [[BaseElement; HASH_DIGEST_WIDTH]; 8] = [[Default::default(); 12]; 8];
         
-        for i in 0..4 {
+        for i in 0..8 {
             example_attrs[i] = example_attrs_u32[i].map(BaseElement::new);
         }
 
-        //TODO
-        let discl_comm_u32: [u32; HASH_DIGEST_WIDTH] = [1682069, 6612310, 2770265, 4065535, 480051, 2994917, 876947, 4479510, 3278849, 2982978, 6857482, 6474838];
+        let discl_comm_u32: [u32; HASH_DIGEST_WIDTH] = [1313231, 6654844, 4143685, 5714284, 356438, 2348683, 3451912, 3197493, 2024558, 2763223, 4568430, 356450];
         let discl_comm: [BaseElement; HASH_DIGEST_WIDTH] = discl_comm_u32.map(BaseElement::new);
 
         let nonce0: [BaseElement; HASH_DIGEST_WIDTH] = [BaseElement::ONE; HASH_DIGEST_WIDTH];
         let wrong_nonce0: [BaseElement; HASH_DIGEST_WIDTH] = [BaseElement::ZERO; HASH_DIGEST_WIDTH];
 
-        let cert_list: Vec<Vec<[BaseElement; HASH_DIGEST_WIDTH]>> = vec![example_attrs.to_vec()/*  , example_attrs.to_vec(), example_attrs.to_vec()  */];
-        let discl_comms = vec![discl_comm/*  , discl_comm, discl_comm  */];
-        let nonces = vec![nonce0.clone()/*  , nonce0.clone(), nonce0.clone() */];
-        let wrong_nonces = vec![wrong_nonce0.clone()/*  , nonce0.clone(), nonce0.clone() */];
-        let num_of_attributes = vec![4/*  , 16, 16 */];
+        let cert_list: Vec<Vec<[BaseElement; HASH_DIGEST_WIDTH]>> = vec![example_attrs.to_vec() , example_attrs.to_vec(), example_attrs.to_vec() ];
+        let discl_comms = vec![discl_comm , discl_comm, discl_comm ];
+        let nonces = vec![nonce0.clone() , nonce0.clone(), nonce0.clone()];
+        let wrong_nonces = vec![wrong_nonce0.clone() , nonce0.clone(), nonce0.clone()];
+        let num_of_attributes = vec![8 , 8, 8];
 
-        let disclosed_indices: Vec<Vec<usize>> = [[2].to_vec()/*  , [3,4,5].to_vec(), [3,4,5].to_vec() */].to_vec();
+        let disclosed_indices: Vec<Vec<usize>> = [[2, 3, 5].to_vec() , [2, 4, 5].to_vec(), [2, 3, 4, 5].to_vec()].to_vec();
 
         let mut disclosed_attributes: Vec<Vec<[BaseElement; HASH_DIGEST_WIDTH]>> = Vec::new();
         for i in 0..disclosed_indices.len() {
@@ -455,7 +467,7 @@ pub mod test2 {
             }
         }
 
-        let num_of_user_attributes: Vec<usize> = vec![2];
+        let num_of_user_attributes: Vec<usize> = vec![2, 2, 2];
         
         print!("NEW DISCLOSURE PROOF\n");
         let mut start = Instant::now();

@@ -1,6 +1,6 @@
 [target.aarch64-linux-android]
 linker = "/Users/vecsiadam/Library/Android/sdk/ndk/28.0.12916984/toolchains/llvm/prebuilt/darwin-x86_64/bin/aarch64-linux-android23-clang"
 rustflags = ["-C", "link-arg=-fuse-ld=lld"]
-# Inform cc crate
+
 [env]
 CC_aarch64_linux_android = "/Users/vecsiadam/Library/Android/sdk/ndk/28.0.12916984/toolchains/llvm/prebuilt/darwin-x86_64/bin/aarch64-linux-android23-clang"

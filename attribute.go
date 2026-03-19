@@ -34,6 +34,7 @@ func (t Attribute) IntValue() *big.Int {
 }
 
 // CalculateHash hashes the values of a Attribute
+// TODO use different hasher
 func (t Attribute) CalculateHash() ([]byte, error) {
 
 	if len(t.Value) > 36 {
