@@ -4,10 +4,8 @@ go 1.23.2
 
 require (
 	github.com/bwesterb/go-exptable v1.0.0
-	github.com/cbergoon/merkletree v0.2.0
 	github.com/fxamacker/cbor v1.5.1
 	github.com/go-errors/errors v1.5.1
-	github.com/multiformats/go-multihash v0.2.3
 	github.com/sirupsen/logrus v1.9.3
 	github.com/stretchr/testify v1.9.0
 	golang.org/x/crypto v0.28.0

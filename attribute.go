@@ -2,13 +2,9 @@ package gabi
 
 import (
 	"bytes"
-	"fmt"
-	"hash"
+	"crypto/sha256"
 
 	"github.com/AVecsi/pq-gabi/big"
-	"github.com/AVecsi/pq-gabi/internal/common"
-	"github.com/AVecsi/pq-gabi/poseidon"
-	"github.com/cbergoon/merkletree"
 )
 
 // Attribute implements the Content interface provided by merkletree and represents the content stored in the tree.
@@ -17,67 +13,24 @@ type Attribute struct {
 	Hash  []byte `json:"hash"`
 }
 
-func NewAttribute(value []byte) (*Attribute, error) {
-	attr := new(Attribute)
-	attr.Value = value
-	var err error
-	attr.Hash, err = attr.CalculateHash()
-	if err != nil {
-		return nil, err
-	}
-
-	return attr, nil
+func NewAttribute(value []byte) *Attribute {
+	attr := &Attribute{Value: value}
+	attr.Hash = attr.CalculateHash()
+	return attr
 }
 
 func (t Attribute) IntValue() *big.Int {
 	return new(big.Int).SetBytes(t.Value)
 }
 
-// CalculateHash hashes the values of a Attribute
-// TODO use different hasher
-func (t Attribute) CalculateHash() ([]byte, error) {
+// CalculateHash hashes the value of an Attribute using SHA-256.
+func (t Attribute) CalculateHash() []byte {
 
-	if len(t.Value) > 36 {
-		fmt.Println("The value ", t.Value, " is too long.", len(t.Value))
-	}
-
-	for len(t.Value) < 36 {
-		t.Value = append(t.Value, 0)
-	}
-
-	valueFes := common.UnpackFesInt(t.Value, common.Q)
-
-	h := poseidon.NewPoseidon(nil, POS_RF, POS_T, POS_RATE, common.Q)
-
-	if err := h.WriteInts(valueFes); err != nil {
-		return nil, err
-	}
-
-	return h.Sum(nil), nil
+	h := sha256.Sum256(t.Value)
+	return h[:]
 }
 
 // Equals tests for equality of two Attributes
-func (t Attribute) Equals(other merkletree.Content) (bool, error) {
-	return bytes.Equal(t.Value, other.(Attribute).Value), nil
-}
-
-func HashStrategy() hash.Hash {
-	h := poseidon.NewPoseidon(nil, POS_RF, POS_T, POS_RATE, common.Q)
-
-	return h
-}
-
-func BuildMerkleTree(attributes []*Attribute) (*merkletree.MerkleTree, error) {
-	var merkleLeaves []merkletree.Content
-
-	for i := range attributes {
-		merkleLeaves = append(merkleLeaves, attributes[i])
-	}
-
-	merkleTree, err := merkletree.NewTreeWithHashStrategy(merkleLeaves, HashStrategy)
-	if err != nil {
-		return nil, err
-	}
-
-	return merkleTree, nil
+func (t Attribute) Equals(other Attribute) bool {
+	return bytes.Equal(t.Value, other.Value)
 }

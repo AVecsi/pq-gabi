@@ -66,6 +66,10 @@ func (p *Poseidon) Write(data []byte) (n int, err error) {
 	return len(data), err
 }
 
+func (p *Poseidon) WriteUint32(fes []uint32) error {
+	return p.WriteInts(common.Uint32sToInts(fes))
+}
+
 // Sum appends the hash and returns the resulting slice
 func (p *Poseidon) Sum(b []byte) []byte {
 	// Squeeze output
@@ -172,6 +176,10 @@ func (p *Poseidon) Read(n int) []int {
 		}
 	}
 	return ret
+}
+
+func (p *Poseidon) ReadUint32(n int) []uint32 {
+	return common.IntsToUint32s(p.Read(n))
 }
 
 // ReadNoMod is Read without modulus

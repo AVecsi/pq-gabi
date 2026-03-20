@@ -17,7 +17,7 @@ import (
 // 	return h
 // }
 
-const NumOfIterations = 100
+const NumOfIterations = 10
 
 func Test() {
 
@@ -75,10 +75,7 @@ func Test() {
 				if err != nil {
 					panic(err)
 				}
-				attribute, err := NewAttribute(value)
-				if err != nil {
-					panic(err)
-				}
+				attribute := NewAttribute(value)
 				//merkleLeaves1 = append(merkleLeaves1, attribute)
 				attributes = append(attributes, attribute)
 			}
@@ -87,20 +84,25 @@ func Test() {
 			//attributes[1] is a nonce
 			//In the benchmark we just generate them randomly
 			h := poseidon.NewPoseidon(nil, POS_RF, POS_T, POS_RATE, common.Q)
-			h.Write(attributes[0].Hash)
-			h.Write(attributes[1].Hash)
+			attrFes, _ := common.UnpackFes22Bit(attributes[0].Hash)
+			h.WriteInts(attrFes)
+
+			attrFes, _ = common.UnpackFes22Bit(attributes[1].Hash)
+			h.WriteInts(attrFes)
 			hiddenHashFes := h.Read(12)
 
 			//fmt.Println("=================================")
 			h.Reset()
 			for i := 2; i < attrCount; i += 2 {
-				h.Write(attributes[i].Hash)
+				attrFes, _ = common.UnpackFes22Bit(attributes[i].Hash)
+				h.WriteInts(attrFes)
 				// attri := common.UnpackFesInt(attributes[i].Hash, common.Q)
 				// for j := 0; j < 12; j++ {
 				// 	print(attri[j], " ")
 				// }
 				// println()
-				h.Write(attributes[i+1].Hash)
+				attrFes, _ = common.UnpackFes22Bit(attributes[i+1].Hash)
+				h.WriteInts(attrFes)
 				// attri1 := common.UnpackFesInt(attributes[i+1].Hash, common.Q)
 				// for j := 0; j < 12; j++ {
 				// 	print(attri1[j], " ")
@@ -120,7 +122,7 @@ func Test() {
 			h.WriteInts(hiddenHashFes)
 			h.WriteInts(publicHashFes)
 
-			combinedHash := common.PackFesInt(h.Read(12))
+			combinedHash := h.ReadUint32(12)
 
 			seed := make([]byte, 32)
 
@@ -130,13 +132,13 @@ func Test() {
 			}
 
 			// Sign the message
-			sig := Sign(pk, sk, combinedHash)
+			sig := Sign(pk, sk, common.PackFesUint32(combinedHash))
 
 			cred := Credential{
 				Signature:     &sig,
 				Attributes:    attributes,
 				UserAttrCount: 2,
-				AttrHash:      combinedHash,
+				CredHash:      combinedHash,
 			}
 			disclosedAttributeIndices := []int{2}
 
@@ -204,7 +206,7 @@ func Test() {
 
 			start = time.Now()
 
-			if disclosureProof.VerifyWithoutSignature() {
+			if disclosureProof.Verify() {
 				verifyTime := time.Since(start)
 				verifySum += verifyTime
 
@@ -225,8 +227,8 @@ func Test() {
 					fmt.Println(common.UnpackFes(attributes[i].Hash, common.Q))
 				}
 				fmt.Println()
-				fmt.Println(disclosureProof.CredentialDisclosures[0].SignatureProof.AttrHashCommitment.Comm)
-				fmt.Println(disclosureProof.CredentialDisclosures[0].SignatureProof.AttrHashCommitment.Nonce)
+				fmt.Println(disclosureProof.CredentialDisclosures[0].SignatureProof.SaltedCredHash)
+				fmt.Println(disclosureProof.CredentialDisclosures[0].SignatureProof.Salt)
 				fmt.Println("*******************************")
 				fmt.Println("Disclosure proof verification failed. ", combinedHash)
 				fmt.Println("*******************************")

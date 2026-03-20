@@ -1,11 +1,11 @@
 package gabi
 
 /*
-#cgo android,arm LDFLAGS: -L./zkDilithiumProof/jniLibs/armeabi-v7a -lzkDilithiumProof
-#cgo android,arm64 LDFLAGS: -L./zkDilithiumProof/jniLibs/arm64-v8a -lzkDilithiumProof
-#cgo android,386 LDFLAGS: -L./zkDilithiumProof/jniLibs/x86 -lzkDilithiumProof
-#cgo android,amd64 LDFLAGS: -L./zkDilithiumProof/jniLibs/x86_64 -lzkDilithiumProof
-#cgo arm64 LDFLAGS: -L./zkDilithiumProof/target/release -lzkDilithiumProof
+#cgo android,arm LDFLAGS: -L./zkDilithiumProof/jniLibs/armeabi-v7a -lzk_dilithium
+#cgo android,arm64 LDFLAGS: -L./zkDilithiumProof/jniLibs/arm64-v8a -lzk_dilithium
+#cgo android,386 LDFLAGS: -L./zkDilithiumProof/jniLibs/x86 -lzk_dilithium
+#cgo android,amd64 LDFLAGS: -L./zkDilithiumProof/jniLibs/x86_64 -lzk_dilithium
+#cgo arm64 LDFLAGS: -L./zkDilithiumProof/target/release -lzk_dilithium
 #include "./zkDilithiumProof/zkDilithiumProof.h"
 #include <stdlib.h>
 */
@@ -20,6 +20,7 @@ import (
 	"github.com/AVecsi/pq-gabi/gabikeys"
 	"github.com/AVecsi/pq-gabi/internal/common"
 	"github.com/AVecsi/pq-gabi/poseidon"
+	"github.com/go-errors/errors"
 )
 
 const POS_T = 35
@@ -33,38 +34,20 @@ const BETA = 80 //TAU * ETA
 const CSIZE = 12 // number of field elements to use for c tilde
 const MUSIZE = 24
 
+const DIGEST_SIZE = 12
+
 type ZkDilSignature struct {
 	Pk     *gabikeys.PublicKey `json:"pk"`
 	CTilde []int               `json:"ctilde"`
 	Z      *algebra.Vec        `json:"z"`
 }
 
-// Gen generates a keypair using a seed.
-/* func Gen(seed []byte) ([]byte, *algebra.Vec, []byte, *algebra.Vec, *algebra.Vec, error) {
-
-	if len(seed) != 32 {
-		panic("Seed length must be 32 bytes")
-	}
-
-	// Expand the seed: H(seed, 32 + 64 + 32)
-	expandedSeed := common.H(seed, 32+64+32)
-
-	rho := make([]byte, 32)
-	copy(rho, expandedSeed[:32])
-	rho2 := make([]byte, 64)
-	copy(rho2, expandedSeed[32:32+64])
-	key := make([]byte, 32)
-	copy(key, expandedSeed[32+64:])
-
-	// Sample matrix and secret vectors
-	Ahat := algebra.SampleMatrix(rho)
-	s1, s2 := algebra.SampleSecret(rho2)
-
-	// Compute t = InvNTT(Ahat * NTT(s1) + NTT(s2))
-	t := Ahat.MulNTT(s1.NTT()).Add(s2.NTT()).InvNTT()
-
-	return rho, t, key, s1, s2, nil
-} */
+type ZkDilSignatureExpanded struct {
+	Sig *ZkDilSignature
+	C   *algebra.Poly
+	W   *algebra.Vec
+	Qw  *algebra.Vec
+}
 
 func SampleInBall(h *poseidon.Poseidon) *algebra.Poly {
 	signs := []int64{}
@@ -118,7 +101,7 @@ func SampleInBall(h *poseidon.Poseidon) *algebra.Poly {
 		}
 	}
 
-	return &algebra.Poly{ret}
+	return &algebra.Poly{Cs: ret}
 }
 
 func Sign(pubK *gabikeys.PublicKey, privK *gabikeys.PrivateKey, msg []byte) ZkDilSignature {
@@ -248,56 +231,61 @@ func (sig *ZkDilSignature) Verify(msg []byte) bool {
 	return true
 }
 
-type SignatureProof struct {
-	Proof              []byte
-	AttrHashCommitment *RandomCommitment
+func (sig *ZkDilSignature) Expand() (*ZkDilSignatureExpanded, error) {
+
+	Ahat := algebra.SampleMatrix(sig.Pk.Rho)
+
+	c := SampleInBall(poseidon.NewPoseidon(
+		append([]int{2}, sig.CTilde...), POS_RF, POS_T, POS_RATE, common.Q,
+	))
+
+	if c == nil {
+		return nil, errors.New("invalid signature: failed to sample challenge")
+	}
+
+	Azq, Azr := Ahat.SchoolbookMulDebug(sig.Z)
+	Tq, Tr := sig.Pk.T.SchoolbookScalarMulDebug(c)
+
+	return &ZkDilSignatureExpanded{
+		Sig: sig,
+		C:   c,
+		W:   Azr.Sub(Tr),
+		Qw:  Azq.Sub(Tq),
+	}, nil
 }
 
-func createSignatureProof(signature *ZkDilSignature, attrHash []byte) *SignatureProof {
+type SignatureProof struct {
+	Proof          []byte
+	SaltedCredHash []uint32
+	Salt           []uint32
+}
 
-	Ahat := algebra.SampleMatrix(signature.Pk.Rho)
+func createSignatureProof(expanded *ZkDilSignatureExpanded, credHash []uint32) *SignatureProof {
 
-	c := SampleInBall(poseidon.NewPoseidon(append([]int{2}, signature.CTilde...), POS_RF, POS_T, POS_RATE, common.Q))
+	cTildeUint32 := common.IntsToUint32s(expanded.Sig.CTilde)
 
-	Azq, Azr := Ahat.SchoolbookMulDebug(signature.Z)
-	Tq, Tr := signature.Pk.T.SchoolbookScalarMulDebug(c)
+	//TODO generate randomly
+	salt := []uint32{1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1}
 
-	qw := Azq.Sub(Tq)
-	w := Azr.Sub(Tr)
+	h := poseidon.NewPoseidon(nil, POS_RF, POS_T, POS_RATE, common.Q)
+	h.WriteUint32(append(credHash, salt...))
+	saltedCredHash := h.ReadUint32(DIGEST_SIZE)
 
-	comr := make([]uint32, 12)
-
-	cTildeUint32 := make([]uint32, (len(signature.CTilde)))
-	for i := range signature.CTilde {
-		cTildeUint32[i] = uint32(signature.CTilde[i])
-	}
-
-	attrHashUint32 := make([]uint32, 12)
-
-	attrHashFes := common.UnpackFesInt(attrHash, common.Q)
-
-	for i := range attrHashFes {
-		attrHashUint32[i] = uint32(attrHashFes[i])
-	}
-
-	//TODO this should be fresh, based on sessionID + random?
-	nonce := []int{1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1}
-
-	attrHashComm, err := NewRandomCommitment(attrHashFes, nonce)
-	if err != nil {
-		panic(err.Error())
-	}
+	comr := make([]uint32, DIGEST_SIZE)
 
 	len := 0
 
-	proof := C.prove_signature((*C.uint32_t)(signature.Z.IntArray()), (*C.uint32_t)(w.IntArray()), (*C.uint32_t)(qw.IntArray()), (*C.uint32_t)(&cTildeUint32[0]), (*C.uint32_t)(&attrHashUint32[0]), (*C.uint32_t)(&attrHashComm.Comm[0]), (*C.uint32_t)(&comr[0]), (*C.uint32_t)(&attrHashComm.Nonce[0]), (*C.size_t)(unsafe.Pointer(&len)))
+	proof := C.prove_signature((*C.uint32_t)(expanded.Sig.Z.IntArray()), (*C.uint32_t)(expanded.W.IntArray()), (*C.uint32_t)(expanded.Qw.IntArray()), (*C.uint32_t)(&cTildeUint32[0]), (*C.uint32_t)(&credHash[0]), (*C.uint32_t)(&saltedCredHash[0]), (*C.uint32_t)(&comr[0]), (*C.uint32_t)(&salt[0]), (*C.size_t)(unsafe.Pointer(&len)))
 
-	return &SignatureProof{Proof: C.GoBytes(unsafe.Pointer(proof), C.int(len)), AttrHashCommitment: attrHashComm}
+	proofBytes := C.GoBytes(unsafe.Pointer(proof), C.int(len))
+	C.free_proof((*C.uint8_t)(proof), C.size_t(len))
+
+	return &SignatureProof{Proof: proofBytes, SaltedCredHash: saltedCredHash, Salt: salt}
 }
 
 func (proof *SignatureProof) Verify() bool {
 
-	if C.verify_signature((*C.uchar)(C.CBytes(proof.Proof)), (C.size_t)(len(proof.Proof)), (*C.uint32_t)(&proof.AttrHashCommitment.Comm[0]), (*C.uint32_t)(&proof.AttrHashCommitment.Nonce[0])) == 1 {
+	if C.verify_signature((*C.uchar)(C.CBytes(proof.Proof)), (C.size_t)(len(proof.Proof)), (*C.uint32_t)(&proof.SaltedCredHash[0]), (*C.uint32_t)(&proof.Salt[0])) == 1 {
 		return true
 	}
 

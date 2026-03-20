@@ -1,39 +1,52 @@
 ROOT_DIR := $(dir $(realpath $(lastword $(MAKEFILE_LIST))))
 
+ZK_REPO   := https://github.com/AVecsi/zkDilithium
+ZK_DIR    := zkDilithiumProof
+ZK_LIB    := $(ZK_DIR)/target/release/libzk_dilithium.a
+ZK_HEADER := $(ZK_DIR)/zkDilithiumProof.h
+
 # PHONY means that it doesn't correspond to a file; it always runs the build commands.
+.PHONY: build run test-go test-rust clean fetch-rust-lib
 
-.PHONY: build-all
-build-all: build-dynamic build-static
+# ── top-level ───────────────────────────────────────────────────────────────
 
-.PHONY: run-all
-run-all: run-dynamic run-static
-
-.PHONY: build-dynamic
-build-dynamic:
-	@cd zkDilithiumProof && cargo build --release --features concurrent
-	@cp zkDilithiumProof/target/release/libzkDilithiumProof.dylib zkDilithiumProof/jniLibs/armeabi-v7a/
-	go build -ldflags="-r $(ROOT_DIR)zkDilithiumProof"
-
-# --features concurrent
-.PHONY: build-static
-build-static:
-	@cd zkDilithiumProof && cargo build --release --features concurrent
-	@cp zkDilithiumProof/target/release/libzkDilithiumProof.a zkDilithiumProof/jniLibs/armeabi-v7a/
+build: $(ZK_LIB) $(ZK_HEADER)
 	go build
 
-.PHONY: run-dynamic
-run-dynamic: build-dynamic
+run: build
 	@./main
 
-.PHONY: run-static
-run-static: build-static
-	@./main
+# ── rust lib ────────────────────────────────────────────────────────────────
 
-# This is just for running the Rust lib tests natively via cargo
-.PHONY: test-rust-lib
-test-rust-lib:
-	@cd zkDilithiumProof && cargo test --release -- --nocapture
+# Clone zkDilithium if not present, then build
+$(ZK_DIR):
+	git clone $(ZK_REPO) $(ZK_DIR)
 
-.PHONY: clean
+$(ZK_LIB) $(ZK_HEADER): | $(ZK_DIR)
+	@cd $(ZK_DIR) && cargo build --release --features concurrent
+
+# Force a fresh pull and rebuild of the Rust lib
+fetch-rust-lib:
+	@if [ -d $(ZK_DIR) ]; then \
+		cd $(ZK_DIR) && git pull; \
+	else \
+		git clone $(ZK_REPO) $(ZK_DIR); \
+	fi
+	@cd $(ZK_DIR) && cargo build --release --features concurrent
+
+# ── tests ───────────────────────────────────────────────────────────────────
+
+test-go: build
+	go test -v ./...
+
+test-rust: $(ZK_DIR)
+	@cd $(ZK_DIR) && cargo test --release -- --nocapture
+
+# ── clean ───────────────────────────────────────────────────────────────────
+
 clean:
-	rm -rf main libzkDilithiumProof.dylib libzkDilithiumProof.a zkDilithiumProof/target
+	rm -f main
+	rm -rf $(ZK_DIR)/target
+
+clean-all: clean
+	rm -rf $(ZK_DIR)

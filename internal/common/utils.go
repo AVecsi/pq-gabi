@@ -51,6 +51,16 @@ func PackFesInt(fes []int) []byte {
 	return ret.Bytes()
 }
 
+func PackFesUint32(fes []uint32) []byte {
+	var ret bytes.Buffer
+	for _, fe := range fes {
+		ret.WriteByte(byte(fe & 255))
+		ret.WriteByte(byte((fe >> 8) & 255))
+		ret.WriteByte(byte(fe >> 16))
+	}
+	return ret.Bytes()
+}
+
 func PackFes(fes []int64) []byte {
 	var ret bytes.Buffer
 	for _, fe := range fes {
@@ -74,7 +84,6 @@ func UnpackFes(bs []byte, Q int64) []int64 {
 	return cs
 }
 
-// TODO meh
 func UnpackFesInt(bs []byte, Q int) []int {
 	cs := make([]int, 0)
 	if len(bs)%3 != 0 {
@@ -82,6 +91,18 @@ func UnpackFesInt(bs []byte, Q int) []int {
 	}
 	for i := 0; i < len(bs); i += 3 {
 		fe := (int(bs[i]) | (int(bs[i+1]) << 8) | (int(bs[i+2]) << 16)) % Q
+		cs = append(cs, fe)
+	}
+	return cs
+}
+
+func UnpackFesUint32(bs []byte, Q int) []uint32 {
+	cs := make([]uint32, 0)
+	if len(bs)%3 != 0 {
+		panic("invalid byte array length")
+	}
+	for i := 0; i < len(bs); i += 3 {
+		fe := uint32((int(bs[i]) | (int(bs[i+1]) << 8) | (int(bs[i+2]) << 16)) % Q)
 		cs = append(cs, fe)
 	}
 	return cs
@@ -111,38 +132,26 @@ func UnpackFesLoose(bs []byte) []int {
 }
 
 // This function unpacks 256 bit to 12 field elements, making sure the output is unique for every input.
-
-func UnpackFes22Bit(bs []byte) []int {
+func UnpackFes22Bit(bs []byte) ([]int, error) {
 	if len(bs) > 32 {
-		fmt.Println("Len is: ", len(bs))
-		panic("invalid byte array length")
-	} else if len(bs) < 32 {
-		for i := len(bs); i < 32; i++ {
-			bs = append(bs, 0)
-		}
+		return nil, fmt.Errorf("input too long: %d bytes, max 32", len(bs))
 	}
 
-	// Combine all 32 bytes into a single big integer to easily extract 22-bit chunks
-	bigInt := new(big.Int).SetBytes(bs)
+	padded := make([]byte, 32)
+	copy(padded, bs)
 
-	// Initialize an array to store the 12 field elements
-	fieldElements := make([]int, 12)
-
-	// Mask to extract 22 bits
+	bigInt := new(big.Int).SetBytes(padded)
 	mask := big.NewInt((1 << 22) - 1)
+	fes := make([]int, 12)
 
-	// Extract the first 11 elements, each using 22 bits
 	for i := 0; i < 11; i++ {
-		// Extract the least significant 22 bits
-		fieldElements[i] = int(new(big.Int).And(bigInt, mask).Int64())
-		// Right shift the big integer by 22 bits
+		fes[i] = int(new(big.Int).And(bigInt, mask).Int64())
 		bigInt.Rsh(bigInt, 22)
 	}
+	// Remaining 14 bits
+	fes[11] = int(bigInt.Int64())
 
-	// Extract the last 14 bits (as the remaining bits)
-	fieldElements[11] = int(bigInt.Int64()) // The remaining bits are 14 bits
-
-	return fieldElements
+	return fes, nil
 }
 
 func PackFes22Bit(fieldElements []int) []byte {
@@ -170,14 +179,12 @@ func PackFes22Bit(fieldElements []int) []byte {
 	result := bigInt.Bytes()
 
 	// Ensure the result is exactly 32 bytes long
-	if len(result) < 32 {
-		padded := make([]byte, 32)
-		copy(padded[32-len(result):], result)
-		return padded
-	} else if len(result) > 32 {
-		panic("encoded value exceeds 32 bytes")
+	if len(result) == 32 {
+		return result
 	}
-	return result
+	padded := make([]byte, 32)
+	copy(padded[32-len(result):], result)
+	return padded
 }
 
 func XOF128(seed []byte, nonce int) *bytes.Reader {
@@ -198,4 +205,20 @@ func H(msg []byte, length int) []byte {
 	h := make([]byte, length)
 	sha3.ShakeSum256(h, msg)
 	return h[:]
+}
+
+func IntsToUint32s(src []int) []uint32 {
+	dst := make([]uint32, len(src))
+	for i, v := range src {
+		dst[i] = uint32(v)
+	}
+	return dst
+}
+
+func Uint32sToInts(src []uint32) []int {
+	dst := make([]int, len(src))
+	for i, v := range src {
+		dst[i] = int(v)
+	}
+	return dst
 }

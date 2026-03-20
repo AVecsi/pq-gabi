@@ -1,5 +1,6 @@
 package common
 
+// TODO pull from C header
 const Q = 7340033
 const N = 256
 

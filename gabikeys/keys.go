@@ -60,11 +60,6 @@ func NewPrivateKey(cns []byte, s1, s2 *algebra.Vec, counter uint, expiryDate tim
 		ExpiryDate: expiryDate.Unix(),
 	}
 
-	//TODO
-	// if err := sk.parseRevocationKey(); err != nil {
-	// 	return nil, err
-	// }
-
 	return &sk, nil
 }
 
@@ -83,11 +78,6 @@ func NewPrivateKeyFromXML(xmlInput string, demo bool) (*PrivateKey, error) {
 			return nil, err
 		}
 	}
-
-	//TODO
-	// if err := privk.parseRevocationKey(); err != nil {
-	// 	return nil, err
-	// }
 
 	return privk, nil
 }
@@ -155,55 +145,6 @@ func (privk *PrivateKey) WriteToFile(filename string, forceOverwrite bool) (int6
 	return privk.WriteTo(f)
 }
 
-//TODO
-// func (privk *PrivateKey) parseRevocationKey() error {
-// 	if privk.ECDSA != nil || !privk.RevocationSupported() {
-// 		return nil
-// 	}
-// 	bts, err := base64.StdEncoding.DecodeString(privk.ECDSAString)
-// 	if err != nil {
-// 		return err
-// 	}
-// 	key, err := signed.UnmarshalPrivateKey(bts)
-// 	if err != nil {
-// 		return err
-// 	}
-// 	privk.ECDSA = key
-// 	return nil
-// }
-
-// func (privk *PrivateKey) RevocationSupported() bool {
-// 	return len(privk.ECDSAString) > 0
-// }
-
-// func GenerateRevocationKeypair(privk *PrivateKey, pubk *PublicKey) error {
-// 	if pubk.RevocationSupported() || privk.RevocationSupported() {
-// 		return errors.New("revocation parameters already present")
-// 	}
-
-// 	key, err := signed.GenerateKey()
-// 	if err != nil {
-// 		return err
-// 	}
-// 	dsabts, err := signed.MarshalPrivateKey(key)
-// 	if err != nil {
-// 		return err
-// 	}
-// 	pubdsabts, err := signed.MarshalPublicKey(&key.PublicKey)
-// 	if err != nil {
-// 		return err
-// 	}
-
-// 	privk.ECDSAString = base64.StdEncoding.EncodeToString(dsabts)
-// 	privk.ECDSA = key
-// 	pubk.ECDSAString = base64.StdEncoding.EncodeToString(pubdsabts)
-// 	pubk.ECDSA = &key.PublicKey
-// 	pubk.G = common.RandomQR(pubk.N)
-// 	pubk.H = common.RandomQR(pubk.N)
-
-// 	return nil
-// }
-
 // NewPublicKey creates and returns a new public key based on the provided parameters.
 func NewPublicKey(rho []byte, t *algebra.Vec, counter uint, expiryDate time.Time) (*PublicKey, error) {
 	pk := &PublicKey{
@@ -213,10 +154,6 @@ func NewPublicKey(rho []byte, t *algebra.Vec, counter uint, expiryDate time.Time
 		T:          t,
 	}
 
-	//TODO
-	// if err := pk.parseRevocationKey(); err != nil {
-	// 	return nil, err
-	// }
 	return pk, nil
 }
 
@@ -261,32 +198,8 @@ func NewPublicKeyFromFile(filename string) (*PublicKey, error) {
 		return nil, err
 	}
 
-	//TODO
-	// if err = pubk.parseRevocationKey(); err != nil {
-	// 	return nil, err
-	// }
 	return pubk, nil
 }
-
-// func (pubk *PublicKey) parseRevocationKey() error {
-// 	if pubk.ECDSA != nil || !pubk.RevocationSupported() {
-// 		return nil
-// 	}
-// 	bts, err := base64.StdEncoding.DecodeString(pubk.ECDSAString)
-// 	if err != nil {
-// 		return err
-// 	}
-// 	dsakey, err := signed.UnmarshalPublicKey(bts)
-// 	if err != nil {
-// 		return err
-// 	}
-// 	pubk.ECDSA = dsakey
-// 	return nil
-// }
-
-// func (pubk *PublicKey) RevocationSupported() bool {
-// 	return pubk.G != nil && pubk.H != nil && len(pubk.ECDSAString) > 0
-// }
 
 // Print prints the key to stdout.
 func (pubk *PublicKey) Print() error {
@@ -354,11 +267,6 @@ func GenerateKeyPair(seed []byte, counter uint, expiryDate time.Time) (*PrivateK
 	// Compute t = InvNTT(Ahat * NTT(s1) + NTT(s2))
 	t := Ahat.MulNTT(s1.NTT()).Add(s2.NTT()).InvNTT()
 
-	//rho, t, cns, s1, s2, err := Gen(seed)
-	// if err != nil {
-	// 	return nil, nil, err
-	// }
-
 	priv := &PrivateKey{
 		CNS:        cns,
 		S1:         s1,
@@ -367,11 +275,6 @@ func GenerateKeyPair(seed []byte, counter uint, expiryDate time.Time) (*PrivateK
 		ExpiryDate: expiryDate.Unix(),
 	}
 
-	//TODO
-	// if err = priv.parseRevocationKey(); err != nil {
-	// 	return nil, nil, err
-	// }
-
 	// compute n
 	pubk := &PublicKey{
 		Rho:        rho,
@@ -379,15 +282,6 @@ func GenerateKeyPair(seed []byte, counter uint, expiryDate time.Time) (*PrivateK
 		Counter:    counter,
 		ExpiryDate: expiryDate.Unix(),
 	}
-
-	//TODO
-	// if err = pubk.parseRevocationKey(); err != nil {
-	// 	return nil, nil, err
-	// }
-
-	// if err = GenerateRevocationKeypair(priv, pubk); err != nil {
-	// 	return nil, nil, err
-	// }
 
 	return priv, pubk, nil
 }

@@ -1,20 +1,16 @@
 [package]
-name = "zkDilithiumProof"
+name = "zk_dilithium"
 version = "0.1.0"
 edition = "2021"
+
+[lib]
+name = "zk_dilithium"
+crate-type = ["staticlib", "cdylib", "rlib"]
 
 [features]
 concurrent = ["winterfell/concurrent", "std"]
 default = ["std"]
 std = ["hex/std", "winterfell/std"]
-
-[lib]
-# If you only wanted dynamic library, you'd use only "cdylib".
-# If you only wanted static library, you'd use only "staticlib".
-# This demo shows both. See https://doc.rust-lang.org/reference/linkage.html
-# for more information.
-crate-type = ["cdylib", "staticlib"]
-
 
 [dependencies]
 winterfell = {git = "https://github.com/avecsi/winterfell", branch = "f23-zk"}
@@ -28,15 +24,12 @@ generic_singleton = "0.5.1"
 atomic_refcell = "0.1.9"
 rand_chacha = { version = "0.3", default-features = false }
 
-[dev-dependencies]
-criterion = { version = "0.5", features = ["html_reports"] }
-
-[[bench]]
-name = "benchmarks"
-harness = false
-
-[profile.release]
-panic = "unwind"  # Allows the panic message to propagate
+[build-dependencies]
+cbindgen = "0.26"
 
 [patch.crates-io]
 winter-utils = { git = "https://github.com/AVecsi/winterfell", branch = "f23-zk" }
+
+[[test]]
+name = "test"
+path = "src/test/test.rs"

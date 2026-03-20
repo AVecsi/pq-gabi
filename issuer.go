@@ -5,6 +5,8 @@
 package gabi
 
 import (
+	"fmt"
+
 	"github.com/AVecsi/pq-gabi/big"
 	"github.com/AVecsi/pq-gabi/gabikeys"
 )
@@ -21,31 +23,30 @@ func NewIssuer(sk *gabikeys.PrivateKey, pk *gabikeys.PublicKey, context *big.Int
 	return &Issuer{Sk: sk, Pk: pk, Context: context}
 }
 
-// IssueSignature produces an IssueSignatureMessage for the attributes based on
-// the IssueCommitmentMessage provided. Note that this function DOES NOT check
-// the proofs containted in the IssueCommitmentMessage! That needs to be done at
-// a higher level!
 func (i *Issuer) IssueSignature(U *big.Int, attributes []*Attribute) (*ZkDilSignature, []byte, error) {
 
-	if len(attributes) != 0 {
-		attributes = append(attributes, nil)
-		copy(attributes[1:], attributes[:len(attributes)-1])
-	}
+	//TODO complete reimplementation needed
+	// if len(attributes) != 0 {
+	// 	attributes = append(attributes, nil)
+	// 	copy(attributes[1:], attributes[:len(attributes)-1])
+	// }
 
-	var err error
-	attributes[0], err = NewAttribute(U.Bytes())
-	if err != nil {
-		return nil, nil, err
-	}
+	// var err error
+	// attributes[0], err = NewAttribute(U.Bytes())
+	// if err != nil {
+	// 	return nil, nil, err
+	// }
 
-	attrTree, err := BuildMerkleTree(attributes)
-	if err != nil {
-		return nil, nil, err
-	}
+	// // TODO
+	// attrTree, err := BuildMerkleTree(attributes)
+	// if err != nil {
+	// 	return nil, nil, err
+	// }
 
-	attrTreeRoot := attrTree.MerkleRoot()
+	// attrTreeRoot := attrTree.MerkleRoot()
 
-	signature := Sign(i.Pk, i.Sk, attrTreeRoot)
+	// signature := Sign(i.Pk, i.Sk, attrTreeRoot)
 
-	return &signature, attrTreeRoot, nil
+	// return &signature, attrTreeRoot, nil
+	return nil, nil, fmt.Errorf("IssueSignature is not implemented\n")
 }

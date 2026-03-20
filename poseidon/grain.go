@@ -73,14 +73,3 @@ func (g *Grain) next() *big.Int {
 
 	return r
 }
-
-/* func main() {
-	// Example usage of Grain
-	grain := NewGrain(int64(21), int64(35), int64(24))
-
-	// Read some bits
-	fmt.Println("ReadBits:", grain.ReadBits(10))
-
-	// Read a field element
-	fmt.Println("ReadFe:", grain.ReadFe(big.NewInt(int64(7340033))))
-} */

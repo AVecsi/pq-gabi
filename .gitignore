@@ -1,4 +1,25 @@
+# Go
 *.test
-.idea/
+*.out
 vendor/
+
+# Build outputs
+main
+libzkDilithiumProof.a
+libzkDilithiumProof.dylib
+libzkDilithiumProof.so
+
+# zkDilithium — cloned and built by Makefile, not tracked
+zkDilithiumProof/
+
+# macOS
 .DS_Store
+.AppleDouble
+.LSOverride
+
+# IDEs
+.idea/
+.vscode/
+
+# Misc
+*.pdb

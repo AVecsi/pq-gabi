@@ -5,11 +5,11 @@
 package gabi
 
 /*
-#cgo android,arm LDFLAGS: -L./zkDilithiumProof/jniLibs/armeabi-v7a -lzkDilithiumProof
-#cgo android,arm64 LDFLAGS: -L./zkDilithiumProof/jniLibs/arm64-v8a -lzkDilithiumProof
-#cgo android,386 LDFLAGS: -L./zkDilithiumProof/jniLibs/x86 -lzkDilithiumProof
-#cgo android,amd64 LDFLAGS: -L./zkDilithiumProof/jniLibs/x86_64 -lzkDilithiumProof
-#cgo arm64 LDFLAGS: -L./zkDilithiumProof/target/release -lzkDilithiumProof
+#cgo android,arm LDFLAGS: -L./zkDilithiumProof/jniLibs/armeabi-v7a -lzk_dilithium
+#cgo android,arm64 LDFLAGS: -L./zkDilithiumProof/jniLibs/arm64-v8a -lzk_dilithium
+#cgo android,386 LDFLAGS: -L./zkDilithiumProof/jniLibs/x86 -lzk_dilithium
+#cgo android,amd64 LDFLAGS: -L./zkDilithiumProof/jniLibs/x86_64 -lzk_dilithium
+#cgo arm64 LDFLAGS: -L./zkDilithiumProof/target/release -lzk_dilithium
 #include "./zkDilithiumProof/zkDilithiumProof.h"
 #include <stdlib.h>
 */
@@ -28,7 +28,7 @@ type Credential struct {
 	Signature     *ZkDilSignature `json:"signature"`
 	Attributes    []*Attribute    `json:"attributes"`
 	UserAttrCount int             `json:"userAttrCount"`
-	AttrHash      []byte          `json:"attrHash"`
+	CredHash      []uint32        `json:"attrHash"`
 }
 
 type CredentialDisclosure struct {
@@ -46,7 +46,10 @@ type DisclosureProof struct {
 
 func CreateCredentialDisclosure(credential *Credential, disclosedAttributeIndices []int) *CredentialDisclosure {
 
-	signatureProof := createSignatureProof(credential.Signature, credential.AttrHash)
+	//TODO error handling
+	expandedSig, _ := credential.Signature.Expand()
+
+	signatureProof := createSignatureProof(expandedSig, credential.CredHash)
 
 	disclosedAttributes := make([]*Attribute, len(disclosedAttributeIndices))
 	for i := range disclosedAttributeIndices {
@@ -62,75 +65,64 @@ func CreateCredentialDisclosure(credential *Credential, disclosedAttributeIndice
 	}
 }
 
-func CreateDisclosureProof(credentials []*Credential, credentialDisclosures []*CredentialDisclosure) (*DisclosureProof, error) {
-
-	//TODO This part probably will be more efficient if the data stored better. Repeating this computation here is useless.
-	if len(credentials) != len(credentialDisclosures) {
-		return nil, errors.New("The amount of credentials and disclosures should be the same.")
+func CreateDisclosureProof(credentials []*Credential, disclosures []*CredentialDisclosure) (*DisclosureProof, error) {
+	if len(credentials) != len(disclosures) {
+		return nil, errors.New("credentials and disclosures count must match")
 	}
 
-	numOfAllAttributes := 0
-	numOfAllDisclosedAttributes := 0
-	for i := range credentials {
-		numOfAllAttributes += len(credentials[i].Attributes)
-		numOfAllDisclosedAttributes += len(credentialDisclosures[i].DisclosedAttributeIndices)
-	}
+	n := len(credentials)
 
-	numOfAttributes := make([]C.size_t, len(credentials))
-	allAttributes := make([]uint32, numOfAllAttributes*12)
+	cCreds := make([]C.CCredential, n)
 
-	numOfUserAttributes := make([]C.size_t, len(credentials))
+	attrBufs := make([][]uint32, n)
+	indexBufs := make([][]C.size_t, n)
 
-	numOfDisclosedIndices := make([]C.size_t, len(credentialDisclosures))
-	allDisclosedIndices := make([]C.size_t, numOfAllDisclosedAttributes)
+	for i, cred := range credentials {
+		disc := disclosures[i]
 
-	attrHashCommitments := make([]uint32, len(credentials)*COMMITMENT_LENGTH)
-	attrHashCommitmentNonces := make([]uint32, len(credentials)*NONCE_LENGTH)
-
-	numOfAttributesCollected := 0
-	numOfDisclosedAttributesCollected := 0
-	for i := range credentials {
-
-		numOfAttributes[i] = C.size_t(len(credentials[i].Attributes))
-
-		for j := range credentials[i].Attributes {
-
-			attributeFE := common.UnpackFesInt(credentials[i].Attributes[j].Hash, common.Q)
-			for k := 0; k < 12; k++ {
-				allAttributes[numOfAttributesCollected*12+j*12+k] = uint32(attributeFE[k])
+		// Flatten attributes
+		attrBufs[i] = make([]uint32, len(cred.Attributes)*DIGEST_SIZE)
+		for j, attr := range cred.Attributes {
+			fes, _ := common.UnpackFes22Bit(attr.Hash)
+			for k, fe := range fes {
+				attrBufs[i][j*DIGEST_SIZE+k] = uint32(fe)
 			}
 		}
-		numOfAttributesCollected += len(credentials[i].Attributes)
 
-		numOfUserAttributes[i] = C.size_t(credentials[i].UserAttrCount)
-
-		numOfDisclosedIndices[i] = C.size_t(len(credentialDisclosures[i].DisclosedAttributeIndices))
-
-		for j := range credentialDisclosures[i].DisclosedAttributeIndices {
-			allDisclosedIndices[numOfDisclosedAttributesCollected+j] = C.size_t(credentialDisclosures[i].DisclosedAttributeIndices[j])
-		}
-		numOfDisclosedAttributesCollected += len(credentialDisclosures[i].DisclosedAttributeIndices)
-
-		for j := 0; j < COMMITMENT_LENGTH; j++ {
-			attrHashCommitments[i*COMMITMENT_LENGTH+j] = credentialDisclosures[i].SignatureProof.AttrHashCommitment.Comm[j]
+		// Disclosed attribute indices
+		indexBufs[i] = make([]C.size_t, len(disc.DisclosedAttributeIndices))
+		for j, idx := range disc.DisclosedAttributeIndices {
+			indexBufs[i][j] = C.size_t(idx)
 		}
 
-		for j := 0; j < NONCE_LENGTH; j++ {
-			attrHashCommitmentNonces[i*NONCE_LENGTH+j] = credentialDisclosures[i].SignatureProof.AttrHashCommitment.Nonce[j]
+		cCreds[i] = C.CCredential{
+			attributes:          (*C.uint32_t)(&attrBufs[i][0]),
+			num_attributes:      C.size_t(len(cred.Attributes)),
+			num_user_attributes: C.size_t(cred.UserAttrCount),
+			disclosed_indices:   &indexBufs[i][0],
+			num_disclosed:       C.size_t(len(disc.DisclosedAttributeIndices)),
+			salted_hash:         (*C.uint32_t)(&disc.SignatureProof.SaltedCredHash[0]),
+			salt:                (*C.uint32_t)(&disc.SignatureProof.Salt[0]),
 		}
 	}
 
-	disclosureProofLen := 0
+	// Allocate the CCredential array in C memory so CGo doesn't complain
+	cCredsPtr := (*C.CCredential)(C.malloc(C.size_t(len(cCreds)) * C.size_t(unsafe.Sizeof(C.CCredential{}))))
+	defer C.free(unsafe.Pointer(cCredsPtr))
 
-	//start := time.Now()
+	// Copy each struct into the C array
+	for i, cc := range cCreds {
+		*(*C.CCredential)(unsafe.Pointer(uintptr(unsafe.Pointer(cCredsPtr)) + uintptr(i)*unsafe.Sizeof(C.CCredential{}))) = cc
+	}
 
-	disclosureProof := C.prove_attributes((C.size_t)(len(credentialDisclosures)), (*C.uint32_t)(&allAttributes[0]), &numOfAttributes[0], &numOfUserAttributes[0], &allDisclosedIndices[0], &numOfDisclosedIndices[0], (*C.uint32_t)(&attrHashCommitments[0]), (*C.uint32_t)(&attrHashCommitmentNonces[0]), (*C.size_t)(unsafe.Pointer(&disclosureProofLen)))
-
-	//fmt.Println(time.Since(start))
+	var proofLen C.size_t
+	proof := C.prove_attributes(cCredsPtr, C.size_t(len(cCreds)), &proofLen)
+	proofBytes := C.GoBytes(unsafe.Pointer(proof), C.int(proofLen))
+	C.free_proof((*C.uint8_t)(proof), proofLen)
 
 	return &DisclosureProof{
-		AttrProof:             C.GoBytes(unsafe.Pointer(disclosureProof), C.int(disclosureProofLen)),
-		CredentialDisclosures: credentialDisclosures,
+		AttrProof:             proofBytes,
+		CredentialDisclosures: disclosures,
 	}, nil
 }
 
@@ -145,127 +137,52 @@ func (proof *DisclosureProof) Verify() bool {
 		}
 	}
 
-	numOfUserAttributes := make([]C.size_t, len(proof.CredentialDisclosures))
+	n := len(proof.CredentialDisclosures)
+	attrBufs := make([][]uint32, n)
+	indexBufs := make([][]C.size_t, n)
+	cDiscls := make([]C.CDisclosure, n)
 
-	numOfAllDisclosedAttributes := 0
-	for i := range proof.CredentialDisclosures {
-		numOfAllDisclosedAttributes += len(proof.CredentialDisclosures[i].DisclosedAttributeIndices)
-	}
-
-	disclosedAttributes := make([]uint32, numOfAllDisclosedAttributes*12)
-	disclosedIndices := make([]C.size_t, numOfAllDisclosedAttributes)
-	numOfDisclosedIndices := make([]C.size_t, len(proof.CredentialDisclosures))
-	numOfAttributes := make([]C.size_t, len(proof.CredentialDisclosures))
-
-	attrHashCommitments := make([]uint32, len(proof.CredentialDisclosures)*COMMITMENT_LENGTH)
-	attrHashCommitmentNonces := make([]uint32, len(proof.CredentialDisclosures)*NONCE_LENGTH)
-
-	numOfDisclosedAttributesCollected := 0
-	for i := range proof.CredentialDisclosures {
-
-		numOfUserAttributes[i] = C.size_t(proof.CredentialDisclosures[i].NumOfUserAttributes)
-
-		for j := range proof.CredentialDisclosures[i].DisclosedAttributes {
-			disclosedAttrHash := proof.CredentialDisclosures[i].DisclosedAttributes[j].Hash
-
-			disclosedAttributeFE := common.UnpackFesInt(disclosedAttrHash, common.Q)
-			for k := 0; k < 12; k++ {
-				disclosedAttributes[numOfDisclosedAttributesCollected*12+j*12+k] = uint32(disclosedAttributeFE[k])
+	for i, discl := range proof.CredentialDisclosures {
+		attrBufs[i] = make([]uint32, len(discl.DisclosedAttributes)*DIGEST_SIZE)
+		for j, attr := range discl.DisclosedAttributes {
+			fes, _ := common.UnpackFes22Bit(attr.Hash)
+			for k, fe := range fes {
+				attrBufs[i][j*DIGEST_SIZE+k] = uint32(fe)
 			}
-
-			disclosedIndices[numOfDisclosedAttributesCollected+j] = C.size_t(proof.CredentialDisclosures[i].DisclosedAttributeIndices[j])
-		}
-		numOfDisclosedAttributesCollected += len(proof.CredentialDisclosures[i].DisclosedAttributes)
-
-		numOfDisclosedIndices[i] = C.size_t(len(proof.CredentialDisclosures[i].DisclosedAttributeIndices))
-
-		numOfAttributes[i] = C.size_t(proof.CredentialDisclosures[i].NumOfAllAttributes)
-
-		for j := 0; j < COMMITMENT_LENGTH; j++ {
-			attrHashCommitments[i*COMMITMENT_LENGTH+j] = proof.CredentialDisclosures[i].SignatureProof.AttrHashCommitment.Comm[j]
 		}
 
-		for j := 0; j < NONCE_LENGTH; j++ {
-			attrHashCommitmentNonces[i*NONCE_LENGTH+j] = proof.CredentialDisclosures[i].SignatureProof.AttrHashCommitment.Nonce[j]
+		indexBufs[i] = make([]C.size_t, len(discl.DisclosedAttributeIndices))
+		for j, idx := range discl.DisclosedAttributeIndices {
+			indexBufs[i][j] = C.size_t(idx)
+		}
+
+		cDiscls[i] = C.CDisclosure{
+			disclosed_attributes: (*C.uint32_t)(&attrBufs[i][0]),
+			num_disclosed:        C.size_t(len(discl.DisclosedAttributes)),
+			disclosed_indices:    &indexBufs[i][0],
+			num_all_attributes:   C.size_t(discl.NumOfAllAttributes),
+			num_user_attributes:  C.size_t(discl.NumOfUserAttributes),
+			salted_hash:          (*C.uint32_t)(&discl.SignatureProof.SaltedCredHash[0]),
 		}
 	}
 
-	if C.verify_attributes((*C.uchar)(C.CBytes(proof.AttrProof)), (C.size_t)(len(proof.AttrProof)), (C.size_t)(len(proof.CredentialDisclosures)), &numOfUserAttributes[0], (*C.uint32_t)(&disclosedAttributes[0]), &numOfDisclosedIndices[0], &disclosedIndices[0], &numOfAttributes[0], (*C.uint32_t)(&attrHashCommitments[0]), (*C.uint32_t)(&attrHashCommitmentNonces[0])) == 1 {
-		return true
+	cDisclPtr := (*C.CDisclosure)(C.malloc(C.size_t(n) * C.size_t(unsafe.Sizeof(C.CDisclosure{}))))
+	defer C.free(unsafe.Pointer(cDisclPtr))
+
+	for i, cd := range cDiscls {
+		*(*C.CDisclosure)(unsafe.Pointer(uintptr(unsafe.Pointer(cDisclPtr)) + uintptr(i)*unsafe.Sizeof(C.CDisclosure{}))) = cd
 	}
 
-	return false
+	proofBytes := C.CBytes(proof.AttrProof)
+	defer C.free(proofBytes)
+
+	return C.verify_attributes(
+		(*C.uchar)(proofBytes),
+		C.size_t(len(proof.AttrProof)),
+		cDisclPtr,
+		C.size_t(len(proof.CredentialDisclosures)),
+	) == 1
 }
-
-func (proof *DisclosureProof) VerifyWithoutSignature() bool {
-
-	numOfUserAttributes := make([]C.size_t, len(proof.CredentialDisclosures))
-
-	numOfAllDisclosedAttributes := 0
-	for i := range proof.CredentialDisclosures {
-		numOfAllDisclosedAttributes += len(proof.CredentialDisclosures[i].DisclosedAttributeIndices)
-	}
-
-	disclosedAttributes := make([]uint32, numOfAllDisclosedAttributes*12)
-	disclosedIndices := make([]C.size_t, numOfAllDisclosedAttributes)
-	numOfDisclosedIndices := make([]C.size_t, len(proof.CredentialDisclosures))
-	numOfAttributes := make([]C.size_t, len(proof.CredentialDisclosures))
-
-	attrHashCommitments := make([]uint32, len(proof.CredentialDisclosures)*COMMITMENT_LENGTH)
-	attrHashCommitmentNonces := make([]uint32, len(proof.CredentialDisclosures)*NONCE_LENGTH)
-
-	numOfDisclosedAttributesCollected := 0
-	for i := range proof.CredentialDisclosures {
-
-		numOfUserAttributes[i] = C.size_t(proof.CredentialDisclosures[i].NumOfUserAttributes)
-
-		for j := range proof.CredentialDisclosures[i].DisclosedAttributes {
-			disclosedAttrHash := proof.CredentialDisclosures[i].DisclosedAttributes[j].Hash
-
-			disclosedAttributeFE := common.UnpackFesInt(disclosedAttrHash, common.Q)
-			for k := 0; k < 12; k++ {
-				disclosedAttributes[numOfDisclosedAttributesCollected*12+j*12+k] = uint32(disclosedAttributeFE[k])
-			}
-
-			disclosedIndices[numOfDisclosedAttributesCollected+j] = C.size_t(proof.CredentialDisclosures[i].DisclosedAttributeIndices[j])
-		}
-		numOfDisclosedAttributesCollected += len(proof.CredentialDisclosures[i].DisclosedAttributes)
-
-		numOfDisclosedIndices[i] = C.size_t(len(proof.CredentialDisclosures[i].DisclosedAttributeIndices))
-
-		numOfAttributes[i] = C.size_t(proof.CredentialDisclosures[i].NumOfAllAttributes)
-
-		for j := 0; j < COMMITMENT_LENGTH; j++ {
-			attrHashCommitments[i*COMMITMENT_LENGTH+j] = proof.CredentialDisclosures[i].SignatureProof.AttrHashCommitment.Comm[j]
-		}
-
-		for j := 0; j < NONCE_LENGTH; j++ {
-			attrHashCommitmentNonces[i*NONCE_LENGTH+j] = proof.CredentialDisclosures[i].SignatureProof.AttrHashCommitment.Nonce[j]
-		}
-	}
-
-	if C.verify_attributes((*C.uchar)(C.CBytes(proof.AttrProof)), (C.size_t)(len(proof.AttrProof)), (C.size_t)(len(proof.CredentialDisclosures)), &numOfUserAttributes[0], (*C.uint32_t)(&disclosedAttributes[0]), &numOfDisclosedIndices[0], &disclosedIndices[0], &numOfAttributes[0], (*C.uint32_t)(&attrHashCommitments[0]), (*C.uint32_t)(&attrHashCommitmentNonces[0])) == 1 {
-		return true
-	}
-
-	return false
-}
-
-// TimestampRequestContributions returns the contributions of this disclosure proof
-// to the message that is to be signed by the timestamp server:
-// - A of the randomized CL-signature
-// - Slice of big.Int populated with the disclosed attributes and 0 for the undisclosed ones.
-// func (d *DisclosureProofBuilder) TimestampRequestContributions() (*big.Int, []*big.Int) {
-// 	zero := big.NewInt(0)
-// 	disclosed := make([]*big.Int, len(d.attributes))
-// 	for i := 0; i < len(d.attributes); i++ {
-// 		disclosed[i] = zero
-// 	}
-// 	for _, i := range d.disclosedAttributes {
-// 		disclosed[i] = d.attributes[i]
-// 	}
-// 	return d.randomizedSignature.A, disclosed
-// }
 
 // GenerateSecretAttribute generates secret attribute used prove ownership and links between credentials from the same user.
 func GenerateSecretAttribute() (*big.Int, error) {
