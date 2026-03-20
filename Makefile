@@ -38,10 +38,10 @@ fetch-rust-lib:
 # ── tests ───────────────────────────────────────────────────────────────────
 
 test-go: build
-	go test -v ./...
+	go test
 
 test-rust: $(ZK_DIR)
-	@cd $(ZK_DIR) && cargo test --release -- --nocapture
+	@cd $(ZK_DIR) && cargo test --release --features concurrent -- --nocapture
 
 # ── clean ───────────────────────────────────────────────────────────────────
 
