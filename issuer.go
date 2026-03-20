@@ -5,10 +5,10 @@
 package gabi
 
 import (
-	"fmt"
-
 	"github.com/AVecsi/pq-gabi/big"
 	"github.com/AVecsi/pq-gabi/gabikeys"
+	"github.com/AVecsi/pq-gabi/internal/common"
+	"github.com/AVecsi/pq-gabi/poseidon"
 )
 
 // Issuer holds the key material for a credential issuer.
@@ -23,30 +23,25 @@ func NewIssuer(sk *gabikeys.PrivateKey, pk *gabikeys.PublicKey, context *big.Int
 	return &Issuer{Sk: sk, Pk: pk, Context: context}
 }
 
-func (i *Issuer) IssueSignature(U *big.Int, attributes []*Attribute) (*ZkDilSignature, []byte, error) {
+func (i *Issuer) IssueSignature(hiddenHash []byte, publicAttributes []*Attribute) (*ZkDilSignature, error) {
 
-	//TODO complete reimplementation needed
-	// if len(attributes) != 0 {
-	// 	attributes = append(attributes, nil)
-	// 	copy(attributes[1:], attributes[:len(attributes)-1])
-	// }
+	hiddenHashFes := common.UnpackFesInt(hiddenHash, common.Q)
 
-	// var err error
-	// attributes[0], err = NewAttribute(U.Bytes())
-	// if err != nil {
-	// 	return nil, nil, err
-	// }
+	h := poseidon.NewPoseidon(nil, POS_RF, POS_T, POS_RATE, common.Q)
+	for _, attr := range publicAttributes {
+		attrFes, _ := common.UnpackFes22Bit(attr.Hash)
+		h.WriteInts(attrFes)
+	}
 
-	// // TODO
-	// attrTree, err := BuildMerkleTree(attributes)
-	// if err != nil {
-	// 	return nil, nil, err
-	// }
+	publicHashFes := h.Read(12)
 
-	// attrTreeRoot := attrTree.MerkleRoot()
+	h.Reset()
+	h.WriteInts(hiddenHashFes)
+	h.WriteInts(publicHashFes)
 
-	// signature := Sign(i.Pk, i.Sk, attrTreeRoot)
+	combinedHash := h.Read(12)
 
-	// return &signature, attrTreeRoot, nil
-	return nil, nil, fmt.Errorf("IssueSignature is not implemented\n")
+	signature := Sign(i.Pk, i.Sk, common.PackFesInt(combinedHash))
+
+	return &signature, nil
 }
