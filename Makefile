@@ -14,7 +14,8 @@ build: $(ZK_LIB) $(ZK_HEADER)
 	go build
 
 run: build
-	@./main
+#	@./main
+	go test
 
 # ── rust lib ────────────────────────────────────────────────────────────────
 
