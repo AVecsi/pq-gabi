@@ -9,9 +9,13 @@ main
 # zkDilithium — cloned and built by Makefile, not tracked
 # Exception: the compiled .a and generated .h are committed so consumers
 # can use pq-gabi without needing the Rust toolchain.
-zkDilithiumProof/
-!zkDilithiumProof/target/release/libzk_dilithium.a
+zkDilithiumProof/*
+zkDilithiumProof/target/
 !zkDilithiumProof/zkDilithiumProof.h
+zkDilithiumProof/target/*
+!zkDilithiumProof/target/release/
+zkDilithiumProof/target/release/*
+!zkDilithiumProof/target/release/libzk_dilithium.a
 
 # macOS
 .DS_Store
