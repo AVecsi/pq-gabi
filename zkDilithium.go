@@ -1,12 +1,12 @@
 package gabi
 
 /*
-#cgo android,arm LDFLAGS: -L./zkDilithiumProof/jniLibs/armeabi-v7a -lzk_dilithium
-#cgo android,arm64 LDFLAGS: -L./zkDilithiumProof/jniLibs/arm64-v8a -lzk_dilithium
-#cgo android,386 LDFLAGS: -L./zkDilithiumProof/jniLibs/x86 -lzk_dilithium
-#cgo android,amd64 LDFLAGS: -L./zkDilithiumProof/jniLibs/x86_64 -lzk_dilithium
-#cgo arm64 LDFLAGS: -L./zkDilithiumProof/target/release -lzk_dilithium
-#include "./zkDilithiumProof/zkDilithiumProof.h"
+#cgo android,arm LDFLAGS: -L./lib/armeabi-v7a -lzk_dilithium
+#cgo android,arm64 LDFLAGS: -L./lib/arm64-v8a -lzk_dilithium
+#cgo android,386 LDFLAGS: -L./lib/x86 -lzk_dilithium
+#cgo android,amd64 LDFLAGS:-L./lib/x86_64 -lzk_dilithium
+#cgo arm64 LDFLAGS: -L./lib -lzk_dilithium
+#include "./lib/zkDilithiumProof.h"
 #include <stdlib.h>
 */
 import "C"

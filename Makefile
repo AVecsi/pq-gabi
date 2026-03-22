@@ -25,6 +25,9 @@ $(ZK_DIR):
 
 $(ZK_LIB) $(ZK_HEADER): | $(ZK_DIR)
 	@cd $(ZK_DIR) && cargo build --release --features concurrent
+	@mkdir -p lib
+	@cp $(ZK_DIR)/target/release/libzk_dilithium.a lib/
+	@cp $(ZK_DIR)/zkDilithiumProof.h lib/
 
 # Force a fresh pull and rebuild of the Rust lib
 fetch-rust-lib:
