@@ -59,14 +59,17 @@ NDK_VERSION := $(shell ls $(ANDROID_SDK_ROOT)/ndk | sort -V | tail -1)
 NDK_BIN := $(ANDROID_SDK_ROOT)/ndk/$(NDK_VERSION)/toolchains/llvm/prebuilt/$(NDK_HOST)/bin
 
 build-android: | $(ZK_DIR)
-	@echo "Using NDK: $(NDK_BIN)"
 	@export PATH=$(NDK_BIN):$$PATH && \
-	cd $(ZK_DIR) && cargo build --release \
+	cd $(ZK_DIR) && cargo build --release --features concurrent \
 		--target aarch64-linux-android \
-		--target armv7-linux-androideabi
-	@mkdir -p lib/arm64-v8a lib/armeabi-v7a
+		--target armv7-linux-androideabi \
+		--target i686-linux-android \
+		--target x86_64-linux-android
+	@mkdir -p lib/arm64-v8a lib/armeabi-v7a lib/x86 lib/x86_64
 	@cp $(ZK_DIR)/target/aarch64-linux-android/release/libzk_dilithium.a lib/arm64-v8a/
 	@cp $(ZK_DIR)/target/armv7-linux-androideabi/release/libzk_dilithium.a lib/armeabi-v7a/
+	@cp $(ZK_DIR)/target/i686-linux-android/release/libzk_dilithium.a lib/x86/
+	@cp $(ZK_DIR)/target/x86_64-linux-android/release/libzk_dilithium.a lib/x86_64/
 	@cp $(ZK_DIR)/zkDilithiumProof.h lib/
 
 # ── tests ───────────────────────────────────────────────────────────────────
