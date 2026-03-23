@@ -10,6 +10,7 @@ main
 # Exception: the compiled .a and generated .h are committed so consumers
 # can use pq-gabi without needing the Rust toolchain.
 zkDilithiumProof/
+lib/
 
 # macOS
 .DS_Store
