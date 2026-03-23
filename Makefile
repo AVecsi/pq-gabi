@@ -43,8 +43,8 @@ build-ios: | $(ZK_DIR)
 		--target aarch64-apple-ios \
 		--target x86_64-apple-ios
 	@mkdir -p lib/ios
-	@cp $(ZK_DIR)/target/aarch64-apple-ios/release/libzk_dilithium.a lib/ios/
-	@cp $(ZK_DIR)/zkDilithiumProof.h lib/ios/
+	@cp $(ZK_DIR)/target/aarch64-apple-ios/release/libzk_dilithium.a lib/
+	@cp $(ZK_DIR)/zkDilithiumProof.h lib/
 
 # Detect OS and set NDK toolchain path accordingly
 ifeq ($(shell uname), Darwin)
@@ -64,10 +64,10 @@ build-android: | $(ZK_DIR)
 	cd $(ZK_DIR) && cargo build --release \
 		--target aarch64-linux-android \
 		--target armv7-linux-androideabi
-	@mkdir -p lib/android/arm64-v8a lib/android/armeabi-v7a
-	@cp $(ZK_DIR)/target/aarch64-linux-android/release/libzk_dilithium.a lib/android/arm64-v8a/
-	@cp $(ZK_DIR)/target/armv7-linux-androideabi/release/libzk_dilithium.a lib/android/armeabi-v7a/
-	@cp $(ZK_DIR)/zkDilithiumProof.h lib/android/
+	@mkdir -p lib/arm64-v8a lib/armeabi-v7a
+	@cp $(ZK_DIR)/target/aarch64-linux-android/release/libzk_dilithium.a lib/arm64-v8a/
+	@cp $(ZK_DIR)/target/armv7-linux-androideabi/release/libzk_dilithium.a lib/armeabi-v7a/
+	@cp $(ZK_DIR)/zkDilithiumProof.h lib/
 
 # ── tests ───────────────────────────────────────────────────────────────────
 
