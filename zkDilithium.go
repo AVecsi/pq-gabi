@@ -104,7 +104,7 @@ func SampleInBall(h *poseidon.Poseidon) *algebra.Poly {
 	return &algebra.Poly{Cs: ret}
 }
 
-func Sign(pubK *gabikeys.PublicKey, privK *gabikeys.PrivateKey, msg []byte) ZkDilSignature {
+func Sign(pubK *gabikeys.PublicKey, privK *gabikeys.PrivateKey, msg []uint32) ZkDilSignature {
 
 	// Pack t
 	tPacked := pubK.T.Pack()
@@ -118,7 +118,7 @@ func Sign(pubK *gabikeys.PublicKey, privK *gabikeys.PrivateKey, msg []byte) ZkDi
 	h := poseidon.NewPoseidon([]int{0}, POS_RF, POS_T, POS_RATE, common.Q)
 	h.WriteInts(common.UnpackFesLoose(tr))
 	h.Permute()
-	h.WriteInts(common.UnpackFesInt(msg, common.Q))
+	h.WriteUint32(msg)
 	mu := h.Read(MUSIZE)
 
 	// Apply NTT
@@ -127,7 +127,7 @@ func Sign(pubK *gabikeys.PublicKey, privK *gabikeys.PrivateKey, msg []byte) ZkDi
 
 	// Challenge generation loop
 	yNonce := 0 //TODO
-	rho2 := common.H(append(privK.CNS, common.H(append(tr, msg...), 64)...), 64)
+	rho2 := common.H(append(privK.CNS, common.H(append(tr, common.PackFesUint32(msg)...), 64)...), 64)
 
 	for {
 		// Sample Y and compute w
@@ -178,7 +178,7 @@ func Sign(pubK *gabikeys.PublicKey, privK *gabikeys.PrivateKey, msg []byte) ZkDi
 	}
 }
 
-func (sig *ZkDilSignature) Verify(msg []byte) bool {
+func (sig *ZkDilSignature) Verify(msg []uint32) bool {
 
 	tPacked := sig.Pk.T.Pack()
 
@@ -188,7 +188,7 @@ func (sig *ZkDilSignature) Verify(msg []byte) bool {
 	h := poseidon.NewPoseidon([]int{0}, POS_RF, POS_T, POS_RATE, common.Q)
 	h.WriteInts(common.UnpackFesLoose(tr))
 	h.Permute()
-	h.WriteInts(common.UnpackFesInt(msg, common.Q))
+	h.WriteUint32(msg)
 	mu := h.Read(MUSIZE)
 
 	// Sample challenge c

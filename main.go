@@ -132,7 +132,7 @@ func Test() {
 			}
 
 			// Sign the message
-			sig := Sign(pk, sk, common.PackFesUint32(combinedHash))
+			sig := Sign(pk, sk, combinedHash)
 
 			cred := Credential{
 				Signature:     &sig,

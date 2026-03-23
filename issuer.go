@@ -39,9 +39,9 @@ func (i *Issuer) IssueSignature(hiddenHash []byte, publicAttributes []*Attribute
 	h.WriteInts(hiddenHashFes)
 	h.WriteInts(publicHashFes)
 
-	combinedHash := h.Read(12)
+	combinedHash := h.ReadUint32(12)
 
-	signature := Sign(i.Pk, i.Sk, common.PackFesInt(combinedHash))
+	signature := Sign(i.Pk, i.Sk, combinedHash)
 
 	return &signature, nil
 }
