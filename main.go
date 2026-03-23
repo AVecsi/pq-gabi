@@ -3,7 +3,6 @@ package gabi
 import (
 	"crypto/rand"
 	"fmt"
-	"math"
 	"time"
 
 	"github.com/AVecsi/pq-gabi/gabikeys"
@@ -25,25 +24,25 @@ func Test() {
 
 	for attrCount <= 8 {
 		sigProofSum := time.Duration(0)
-		sigProofMin := time.Duration(math.MaxInt64)
+		sigProofMin := time.Duration(999999999)
 		sigProofMinIter := 0
 		sigProofMax := time.Duration(0)
 		sigProofMaxIter := 0
 
 		disclosureProofSum := time.Duration(0)
-		disclosureProofMin := time.Duration(math.MaxInt64)
+		disclosureProofMin := time.Duration(999999999)
 		disclosureProofMinIter := 0
 		disclosureProofMax := time.Duration(0)
 		disclosureProofMaxIter := 0
 
 		disclosureProofLen := 0
-		disclosureProofLenMin := math.MaxInt64
+		disclosureProofLenMin := 999999999
 		disclosureProofLenMinIter := 0
 		disclosureProofLenMax := 0
 		disclosureProofLenMaxIter := 0
 
 		sigProofLen := 0
-		sigProofLenMin := math.MaxInt64
+		sigProofLenMin := 999999999
 		sigProofLenMinIter := 0
 		sigProofLenMax := 0
 		sigProofLenMaxIter := 0
@@ -52,13 +51,13 @@ func Test() {
 		failcounter := 0
 
 		verifySum := time.Duration(0)
-		verifyMin := time.Duration(math.MaxInt64)
+		verifyMin := time.Duration(999999999)
 		verifyMinIter := 0
 		verifyMax := time.Duration(0)
 		verifyMaxIter := 0
 
 		verifyOnlyDisclosureSum := time.Duration(0)
-		verifyOnlyDisclosureMin := time.Duration(math.MaxInt64)
+		verifyOnlyDisclosureMin := time.Duration(999999999)
 		verifyOnlyDisclosureMinIter := 0
 		verifyOnlyDisclosureMax := time.Duration(0)
 		verifyOnlyDisclosureMaxIter := 0
