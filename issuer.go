@@ -23,9 +23,7 @@ func NewIssuer(sk *gabikeys.PrivateKey, pk *gabikeys.PublicKey, context *big.Int
 	return &Issuer{Sk: sk, Pk: pk, Context: context}
 }
 
-func (i *Issuer) IssueSignature(hiddenHash []byte, publicAttributes []*Attribute) (*ZkDilSignature, error) {
-
-	hiddenHashFes := common.UnpackFesInt(hiddenHash, common.Q)
+func (i *Issuer) IssueSignature(hiddenHashFes []uint32, publicAttributes []*Attribute) (*ZkDilSignature, error) {
 
 	h := poseidon.NewPoseidon(nil, POS_RF, POS_T, POS_RATE, common.Q)
 	for _, attr := range publicAttributes {
@@ -36,7 +34,7 @@ func (i *Issuer) IssueSignature(hiddenHash []byte, publicAttributes []*Attribute
 	publicHashFes := h.Read(12)
 
 	h.Reset()
-	h.WriteInts(hiddenHashFes)
+	h.WriteUint32(hiddenHashFes)
 	h.WriteInts(publicHashFes)
 
 	combinedHash := h.ReadUint32(12)
