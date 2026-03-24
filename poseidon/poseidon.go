@@ -61,7 +61,10 @@ func (p *Poseidon) WriteInts(fes []int) error {
 // Write for hash.Hash interface (accepts byte slices)
 func (p *Poseidon) Write(data []byte) (n int, err error) {
 	// Convert bytes to integers for Poseidon
-	fes := common.UnpackFesInt(data, p.q)
+	fes, err := common.UnpackFes22Bit(data)
+	if err != nil {
+		return 0, err
+	}
 	err = p.WriteInts(fes)
 	return len(data), err
 }
