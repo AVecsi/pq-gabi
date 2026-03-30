@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"os"
 	"testing"
-	"time"
 
 	"github.com/AVecsi/pq-gabi/big"
 	"github.com/AVecsi/pq-gabi/gabikeys"
@@ -116,14 +115,14 @@ var (
 
 func setupParameters() error {
 
-	seed := make([]byte, 32)
+	// seed := make([]byte, 32)
 
-	var err error
-	testPrivK, testPubK, err = gabikeys.GenerateKeyPair(seed, 0, time.Now().AddDate(1, 0, 0))
-	if err != nil {
-		return err
-	}
-	testPubK.Issuer = "testPubK"
+	// var err error
+	// testPrivK, testPubK, err = gabikeys.GenerateKeyPair(seed, 0, time.Now().AddDate(1, 0, 0))
+	// if err != nil {
+	// 	return err
+	// }
+	// testPubK.Issuer = "testPubK"
 
 	// testPrivK1, err = gabikeys.NewPrivateKeyFromXML(xmlPrivKey1, false)
 	// if err != nil {

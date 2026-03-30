@@ -6,282 +6,86 @@ import (
 	"os"
 	"time"
 
-	"github.com/AVecsi/pq-gabi/algebra"
 	"github.com/AVecsi/pq-gabi/internal/common"
 )
 
-type (
-	// PublicKey represents an issuer's public key.
-	PublicKey struct {
-		XMLName    xml.Name     `xml:"http://www.zurich.ibm.com/security/idemix IssuerPublicKey"`
-		Counter    uint         `xml:"Counter"`
-		ExpiryDate int64        `xml:"ExpiryDate"`
-		Rho        []byte       `xml:"Elements>rho"`
-		T          *algebra.Vec `xml:"Elements>t"`
-		//EpochLength EpochLength `xml:"Features"` TODO
-		//ECDSAString string `xml:"ECDSA,omitempty"` TODO
-
-		//ECDSA *ecdsa.PublicKey `xml:"-"` TODO
-		//Params *SystemParameters `xml:"-"` TODO
-		Issuer string `xml:"-"`
-	}
-
-	// PrivateKey represents an issuer's private key.
-	PrivateKey struct {
-		XMLName    xml.Name     `xml:"http://www.zurich.ibm.com/security/idemix IssuerPrivateKey"`
-		Counter    uint         `xml:"Counter"`
-		ExpiryDate int64        `xml:"ExpiryDate"`
-		CNS        []byte       `xml:"Elements>CNS"` //challengeNonceSeed
-		S1         *algebra.Vec `xml:"Elements>s1"`
-		S2         *algebra.Vec `xml:"Elements>s2"`
-		//ECDSAString string       `xml:"ECDSA,omitempty"` TODO
-
-		//ECDSA *ecdsa.PrivateKey `xml:"-"` TODO
-		//Order *big.Int          `xml:"-"`
-	}
-
-	//EpochLength int TODO
-)
-
 const (
-	//XMLHeader can be a used as the XML header when writing keys in XML format.
 	XMLHeader = "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"no\"?>\n"
-	// DefaultEpochLength is the default epoch length for public keys.
-	//DefaultEpochLength = 432000 TODO
 )
 
-// NewPrivateKey creates a new issuer private key using the provided parameters.
-func NewPrivateKey(cns []byte, s1, s2 *algebra.Vec, counter uint, expiryDate time.Time) (*PrivateKey, error) {
-	sk := PrivateKey{
-		CNS:        cns,
-		S1:         s1,
-		S2:         s2,
-		Counter:    counter,
-		ExpiryDate: expiryDate.Unix(),
-	}
-
-	return &sk, nil
+// PublicKey is the high-level, crypto-agnostic interface for an issuer public key.
+type PublicKey interface {
+	GetCounter() uint
+	GetExpiryDate() int64
+	GetIssuer() string
+	ValidAt(t time.Time) bool
+	WriteTo(writer io.Writer) (int64, error)
+	WriteToFile(filename string, forceOverwrite bool) (int64, error)
+	Print() error
 }
 
-// NewPrivateKeyFromXML creates a new issuer private key using the XML data
-// provided.
-func NewPrivateKeyFromXML(xmlInput string, demo bool) (*PrivateKey, error) {
-	privk := &PrivateKey{}
-	err := xml.Unmarshal([]byte(xmlInput), privk)
-	if err != nil {
-		return nil, err
-	}
-
-	if !demo {
-		// Do some sanity checks on the key data
-		if err := privk.Validate(); err != nil {
-			return nil, err
-		}
-	}
-
-	return privk, nil
+// PrivateKey is the high-level, crypto-agnostic interface for an issuer private key.
+type PrivateKey interface {
+	GetCounter() uint
+	GetExpiryDate() int64
+	ValidAt(t time.Time) bool
+	WriteTo(writer io.Writer) (int64, error)
+	WriteToFile(filename string, forceOverwrite bool) (int64, error)
+	Print() error
 }
 
-// NewPrivateKeyFromFile creates a new issuer private key from an XML file.
-func NewPrivateKeyFromFile(filename string, demo bool) (*PrivateKey, error) {
-	f, err := os.Open(filename)
-	if err != nil {
-		return nil, err
-	}
-	defer common.Close(f)
-
-	b, err := io.ReadAll(f)
-	if err != nil {
-		return nil, err
-	}
-
-	return NewPrivateKeyFromXML(string(b), demo)
+// BasePublicKey holds the high-level fields shared by all public key implementations.
+// Concrete key types in crypto-specific packages embed this.
+type BasePublicKey struct {
+	XMLName    xml.Name `xml:"http://www.zurich.ibm.com/security/idemix IssuerPublicKey"`
+	Counter    uint     `xml:"Counter"`
+	ExpiryDate int64    `xml:"ExpiryDate"`
+	Issuer     string   `xml:"-"`
 }
 
-func (privk *PrivateKey) Validate() error {
-	//TODO implement validation for S1 and S2 to validate the polynom coefficients are elements of the field
-	return nil
+func (pk *BasePublicKey) GetCounter() uint     { return pk.Counter }
+func (pk *BasePublicKey) GetExpiryDate() int64 { return pk.ExpiryDate }
+func (pk *BasePublicKey) GetIssuer() string    { return pk.Issuer }
+func (pk *BasePublicKey) ValidAt(t time.Time) bool {
+	return t.Before(time.Unix(pk.ExpiryDate, 0))
 }
 
-// Print prints the key to stdout.
-func (privk *PrivateKey) Print() error {
-	_, err := privk.WriteTo(os.Stdout)
-	return err
+// BasePrivateKey holds the high-level fields shared by all private key implementations.
+// Concrete key types in crypto-specific packages embed this.
+type BasePrivateKey struct {
+	XMLName    xml.Name `xml:"http://www.zurich.ibm.com/security/idemix IssuerPrivateKey"`
+	Counter    uint     `xml:"Counter"`
+	ExpiryDate int64    `xml:"ExpiryDate"`
 }
 
-// WriteTo writes the XML-serialized public key to the given writer.
-func (privk *PrivateKey) WriteTo(writer io.Writer) (int64, error) {
-	// Write the standard XML header
-	numHeaderBytes, err := writer.Write([]byte(XMLHeader))
+func (sk *BasePrivateKey) GetCounter() uint     { return sk.Counter }
+func (sk *BasePrivateKey) GetExpiryDate() int64 { return sk.ExpiryDate }
+func (sk *BasePrivateKey) ValidAt(t time.Time) bool {
+	return t.Before(time.Unix(sk.ExpiryDate, 0))
+}
+
+// writeKeyTo is a shared helper for writing XML-serialized keys.
+func WriteKeyTo(header []byte, body []byte, writer io.Writer) (int64, error) {
+	n1, err := writer.Write(header)
 	if err != nil {
 		return 0, err
 	}
-
-	// And the actual XML body (with indentation)
-	b, err := xml.MarshalIndent(privk, "", "   ")
-	if err != nil {
-		return int64(numHeaderBytes), err
-	}
-	numBodyBytes, err := writer.Write(b)
-	return int64(numHeaderBytes + numBodyBytes), err
+	n2, err := writer.Write(body)
+	return int64(n1 + n2), err
 }
 
-// WriteToFile writes the private key to an XML file. If any existing file with
-// the same filename should be overwritten, set forceOverwrite to true.
-func (privk *PrivateKey) WriteToFile(filename string, forceOverwrite bool) (int64, error) {
+// WriteKeyToFile is a shared helper for writing a key to a file.
+func WriteKeyToFile(filename string, forceOverwrite bool, writeFn func(io.Writer) (int64, error)) (int64, error) {
 	var f *os.File
 	var err error
 	if forceOverwrite {
 		f, err = os.Create(filename)
 	} else {
-		// This should return an error if the file already exists
 		f, err = os.OpenFile(filename, os.O_RDWR|os.O_CREATE|os.O_EXCL, 0600)
 	}
 	if err != nil {
 		return 0, err
 	}
 	defer common.Close(f)
-
-	return privk.WriteTo(f)
-}
-
-// NewPublicKey creates and returns a new public key based on the provided parameters.
-func NewPublicKey(rho []byte, t *algebra.Vec, counter uint, expiryDate time.Time) (*PublicKey, error) {
-	pk := &PublicKey{
-		Counter:    counter,
-		ExpiryDate: expiryDate.Unix(),
-		Rho:        rho,
-		T:          t,
-	}
-
-	return pk, nil
-}
-
-// NewPublicKeyFromBytes creates a new issuer public key using the XML data
-// provided.
-func NewPublicKeyFromBytes(bts []byte) (*PublicKey, error) {
-	// TODO: this might fail in the future. The DefaultSystemParameters and the
-	// public key might not match!
-	pubk := &PublicKey{}
-	err := xml.Unmarshal(bts, pubk)
-	if err != nil {
-		return nil, err
-	}
-
-	//TODO
-	// if err = pubk.parseRevocationKey(); err != nil {
-	// 	return nil, err
-	// }
-	return pubk, nil
-}
-
-func NewPublicKeyFromXML(xmlInput string) (*PublicKey, error) {
-	return NewPublicKeyFromBytes([]byte(xmlInput))
-}
-
-// NewPublicKeyFromFile creates a new issuer public key from an XML file.
-func NewPublicKeyFromFile(filename string) (*PublicKey, error) {
-	f, err := os.Open(filename)
-	if err != nil {
-		return nil, err
-	}
-	defer common.Close(f)
-	pubk := &PublicKey{}
-
-	b, err := io.ReadAll(f)
-	if err != nil {
-		return nil, err
-	}
-
-	err = xml.Unmarshal(b, pubk)
-	if err != nil {
-		return nil, err
-	}
-
-	return pubk, nil
-}
-
-// Print prints the key to stdout.
-func (pubk *PublicKey) Print() error {
-	_, err := pubk.WriteTo(os.Stdout)
-	return err
-}
-
-// WriteTo writes the XML-serialized public key to the given writer.
-func (pubk *PublicKey) WriteTo(writer io.Writer) (int64, error) {
-	// Write the standard XML header
-	numHeaderBytes, err := writer.Write([]byte(XMLHeader))
-	if err != nil {
-		return 0, err
-	}
-
-	// And the actual XML body (with indentation)
-	b, err := xml.MarshalIndent(pubk, "", "   ")
-	if err != nil {
-		return int64(numHeaderBytes), err
-	}
-	numBodyBytes, err := writer.Write(b)
-	return int64(numHeaderBytes + numBodyBytes), err
-}
-
-// WriteToFile writes the public key to an XML file. If any existing file with
-// the same filename should be overwritten, set forceOverwrite to true.
-func (pubk *PublicKey) WriteToFile(filename string, forceOverwrite bool) (int64, error) {
-	var f *os.File
-	var err error
-	if forceOverwrite {
-		f, err = os.Create(filename)
-	} else {
-		// This should return an error if the file already exists
-		f, err = os.OpenFile(filename, os.O_RDWR|os.O_CREATE|os.O_EXCL, 0644)
-	}
-	if err != nil {
-		return 0, err
-	}
-	defer common.Close(f)
-
-	return pubk.WriteTo(f)
-}
-
-// GenerateKeyPair generates a private/public keypair for an Issuer
-func GenerateKeyPair(seed []byte, counter uint, expiryDate time.Time) (*PrivateKey, *PublicKey, error) {
-
-	if len(seed) != 32 {
-		panic("Seed length must be 32 bytes")
-	}
-
-	// Expand the seed: H(seed, 32 + 64 + 32)
-	expandedSeed := common.H(seed, 32+64+32)
-
-	rho := make([]byte, 32)
-	copy(rho, expandedSeed[:32])
-	rho2 := make([]byte, 64)
-	copy(rho2, expandedSeed[32:32+64])
-	cns := make([]byte, 32)
-	copy(cns, expandedSeed[32+64:])
-
-	// Sample matrix and secret vectors
-	Ahat := algebra.SampleMatrix(rho)
-	s1, s2 := algebra.SampleSecret(rho2)
-
-	// Compute t = InvNTT(Ahat * NTT(s1) + NTT(s2))
-	t := Ahat.MulNTT(s1.NTT()).Add(s2.NTT()).InvNTT()
-
-	priv := &PrivateKey{
-		CNS:        cns,
-		S1:         s1,
-		S2:         s2,
-		Counter:    counter,
-		ExpiryDate: expiryDate.Unix(),
-	}
-
-	// compute n
-	pubk := &PublicKey{
-		Rho:        rho,
-		T:          t,
-		Counter:    counter,
-		ExpiryDate: expiryDate.Unix(),
-	}
-
-	return priv, pubk, nil
+	return writeFn(f)
 }

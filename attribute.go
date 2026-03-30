@@ -1,36 +1,41 @@
+// pq_gabi/attribute.go
 package gabi
 
 import (
-	"bytes"
-	"crypto/sha256"
-
+	"github.com/AVecsi/pq-gabi/attribute"
 	"github.com/AVecsi/pq-gabi/big"
+	"github.com/AVecsi/pq-gabi/internal/common"
+	"github.com/AVecsi/pq-gabi/internal/zkdil"
 )
 
-// Attribute implements the Content interface provided by merkletree and represents the content stored in the tree.
-type Attribute struct {
-	Value []byte `json:"value"`
-	Hash  []byte `json:"hash"`
+// Re-export Attribute so callers can use pqgabi.Attribute
+type Attribute = attribute.Attribute
+
+var NewAttribute = attribute.NewAttribute
+
+// GenerateSecretAttribute generates secret attribute used prove ownership and links between credentials from the same user.
+func GenerateSecretAttribute() (*big.Int, error) {
+	//12*3 byte for lazy field elements
+	return common.RandomBigInt(288)
 }
 
-func NewAttribute(value []byte) *Attribute {
-	attr := &Attribute{Value: value}
-	attr.Hash = attr.CalculateHash()
-	return attr
+func GenerateSalt() ([]byte, error) {
+
+	salt, err := zkdil.GenerateSalt()
+	if err != nil {
+		return nil, err
+	}
+
+	return salt, nil
 }
 
-func (t Attribute) IntValue() *big.Int {
-	return new(big.Int).SetBytes(t.Value)
-}
+// TODO probably return types will need to be changed
+func HideAttributes(attributes []attribute.Attribute) ([]uint32, []byte, error) {
 
-// CalculateHash hashes the value of an Attribute using SHA-256.
-func (t Attribute) CalculateHash() []byte {
+	hiddenAttrs, salt, err := zkdil.HideAttributes(attributes)
+	if err != nil {
+		return nil, nil, err
+	}
 
-	h := sha256.Sum256(t.Value)
-	return h[:]
-}
-
-// Equals tests for equality of two Attributes
-func (t Attribute) Equals(other Attribute) bool {
-	return bytes.Equal(t.Value, other.Value)
+	return hiddenAttrs, salt, nil
 }

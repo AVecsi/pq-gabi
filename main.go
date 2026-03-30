@@ -5,9 +5,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/AVecsi/pq-gabi/gabikeys"
+	"github.com/AVecsi/pq-gabi/big"
 	"github.com/AVecsi/pq-gabi/internal/common"
-	"github.com/AVecsi/pq-gabi/poseidon"
 )
 
 // func hashStrategy() hash.Hash {
@@ -62,11 +61,9 @@ func Test() {
 		verifyOnlyDisclosureMax := time.Duration(0)
 		verifyOnlyDisclosureMaxIter := 0
 
-		//TOOD ADAM reimplement instead of merkle tree use a simple hash.
 		for counter := 0; counter < NumOfIterations; counter++ {
 
-			//var merkleLeaves1 []merkletree.Content
-			var attributes []*Attribute
+			var attributes []Attribute
 			for i := 0; i < attrCount; i++ {
 
 				value := make([]byte, 36)
@@ -75,75 +72,37 @@ func Test() {
 					panic(err)
 				}
 				attribute := NewAttribute(value)
-				//merkleLeaves1 = append(merkleLeaves1, attribute)
-				attributes = append(attributes, attribute)
+				attributes = append(attributes, *attribute)
 			}
-
-			//attributes[0] is the secret attr of the user
-			//attributes[1] is a nonce
-			//In the benchmark we just generate them randomly
-			h := poseidon.NewPoseidon(nil, POS_RF, POS_T, POS_RATE, common.Q)
-			attrFes, _ := common.UnpackFes22Bit(attributes[0].Hash)
-			h.WriteInts(attrFes)
-
-			attrFes, _ = common.UnpackFes22Bit(attributes[1].Hash)
-			h.WriteInts(attrFes)
-			hiddenHashFes := h.Read(12)
-
-			//fmt.Println("=================================")
-			h.Reset()
-			for i := 2; i < attrCount; i += 2 {
-				attrFes, _ = common.UnpackFes22Bit(attributes[i].Hash)
-				h.WriteInts(attrFes)
-				// attri := common.UnpackFesInt(attributes[i].Hash, common.Q)
-				// for j := 0; j < 12; j++ {
-				// 	print(attri[j], " ")
-				// }
-				// println()
-				attrFes, _ = common.UnpackFes22Bit(attributes[i+1].Hash)
-				h.WriteInts(attrFes)
-				// attri1 := common.UnpackFesInt(attributes[i+1].Hash, common.Q)
-				// for j := 0; j < 12; j++ {
-				// 	print(attri1[j], " ")
-				// }
-				// println()
-				//fmt.Println("wrote two attrs")
-			}
-			//fmt.Println("=================================")
-
-			publicHashFes := h.Read(12)
-			// for j := 0; j < 12; j++ {
-			// 	print(publicHashFes[j], " ")
-			// }
-			// println()
-
-			h.Reset()
-			h.WriteInts(hiddenHashFes)
-			h.WriteInts(publicHashFes)
-
-			combinedHash := h.ReadUint32(12)
 
 			seed := make([]byte, 32)
 
-			sk, pk, err := gabikeys.GenerateKeyPair(seed, 0, time.Now())
+			hiddenAttrsHash, salt, err := HideAttributes([]Attribute{attributes[0]})
 			if err != nil {
-				return
+				panic(err)
 			}
 
-			// Sign the message
-			sig := Sign(pk, sk, combinedHash)
+			sk, pk, _ := GenerateKeyPair(seed, 0, time.Now().AddDate(1, 0, 0))
+			issuer := NewIssuer(sk, pk, *big.NewInt(1))
 
-			cred := Credential{
-				Signature:     &sig,
-				Attributes:    attributes,
-				UserAttrCount: 2,
-				CredHash:      combinedHash,
+			sig, combinedHash, err := issuer.IssueSignature(hiddenAttrsHash, attributes[1:])
+			if err != nil {
+				panic(err)
 			}
+
+			cred, err := NewCredential(sig, attributes, len(attributes), 1, combinedHash, salt)
+			if err != nil {
+				panic(err)
+			}
+
 			disclosedAttributeIndices := []int{2}
 
 			start := time.Now()
 
-			credDisclosure := CreateCredentialDisclosure(&cred, disclosedAttributeIndices)
+			credDisclosure, err := cred.CreateDisclosure(disclosedAttributeIndices)
+			if err != nil {
+				panic(err)
+			}
 
 			sigProofTime := time.Since(start)
 			sigProofSum += sigProofTime
@@ -160,9 +119,12 @@ func Test() {
 
 			start = time.Now()
 
-			disclosureProof, err := CreateDisclosureProof([]*Credential{&cred}, []*CredentialDisclosure{credDisclosure})
+			disclosureProof, err := CreateDisclosureProof(
+				[]Credential{cred},
+				[]CredentialDisclosure{credDisclosure},
+			)
 			if err != nil {
-				panic(err.Error())
+				panic(err)
 			}
 
 			disclosureProofTime := time.Since(start)
@@ -179,29 +141,29 @@ func Test() {
 				disclosureProofMaxIter = counter
 			}
 
-			disclosureProofLen += len(disclosureProof.AttrProof)
+			// disclosureProofLen += len(disclosureProof.AttrProof)
 
-			if len(disclosureProof.AttrProof) < disclosureProofLenMin {
-				disclosureProofLenMin = len(disclosureProof.AttrProof)
-				disclosureProofLenMinIter = counter
-			}
+			// if len(disclosureProof.AttrProof) < disclosureProofLenMin {
+			// 	disclosureProofLenMin = len(disclosureProof.AttrProof)
+			// 	disclosureProofLenMinIter = counter
+			// }
 
-			if len(disclosureProof.AttrProof) > disclosureProofLenMax {
-				disclosureProofLenMax = len(disclosureProof.AttrProof)
-				disclosureProofLenMaxIter = counter
-			}
+			// if len(disclosureProof.AttrProof) > disclosureProofLenMax {
+			// 	disclosureProofLenMax = len(disclosureProof.AttrProof)
+			// 	disclosureProofLenMaxIter = counter
+			// }
 
-			sigProofLen += len(disclosureProof.CredentialDisclosures[0].SignatureProof.Proof)
+			// sigProofLen += len(disclosureProof.CredentialDisclosures[0].SignatureProof.Proof)
 
-			if len(disclosureProof.CredentialDisclosures[0].SignatureProof.Proof) < sigProofLenMin {
-				sigProofLenMin = len(disclosureProof.CredentialDisclosures[0].SignatureProof.Proof)
-				sigProofLenMinIter = counter
-			}
+			// if len(disclosureProof.CredentialDisclosures[0].SignatureProof.Proof) < sigProofLenMin {
+			// 	sigProofLenMin = len(disclosureProof.CredentialDisclosures[0].SignatureProof.Proof)
+			// 	sigProofLenMinIter = counter
+			// }
 
-			if len(disclosureProof.CredentialDisclosures[0].SignatureProof.Proof) > disclosureProofLenMax {
-				sigProofLenMax = len(disclosureProof.CredentialDisclosures[0].SignatureProof.Proof)
-				sigProofLenMaxIter = counter
-			}
+			// if len(disclosureProof.CredentialDisclosures[0].SignatureProof.Proof) > disclosureProofLenMax {
+			// 	sigProofLenMax = len(disclosureProof.CredentialDisclosures[0].SignatureProof.Proof)
+			// 	sigProofLenMaxIter = counter
+			// }
 
 			start = time.Now()
 
@@ -226,8 +188,8 @@ func Test() {
 					fmt.Println(common.UnpackFes(attributes[i].Hash, common.Q))
 				}
 				fmt.Println()
-				fmt.Println(disclosureProof.CredentialDisclosures[0].SignatureProof.SaltedCredHash)
-				fmt.Println(disclosureProof.CredentialDisclosures[0].SignatureProof.Salt)
+				//fmt.Println(disclosureProof.CredentialDisclosures[0].SignatureProof.SaltedCredHash)
+				//fmt.Println(disclosureProof.CredentialDisclosures[0].SignatureProof.Salt)
 				fmt.Println("*******************************")
 				fmt.Println("Disclosure proof verification failed. ", combinedHash)
 				fmt.Println("*******************************")
