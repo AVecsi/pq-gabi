@@ -12,6 +12,7 @@ package zkdil
 import "C"
 
 import (
+	"encoding/json"
 	"fmt"
 
 	"unsafe"
@@ -337,8 +338,11 @@ func (p *signatureProof) SaltedCredHash() []uint32 { return p.saltedHash }
 func (p *signatureProof) Salt() []uint32           { return p.salt }
 
 func ParseSignature(data []byte) (credtypes.Signature, error) {
-	// TODO: implement deserialization
-	return nil, errors.New("ParseSignature: not yet implemented")
+	var sig zkDilSignature
+	if err := json.Unmarshal(data, &sig); err != nil {
+		return nil, err
+	}
+	return &sig, nil
 }
 
 func CombineHiddenPublic(hiddenAttrsHash []uint32, publicAttributes []*attribute.Attribute) []uint32 {
