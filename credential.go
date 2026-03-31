@@ -2,6 +2,7 @@ package gabi
 
 import (
 	"github.com/AVecsi/pq-gabi/attribute"
+	"github.com/AVecsi/pq-gabi/credtypes"
 	"github.com/AVecsi/pq-gabi/internal/zkdil"
 )
 
@@ -18,4 +19,8 @@ func NewCredential(
 
 func CreateDisclosureProof(credentials []Credential, disclosures []CredentialDisclosure) (DisclosureProof, error) {
 	return zkdil.CreateDisclosureProof(credentials, disclosures)
+}
+
+func ParseDisclosureProof(data []byte) (credtypes.DisclosureProof, error) {
+	return zkdil.ParseDisclosureProof(data)
 }

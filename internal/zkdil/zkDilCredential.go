@@ -12,6 +12,7 @@ package zkdil
 import "C"
 
 import (
+	"encoding/json"
 	"fmt"
 	"unsafe"
 
@@ -37,17 +38,17 @@ type zkDilCredential struct {
 
 // zkDilCredentialDisclosure implements gabi.CredentialDisclosure.
 type zkDilCredentialDisclosure struct {
-	disclosedAttributes       []*attribute.Attribute
-	disclosedAttributeIndices []int
-	numOfAllAttributes        int
-	numOfUserAttributes       int
-	signatureProof            credtypes.SignatureProof
+	DisclosedAttrs       []*attribute.Attribute   `json:"disclosedAttributes"`
+	DisclosedAttrIndices []int                    `json:"disclosedAttributeIndices"`
+	NumAllAttributes     int                      `json:"numOfAllAttributes"`
+	NumUserAttributes    int                      `json:"numOfUserAttributes"`
+	SigProof             credtypes.SignatureProof `json:"signatureProof"`
 }
 
 // zkDilDisclosureProof implements gabi.DisclosureProof.
 type zkDilDisclosureProof struct {
-	attrProof             []byte
-	credentialDisclosures []credtypes.CredentialDisclosure
+	AttrProofBytes  []byte                           `json:"attrProof"`
+	CredDisclosures []credtypes.CredentialDisclosure `json:"credentialDisclosures"`
 }
 
 // NewCredential constructs a zkDilCredential.
@@ -181,8 +182,8 @@ func CreateDisclosureProof(credentials []credtypes.Credential, disclosures []cre
 	C.free_proof((*C.uint8_t)(proof), proofLen)
 
 	return &zkDilDisclosureProof{
-		attrProof:             proofBytes,
-		credentialDisclosures: disclosures,
+		AttrProofBytes:  proofBytes,
+		CredDisclosures: disclosures,
 	}, nil
 }
 
@@ -288,11 +289,11 @@ func (c *zkDilCredential) CreateDisclosure(disclosedAttributeIndices []int) (cre
 	}
 
 	return &zkDilCredentialDisclosure{
-		disclosedAttributes:       disclosedAttributes,
-		disclosedAttributeIndices: disclosedAttributeIndicesExtended,
-		numOfAllAttributes:        numOfAllAttributes,
-		numOfUserAttributes:       numOfUserAttributes,
-		signatureProof:            signatureProof,
+		DisclosedAttrs:       disclosedAttributes,
+		DisclosedAttrIndices: disclosedAttributeIndicesExtended,
+		NumAllAttributes:     numOfAllAttributes,
+		NumUserAttributes:    numOfUserAttributes,
+		SigProof:             signatureProof,
 	}, nil
 }
 
@@ -300,41 +301,41 @@ func (c *zkDilCredential) CreateDisclosure(disclosedAttributeIndices []int) (cre
 //TODO right now these are all the modified values
 
 func (d *zkDilCredentialDisclosure) DisclosedAttributes() []*attribute.Attribute {
-	return d.disclosedAttributes
+	return d.DisclosedAttrs
 }
 
 func (d *zkDilCredentialDisclosure) DisclosedAttributeIndices() []int {
-	return d.disclosedAttributeIndices
+	return d.DisclosedAttrIndices
 }
 
 func (d *zkDilCredentialDisclosure) NumOfAllAttributes() int {
-	return d.numOfAllAttributes
+	return d.NumAllAttributes
 }
 
 func (d *zkDilCredentialDisclosure) NumOfUserAttributes() int {
-	return d.numOfUserAttributes
+	return d.NumUserAttributes
 }
 
 func (d *zkDilCredentialDisclosure) SignatureProof() credtypes.SignatureProof {
-	return d.signatureProof
+	return d.SigProof
 }
 
 // --- gabi.DisclosureProof ---
 
 func (p *zkDilDisclosureProof) Verify() bool {
-	for _, credDiscl := range p.credentialDisclosures {
+	for _, credDiscl := range p.CredDisclosures {
 		if !credDiscl.SignatureProof().Verify() {
 			fmt.Println("Signature proof verification failed.")
 			return false
 		}
 	}
 
-	n := len(p.credentialDisclosures)
+	n := len(p.CredDisclosures)
 	attrBufs := make([][]uint32, n)
 	indexBufs := make([][]C.size_t, n)
 	cDiscls := make([]C.CDisclosure, n)
 
-	for i, credDiscl := range p.credentialDisclosures {
+	for i, credDiscl := range p.CredDisclosures {
 		disclosedAttrs := credDiscl.DisclosedAttributes()
 		disclosedIndices := credDiscl.DisclosedAttributeIndices()
 		saltedHash := credDiscl.SignatureProof().SaltedCredHash()
@@ -369,21 +370,79 @@ func (p *zkDilDisclosureProof) Verify() bool {
 		*(*C.CDisclosure)(unsafe.Pointer(uintptr(unsafe.Pointer(cDisclPtr)) + uintptr(i)*unsafe.Sizeof(C.CDisclosure{}))) = cd
 	}
 
-	proofBytes := C.CBytes(p.attrProof)
+	proofBytes := C.CBytes(p.AttrProofBytes)
 	defer C.free(proofBytes)
 
 	return C.verify_attributes(
 		(*C.uchar)(proofBytes),
-		C.size_t(len(p.attrProof)),
+		C.size_t(len(p.AttrProofBytes)),
 		cDisclPtr,
 		C.size_t(n),
 	) == 1
 }
 
 func (p *zkDilDisclosureProof) AttrProof() []byte {
-	return p.attrProof
+	return p.AttrProofBytes
 }
 
 func (p *zkDilDisclosureProof) CredentialDisclosures() []credtypes.CredentialDisclosure {
-	return p.credentialDisclosures
+	return p.CredDisclosures
+}
+
+func ParseDisclosureProof(data []byte) (credtypes.DisclosureProof, error) {
+	var proof zkDilDisclosureProof
+	if err := json.Unmarshal(data, &proof); err != nil {
+		return nil, err
+	}
+	return &proof, nil
+}
+
+func (p *zkDilDisclosureProof) UnmarshalJSON(data []byte) error {
+	var raw struct {
+		AttrProof             []byte            `json:"attrProof"`
+		CredentialDisclosures []json.RawMessage `json:"credentialDisclosures"`
+	}
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return err
+	}
+
+	p.AttrProofBytes = raw.AttrProof
+
+	for _, rawDisc := range raw.CredentialDisclosures {
+		var disc zkDilCredentialDisclosure
+		if err := json.Unmarshal(rawDisc, &disc); err != nil {
+			return err
+		}
+		p.CredDisclosures = append(p.CredDisclosures, &disc)
+	}
+
+	return nil
+}
+
+func (d *zkDilCredentialDisclosure) UnmarshalJSON(data []byte) error {
+	var raw struct {
+		DisclosedAttributes       []*attribute.Attribute `json:"disclosedAttributes"`
+		DisclosedAttributeIndices []int                  `json:"disclosedAttributeIndices"`
+		NumOfAllAttributes        int                    `json:"numOfAllAttributes"`
+		NumOfUserAttributes       int                    `json:"numOfUserAttributes"`
+		SignatureProof            json.RawMessage        `json:"signatureProof"`
+	}
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return err
+	}
+
+	d.DisclosedAttrs = raw.DisclosedAttributes
+	d.DisclosedAttrIndices = raw.DisclosedAttributeIndices
+	d.NumAllAttributes = raw.NumOfAllAttributes
+	d.NumUserAttributes = raw.NumOfUserAttributes
+
+	if len(raw.SignatureProof) > 0 && string(raw.SignatureProof) != "null" {
+		var sp signatureProof
+		if err := json.Unmarshal(raw.SignatureProof, &sp); err != nil {
+			return err
+		}
+		d.SigProof = &sp
+	}
+
+	return nil
 }
