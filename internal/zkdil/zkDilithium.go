@@ -53,9 +53,9 @@ type zkDilSignatureExpanded struct {
 }
 
 type signatureProof struct {
-	proof      []byte
-	saltedHash []uint32
-	salt       []uint32
+	Proof      []byte   `json:"proof"`
+	SaltedHash []uint32 `json:"saltedHash"`
+	Salt_      []uint32 `json:"salt"`
 }
 
 func SampleInBall(h *poseidon.Poseidon) *algebra.Poly {
@@ -312,24 +312,24 @@ func (e *zkDilSignatureExpanded) createProof(credHash []uint32) credtypes.Signat
 	C.free_proof((*C.uint8_t)(proof), C.size_t(length))
 
 	return &signatureProof{
-		proof:      proofBytes,
-		saltedHash: saltedHash,
-		salt:       salt,
+		Proof:      proofBytes,
+		SaltedHash: saltedHash,
+		Salt_:      salt,
 	}
 }
 
 func (p *signatureProof) Verify() bool {
 	return C.verify_signature(
-		(*C.uchar)(C.CBytes(p.proof)),
-		(C.size_t)(len(p.proof)),
-		(*C.uint32_t)(&p.saltedHash[0]),
-		(*C.uint32_t)(&p.salt[0]),
+		(*C.uchar)(C.CBytes(p.Proof)),
+		(C.size_t)(len(p.Proof)),
+		(*C.uint32_t)(&p.SaltedHash[0]),
+		(*C.uint32_t)(&p.Salt_[0]),
 	) == 1
 }
 
-func (p *signatureProof) ProofBytes() []byte       { return p.proof }
-func (p *signatureProof) SaltedCredHash() []uint32 { return p.saltedHash }
-func (p *signatureProof) Salt() []uint32           { return p.salt }
+func (p *signatureProof) ProofBytes() []byte       { return p.Proof }
+func (p *signatureProof) SaltedCredHash() []uint32 { return p.SaltedHash }
+func (p *signatureProof) Salt() []uint32           { return p.Salt_ }
 
 func ParseSignature(data []byte) (credtypes.Signature, error) {
 	var sig zkDilSignature
