@@ -22,6 +22,7 @@ type Credential interface {
 	UserAttrCount() int
 	CredHash() []uint32
 	Salt() []byte
+	UpdateAttributes(keepCount int, attrs []*attribute.Attribute) error
 }
 
 type CredentialDisclosure interface {

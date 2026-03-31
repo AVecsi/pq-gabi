@@ -39,3 +39,7 @@ func HideAttributes(attributes []*attribute.Attribute) ([]uint32, []byte, error)
 
 	return hiddenAttrs, salt, nil
 }
+
+func CombineHiddenPublic(hiddenAttrsHash []uint32, publicAttributes []*attribute.Attribute) []uint32 {
+	return zkdil.CombineHiddenPublic(hiddenAttrsHash, publicAttributes)
+}

@@ -341,7 +341,6 @@ func ParseSignature(data []byte) (credtypes.Signature, error) {
 	return nil, errors.New("ParseSignature: not yet implemented")
 }
 
-// TODO For validation it should return the salt too
 func CombineHiddenPublic(hiddenAttrsHash []uint32, publicAttributes []*attribute.Attribute) []uint32 {
 
 	h := poseidon.NewPoseidon(nil, POS_RF, POS_T, POS_RATE, common.Q)

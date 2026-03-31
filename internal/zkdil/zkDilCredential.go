@@ -99,6 +99,7 @@ func NewCredential(
 		//padding
 		//TODO the Value doesnt match the Hash will that be a problem?
 		attrsExtended = append(attrsExtended, &attribute.Attribute{Value: make([]byte, 32), Hash: make([]byte, 32)})
+		attrCountExtended++
 	}
 
 	return &zkDilCredential{
@@ -205,6 +206,53 @@ func (c *zkDilCredential) CredHash() []uint32 {
 
 func (c *zkDilCredential) Salt() []byte {
 	return c.salt
+}
+
+func (c *zkDilCredential) UpdateAttributes(keepCount int, attrs []*attribute.Attribute) error {
+	c.attrs = append(c.attrs[:keepCount], attrs...)
+	c.attrCount = len(c.attrs)
+
+	// recompute extended
+	var attrsExtended []*attribute.Attribute
+
+	//Copy hidden attributes
+	for i := 0; i < c.userAttrCount; i++ {
+		attrsExtended = append(attrsExtended, c.attrs[i])
+	}
+
+	userAttrCountExtended := c.userAttrCount
+	attrCountExtended := c.attrCount
+
+	if c.userAttrCount%2 == 0 {
+		//padding
+		//TODO the Value doesnt match the Hash will that be a problem?
+		attrsExtended = append(attrsExtended, &attribute.Attribute{Value: make([]byte, 32), Hash: make([]byte, 32)})
+		userAttrCountExtended++
+		attrCountExtended++
+	}
+
+	//salt
+	//TODO the Value doesnt match the Hash will that be a problem?
+	attrsExtended = append(attrsExtended, &attribute.Attribute{Value: c.salt, Hash: c.salt})
+	userAttrCountExtended++
+	attrCountExtended++
+
+	//Copy public attributes
+	for i := c.userAttrCount; i < c.attrCount; i++ {
+		attrsExtended = append(attrsExtended, c.attrs[i])
+	}
+
+	if len(attrsExtended)%2 != 0 {
+		//padding
+		//TODO the Value doesnt match the Hash will that be a problem?
+		attrsExtended = append(attrsExtended, &attribute.Attribute{Value: make([]byte, 32), Hash: make([]byte, 32)})
+		attrCountExtended++
+	}
+
+	c.attrsExtended = attrsExtended
+	c.attrCountExtended = attrCountExtended
+	c.userAttrCountExtended = userAttrCountExtended
+	return nil
 }
 
 // TODO for now this will create object with the modified stuff, later maybe have to modify
