@@ -14,18 +14,18 @@ import (
 // PublicKey is the zkdil-specific public key.
 // Embeds BasePublicKey for high-level fields, adds lattice-specific fields.
 type PublicKey struct {
-	gabikeys.BasePublicKey `xml:",innerxml"`
-	Rho                    []byte       `xml:"Elements>rho"`
-	T                      *algebra.Vec `xml:"Elements>t"`
+	gabikeys.BasePublicKey
+	Rho []byte       `xml:"Elements>rho"`
+	T   *algebra.Vec `xml:"Elements>t"`
 }
 
 // PrivateKey is the zkdil-specific private key.
 // Embeds BasePrivateKey for high-level fields, adds lattice-specific fields.
 type PrivateKey struct {
-	gabikeys.BasePrivateKey `xml:",innerxml"`
-	CNS                     []byte       `xml:"Elements>CNS"` //challengeNonceSeed
-	S1                      *algebra.Vec `xml:"Elements>s1"`
-	S2                      *algebra.Vec `xml:"Elements>s2"`
+	gabikeys.BasePrivateKey
+	CNS []byte       `xml:"Elements>CNS"` //challengeNonceSeed
+	S1  *algebra.Vec `xml:"Elements>s1"`
+	S2  *algebra.Vec `xml:"Elements>s2"`
 }
 
 // --- gabikeys.PublicKey ---

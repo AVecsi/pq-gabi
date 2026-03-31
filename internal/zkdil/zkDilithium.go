@@ -40,9 +40,9 @@ const MUSIZE = 24
 const DIGEST_SIZE = 12
 
 type zkDilSignature struct {
-	pk     gabikeys.PublicKey
-	cTilde []int
-	z      *algebra.Vec
+	Pk     *PublicKey   `json:"pk"`
+	CTilde []int        `json:"ctilde"`
+	Z      *algebra.Vec `json:"z"`
 }
 
 type zkDilSignatureExpanded struct {
@@ -192,16 +192,13 @@ func Sign(pk gabikeys.PublicKey, sk gabikeys.PrivateKey, msg []uint32) (credtype
 		}
 
 		// Return the signature
-		return &zkDilSignature{pk: pubK, cTilde: cTilde, z: z}, nil
+		return &zkDilSignature{Pk: pubK, CTilde: cTilde, Z: z}, nil
 	}
 }
 
 func (sig *zkDilSignature) Verify(msg []uint32) (bool, error) {
 
-	pk, ok := sig.pk.(*PublicKey)
-	if !ok {
-		return false, errors.New("Sign: unsupported public key type")
-	}
+	pk := sig.Pk
 
 	tPacked := pk.T.Pack()
 	tr := common.H(append(pk.Rho, tPacked...), 32)
@@ -214,20 +211,20 @@ func (sig *zkDilSignature) Verify(msg []uint32) (bool, error) {
 	mu := h.Read(MUSIZE)
 
 	// Sample challenge c
-	c := SampleInBall(poseidon.NewPoseidon(append([]int{2}, sig.cTilde...), POS_RF, POS_T, POS_RATE, common.Q))
+	c := SampleInBall(poseidon.NewPoseidon(append([]int{2}, sig.CTilde...), POS_RF, POS_T, POS_RATE, common.Q))
 	if c == nil {
 		return false, nil
 	}
 
 	// Apply NTT to challenge
 	cHat := c.NTT()
-	if sig.z.Norm() >= common.GAMMA1-BETA {
+	if sig.Z.Norm() >= common.GAMMA1-BETA {
 		return false, nil
 	}
 
 	// Sample Ahat matrix
 	Ahat := algebra.SampleMatrix(pk.Rho)
-	zHat := sig.z.NTT()
+	zHat := sig.Z.NTT()
 	tHat := pk.T.NTT()
 
 	// Compute w1
@@ -244,8 +241,8 @@ func (sig *zkDilSignature) Verify(msg []uint32) (bool, error) {
 	cTilde2 := h.Read(CSIZE)
 
 	// Verify cTilde matches
-	for i := 0; i < len(sig.cTilde); i++ {
-		if cTilde2[i] != sig.cTilde[i] {
+	for i := 0; i < len(sig.CTilde); i++ {
+		if cTilde2[i] != sig.CTilde[i] {
 			return false, nil
 		}
 	}
@@ -255,22 +252,19 @@ func (sig *zkDilSignature) Verify(msg []uint32) (bool, error) {
 
 func (sig *zkDilSignature) expand() (*zkDilSignatureExpanded, error) {
 
-	pk, ok := sig.pk.(*PublicKey)
-	if !ok {
-		return nil, errors.New("Sign: unsupported public key type")
-	}
+	pk := sig.Pk
 
 	Ahat := algebra.SampleMatrix(pk.Rho)
 
 	c := SampleInBall(poseidon.NewPoseidon(
-		append([]int{2}, sig.cTilde...), POS_RF, POS_T, POS_RATE, common.Q,
+		append([]int{2}, sig.CTilde...), POS_RF, POS_T, POS_RATE, common.Q,
 	))
 
 	if c == nil {
 		return nil, errors.New("invalid signature: failed to sample challenge")
 	}
 
-	Azq, Azr := Ahat.SchoolbookMulDebug(sig.z)
+	Azq, Azr := Ahat.SchoolbookMulDebug(sig.Z)
 	Tq, Tr := pk.T.SchoolbookScalarMulDebug(c)
 
 	return &zkDilSignatureExpanded{
@@ -290,7 +284,7 @@ func (sig *zkDilSignature) CreateProof(credHash []uint32) (credtypes.SignaturePr
 }
 
 func (e *zkDilSignatureExpanded) createProof(credHash []uint32) credtypes.SignatureProof {
-	cTildeUint32 := common.IntsToUint32s(e.sig.cTilde)
+	cTildeUint32 := common.IntsToUint32s(e.sig.CTilde)
 
 	// TODO: generate randomly
 	salt := []uint32{1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1}
@@ -303,7 +297,7 @@ func (e *zkDilSignatureExpanded) createProof(credHash []uint32) credtypes.Signat
 	length := 0
 
 	proof := C.prove_signature(
-		(*C.uint32_t)(e.sig.z.IntArray()),
+		(*C.uint32_t)(e.sig.Z.IntArray()),
 		(*C.uint32_t)(e.w.IntArray()),
 		(*C.uint32_t)(e.qw.IntArray()),
 		(*C.uint32_t)(&cTildeUint32[0]),
