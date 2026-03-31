@@ -24,7 +24,7 @@ import (
 // zkDilCredential implements gabi.Credential.
 
 type zkDilCredential struct {
-	signature             zkDilSignature
+	signature             *zkDilSignature
 	attrs                 []attribute.Attribute
 	attrsExtended         []attribute.Attribute
 	attrCount             int
@@ -32,6 +32,7 @@ type zkDilCredential struct {
 	attrCountExtended     int
 	userAttrCountExtended int
 	credHash              []uint32
+	salt                  []byte
 }
 
 // zkDilCredentialDisclosure implements gabi.CredentialDisclosure.
@@ -101,7 +102,7 @@ func NewCredential(
 	}
 
 	return &zkDilCredential{
-		signature:             *concreteSig,
+		signature:             concreteSig,
 		attrs:                 attrs,
 		attrsExtended:         attrsExtended,
 		attrCount:             attrCount,
@@ -109,6 +110,7 @@ func NewCredential(
 		attrCountExtended:     attrCountExtended,
 		userAttrCountExtended: userAttrCountExtended,
 		credHash:              credHash,
+		salt:                  salt,
 	}, nil
 }
 
@@ -185,14 +187,24 @@ func CreateDisclosureProof(credentials []credtypes.Credential, disclosures []cre
 
 // --- gabi.Credential ---
 
+func (c *zkDilCredential) Signature() credtypes.Signature {
+	return c.signature
+}
+
 func (c *zkDilCredential) Attributes() []attribute.Attribute {
-	//TODO
-	//return c.attrsExtended[:c.attrCount]
-	panic("Not implemented")
+	return c.attrs
 }
 
 func (c *zkDilCredential) UserAttrCount() int {
 	return c.userAttrCount
+}
+
+func (c *zkDilCredential) CredHash() []uint32 {
+	return c.credHash
+}
+
+func (c *zkDilCredential) Salt() []byte {
+	return c.salt
 }
 
 // TODO for now this will create object with the modified stuff, later maybe have to modify

@@ -17,8 +17,11 @@ type SignatureProof interface {
 
 type Credential interface {
 	CreateDisclosure(disclosedAttributeIndices []int) (CredentialDisclosure, error)
+	Signature() Signature
 	Attributes() []attribute.Attribute
 	UserAttrCount() int
+	CredHash() []uint32
+	Salt() []byte
 }
 
 type CredentialDisclosure interface {
