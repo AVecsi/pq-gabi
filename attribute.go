@@ -30,7 +30,7 @@ func GenerateSalt() ([]byte, error) {
 }
 
 // TODO probably return types will need to be changed
-func HideAttributes(attributes []attribute.Attribute) ([]uint32, []byte, error) {
+func HideAttributes(attributes []*attribute.Attribute) ([]uint32, []byte, error) {
 
 	hiddenAttrs, salt, err := zkdil.HideAttributes(attributes)
 	if err != nil {

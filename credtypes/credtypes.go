@@ -18,14 +18,14 @@ type SignatureProof interface {
 type Credential interface {
 	CreateDisclosure(disclosedAttributeIndices []int) (CredentialDisclosure, error)
 	Signature() Signature
-	Attributes() []attribute.Attribute
+	Attributes() []*attribute.Attribute
 	UserAttrCount() int
 	CredHash() []uint32
 	Salt() []byte
 }
 
 type CredentialDisclosure interface {
-	DisclosedAttributes() []attribute.Attribute
+	DisclosedAttributes() []*attribute.Attribute
 	DisclosedAttributeIndices() []int
 	NumOfAllAttributes() int
 	NumOfUserAttributes() int

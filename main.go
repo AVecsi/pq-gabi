@@ -63,7 +63,7 @@ func Test() {
 
 		for counter := 0; counter < NumOfIterations; counter++ {
 
-			var attributes []Attribute
+			var attributes []*Attribute
 			for i := 0; i < attrCount; i++ {
 
 				value := make([]byte, 36)
@@ -72,12 +72,12 @@ func Test() {
 					panic(err)
 				}
 				attribute := NewAttribute(value)
-				attributes = append(attributes, *attribute)
+				attributes = append(attributes, attribute)
 			}
 
 			seed := make([]byte, 32)
 
-			hiddenAttrsHash, salt, err := HideAttributes([]Attribute{attributes[0]})
+			hiddenAttrsHash, salt, err := HideAttributes([]*Attribute{attributes[0]})
 			if err != nil {
 				panic(err)
 			}

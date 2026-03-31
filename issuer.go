@@ -19,7 +19,7 @@ func NewIssuer(sk gabikeys.PrivateKey, pk gabikeys.PublicKey, context big.Int) *
 }
 
 // hiddenHashFes has to be the result of Poseidon hashing an even number of user attributes (padded to even if needed).
-func (i *Issuer) IssueSignature(hiddenAttributesHash []uint32, publicAttributes []Attribute) (Signature, []uint32, error) {
+func (i *Issuer) IssueSignature(hiddenAttributesHash []uint32, publicAttributes []*Attribute) (Signature, []uint32, error) {
 	combinedHash := zkdil.CombineHiddenPublic(hiddenAttributesHash, publicAttributes)
 
 	signature, err := Sign(i.Pk, i.Sk, combinedHash)

@@ -18,6 +18,7 @@ type PublicKey interface {
 	GetCounter() uint
 	GetExpiryDate() int64
 	GetIssuer() string
+	SetIssuer(issuer string)
 	ValidAt(t time.Time) bool
 	WriteTo(writer io.Writer) (int64, error)
 	WriteToFile(filename string, forceOverwrite bool) (int64, error)
@@ -43,9 +44,10 @@ type BasePublicKey struct {
 	Issuer     string   `xml:"-"`
 }
 
-func (pk *BasePublicKey) GetCounter() uint     { return pk.Counter }
-func (pk *BasePublicKey) GetExpiryDate() int64 { return pk.ExpiryDate }
-func (pk *BasePublicKey) GetIssuer() string    { return pk.Issuer }
+func (pk *BasePublicKey) GetCounter() uint        { return pk.Counter }
+func (pk *BasePublicKey) GetExpiryDate() int64    { return pk.ExpiryDate }
+func (pk *BasePublicKey) GetIssuer() string       { return pk.Issuer }
+func (pk *BasePublicKey) SetIssuer(issuer string) { pk.Issuer = issuer }
 func (pk *BasePublicKey) ValidAt(t time.Time) bool {
 	return t.Before(time.Unix(pk.ExpiryDate, 0))
 }

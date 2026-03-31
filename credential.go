@@ -7,7 +7,7 @@ import (
 
 func NewCredential(
 	sig Signature,
-	attrs []attribute.Attribute,
+	attrs []*attribute.Attribute,
 	attrCount int,
 	userAttrCount int,
 	credHash []uint32,

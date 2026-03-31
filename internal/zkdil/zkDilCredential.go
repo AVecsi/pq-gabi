@@ -25,8 +25,8 @@ import (
 
 type zkDilCredential struct {
 	signature             *zkDilSignature
-	attrs                 []attribute.Attribute
-	attrsExtended         []attribute.Attribute
+	attrs                 []*attribute.Attribute
+	attrsExtended         []*attribute.Attribute
 	attrCount             int
 	userAttrCount         int
 	attrCountExtended     int
@@ -37,7 +37,7 @@ type zkDilCredential struct {
 
 // zkDilCredentialDisclosure implements gabi.CredentialDisclosure.
 type zkDilCredentialDisclosure struct {
-	disclosedAttributes       []attribute.Attribute
+	disclosedAttributes       []*attribute.Attribute
 	disclosedAttributeIndices []int
 	numOfAllAttributes        int
 	numOfUserAttributes       int
@@ -55,7 +55,7 @@ type zkDilDisclosureProof struct {
 // attrCount and userAttrCount are the real counts irma knows about.
 func NewCredential(
 	sig credtypes.Signature,
-	attrs []attribute.Attribute,
+	attrs []*attribute.Attribute,
 	attrCount int,
 	userAttrCount int,
 	credHash []uint32,
@@ -66,7 +66,7 @@ func NewCredential(
 		return nil, errors.New("NewCredential: unsupported signature type")
 	}
 
-	var attrsExtended []attribute.Attribute
+	var attrsExtended []*attribute.Attribute
 
 	//Copy hidden attributes
 	for i := 0; i < userAttrCount; i++ {
@@ -79,14 +79,14 @@ func NewCredential(
 	if userAttrCount%2 == 0 {
 		//padding
 		//TODO the Value doesnt match the Hash will that be a problem?
-		attrsExtended = append(attrsExtended, attribute.Attribute{Value: make([]byte, 32), Hash: make([]byte, 32)})
+		attrsExtended = append(attrsExtended, &attribute.Attribute{Value: make([]byte, 32), Hash: make([]byte, 32)})
 		userAttrCountExtended++
 		attrCountExtended++
 	}
 
 	//salt
 	//TODO the Value doesnt match the Hash will that be a problem?
-	attrsExtended = append(attrsExtended, attribute.Attribute{Value: salt, Hash: salt})
+	attrsExtended = append(attrsExtended, &attribute.Attribute{Value: salt, Hash: salt})
 	userAttrCountExtended++
 	attrCountExtended++
 
@@ -98,7 +98,7 @@ func NewCredential(
 	if len(attrsExtended)%2 != 0 {
 		//padding
 		//TODO the Value doesnt match the Hash will that be a problem?
-		attrsExtended = append(attrsExtended, attribute.Attribute{Value: make([]byte, 32), Hash: make([]byte, 32)})
+		attrsExtended = append(attrsExtended, &attribute.Attribute{Value: make([]byte, 32), Hash: make([]byte, 32)})
 	}
 
 	return &zkDilCredential{
@@ -191,7 +191,7 @@ func (c *zkDilCredential) Signature() credtypes.Signature {
 	return c.signature
 }
 
-func (c *zkDilCredential) Attributes() []attribute.Attribute {
+func (c *zkDilCredential) Attributes() []*attribute.Attribute {
 	return c.attrs
 }
 
@@ -234,7 +234,7 @@ func (c *zkDilCredential) CreateDisclosure(disclosedAttributeIndices []int) (cre
 		}
 	}
 
-	disclosedAttributes := make([]attribute.Attribute, len(disclosedAttributeIndicesExtended))
+	disclosedAttributes := make([]*attribute.Attribute, len(disclosedAttributeIndicesExtended))
 	for i, index := range disclosedAttributeIndicesExtended {
 		disclosedAttributes[i] = c.attrsExtended[index]
 	}
@@ -251,7 +251,7 @@ func (c *zkDilCredential) CreateDisclosure(disclosedAttributeIndices []int) (cre
 // --- gabi.CredentialDisclosure ---
 //TODO right now these are all the modified values
 
-func (d *zkDilCredentialDisclosure) DisclosedAttributes() []attribute.Attribute {
+func (d *zkDilCredentialDisclosure) DisclosedAttributes() []*attribute.Attribute {
 	return d.disclosedAttributes
 }
 

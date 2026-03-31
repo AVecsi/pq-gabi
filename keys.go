@@ -18,3 +18,7 @@ func NewPrivateKeyFromFile(filename string, demo bool) (gabikeys.PrivateKey, err
 func NewPublicKeyFromFile(filename string) (gabikeys.PublicKey, error) {
 	return zkdil.NewPublicKeyFromFile(filename)
 }
+
+func NewPublicKeyFromBytes(bts []byte) (gabikeys.PublicKey, error) {
+	return zkdil.NewPublicKeyFromBytes(bts)
+}
