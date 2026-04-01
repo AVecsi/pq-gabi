@@ -11,10 +11,9 @@ func NewCredential(
 	attrs []*attribute.Attribute,
 	attrCount int,
 	userAttrCount int,
-	credHash []uint32,
 	salt []byte,
 ) (Credential, error) {
-	return zkdil.NewCredential(sig, attrs, attrCount, userAttrCount, credHash, salt)
+	return zkdil.NewCredential(sig, attrs, attrCount, userAttrCount, salt)
 }
 
 func CreateDisclosureProof(credentials []Credential, disclosures []CredentialDisclosure) (DisclosureProof, error) {

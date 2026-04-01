@@ -43,6 +43,7 @@ type zkDilSignature struct {
 	Pk     *PublicKey   `json:"pk"`
 	CTilde []int        `json:"ctilde"`
 	Z      *algebra.Vec `json:"z"`
+	Msg    []uint32     `json:"msg"`
 }
 
 type zkDilSignatureExpanded struct {
@@ -192,11 +193,11 @@ func Sign(pk gabikeys.PublicKey, sk gabikeys.PrivateKey, msg []uint32) (credtype
 		}
 
 		// Return the signature
-		return &zkDilSignature{Pk: pubK, CTilde: cTilde, Z: z}, nil
+		return &zkDilSignature{Pk: pubK, CTilde: cTilde, Z: z, Msg: msg}, nil
 	}
 }
 
-func (sig *zkDilSignature) Verify(msg []uint32) (bool, error) {
+func (sig *zkDilSignature) Verify() (bool, error) {
 
 	pk := sig.Pk
 
@@ -207,7 +208,7 @@ func (sig *zkDilSignature) Verify(msg []uint32) (bool, error) {
 	h := poseidon.NewPoseidon([]int{0}, POS_RF, POS_T, POS_RATE, common.Q)
 	h.WriteInts(common.UnpackFesLoose(tr))
 	h.Permute()
-	h.WriteUint32(msg)
+	h.WriteUint32(sig.Msg)
 	mu := h.Read(MUSIZE)
 
 	// Sample challenge c
@@ -275,22 +276,22 @@ func (sig *zkDilSignature) expand() (*zkDilSignatureExpanded, error) {
 	}, nil
 }
 
-func (sig *zkDilSignature) CreateProof(credHash []uint32) (credtypes.SignatureProof, error) {
+func (sig *zkDilSignature) CreateProof() (credtypes.SignatureProof, error) {
 	expanded, err := sig.expand()
 	if err != nil {
 		return nil, err
 	}
-	return expanded.createProof(credHash), nil
+	return expanded.createProof(), nil
 }
 
-func (e *zkDilSignatureExpanded) createProof(credHash []uint32) credtypes.SignatureProof {
+func (e *zkDilSignatureExpanded) createProof() credtypes.SignatureProof {
 	cTildeUint32 := common.IntsToUint32s(e.sig.CTilde)
 
 	// TODO: generate randomly
 	salt := []uint32{1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1}
 
 	h := poseidon.NewPoseidon(nil, POS_RF, POS_T, POS_RATE, common.Q)
-	h.WriteUint32(append(credHash, salt...))
+	h.WriteUint32(append(e.sig.Msg, salt...))
 	saltedHash := h.ReadUint32(DIGEST_SIZE)
 
 	comr := make([]uint32, DIGEST_SIZE)
@@ -301,7 +302,7 @@ func (e *zkDilSignatureExpanded) createProof(credHash []uint32) credtypes.Signat
 		(*C.uint32_t)(e.w.IntArray()),
 		(*C.uint32_t)(e.qw.IntArray()),
 		(*C.uint32_t)(&cTildeUint32[0]),
-		(*C.uint32_t)(&credHash[0]),
+		(*C.uint32_t)(&e.sig.Msg[0]),
 		(*C.uint32_t)(&saltedHash[0]),
 		(*C.uint32_t)(&comr[0]),
 		(*C.uint32_t)(&salt[0]),

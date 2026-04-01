@@ -32,7 +32,6 @@ type zkDilCredential struct {
 	userAttrCount         int
 	attrCountExtended     int
 	userAttrCountExtended int
-	credHash              []uint32
 	salt                  []byte
 }
 
@@ -59,7 +58,6 @@ func NewCredential(
 	attrs []*attribute.Attribute,
 	attrCount int,
 	userAttrCount int,
-	credHash []uint32,
 	salt []byte,
 ) (credtypes.Credential, error) {
 	concreteSig, ok := sig.(*zkDilSignature)
@@ -111,7 +109,6 @@ func NewCredential(
 		userAttrCount:         userAttrCount,
 		attrCountExtended:     attrCountExtended,
 		userAttrCountExtended: userAttrCountExtended,
-		credHash:              credHash,
 		salt:                  salt,
 	}, nil
 }
@@ -201,10 +198,6 @@ func (c *zkDilCredential) UserAttrCount() int {
 	return c.userAttrCount
 }
 
-func (c *zkDilCredential) CredHash() []uint32 {
-	return c.credHash
-}
-
 func (c *zkDilCredential) Salt() []byte {
 	return c.salt
 }
@@ -258,7 +251,7 @@ func (c *zkDilCredential) UpdateAttributes(keepCount int, attrs []*attribute.Att
 
 // TODO for now this will create object with the modified stuff, later maybe have to modify
 func (c *zkDilCredential) CreateDisclosure(disclosedAttributeIndices []int) (credtypes.CredentialDisclosure, error) {
-	signatureProof, err := c.signature.CreateProof(c.credHash)
+	signatureProof, err := c.signature.CreateProof()
 	if err != nil {
 		return nil, err
 	}

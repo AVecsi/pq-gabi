@@ -4,8 +4,8 @@ package credtypes
 import "github.com/AVecsi/pq-gabi/attribute"
 
 type Signature interface {
-	Verify(msg []uint32) (bool, error)
-	CreateProof(credHash []uint32) (SignatureProof, error)
+	Verify() (bool, error)
+	CreateProof() (SignatureProof, error)
 }
 
 type SignatureProof interface {
@@ -20,7 +20,6 @@ type Credential interface {
 	Signature() Signature
 	Attributes() []*attribute.Attribute
 	UserAttrCount() int
-	CredHash() []uint32
 	Salt() []byte
 	UpdateAttributes(keepCount int, attrs []*attribute.Attribute) error
 }

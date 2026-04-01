@@ -85,12 +85,12 @@ func Test() {
 			sk, pk, _ := GenerateKeyPair(seed, 0, time.Now().AddDate(1, 0, 0))
 			issuer := NewIssuer(sk, pk, *big.NewInt(1))
 
-			sig, combinedHash, err := issuer.IssueSignature(hiddenAttrsHash, attributes[1:])
+			sig, err := issuer.IssueSignature(hiddenAttrsHash, attributes[1:])
 			if err != nil {
 				panic(err)
 			}
 
-			cred, err := NewCredential(sig, attributes, len(attributes), 1, combinedHash, salt)
+			cred, err := NewCredential(sig, attributes, len(attributes), 1, salt)
 			if err != nil {
 				panic(err)
 			}
@@ -191,7 +191,7 @@ func Test() {
 				//fmt.Println(disclosureProof.CredentialDisclosures[0].SignatureProof.SaltedCredHash)
 				//fmt.Println(disclosureProof.CredentialDisclosures[0].SignatureProof.Salt)
 				fmt.Println("*******************************")
-				fmt.Println("Disclosure proof verification failed. ", combinedHash)
+				fmt.Println("Disclosure proof verification failed. ")
 				fmt.Println("*******************************")
 			}
 
