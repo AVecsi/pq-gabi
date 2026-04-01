@@ -32,7 +32,6 @@ type zkDilCredential struct {
 	userAttrCount         int
 	attrCountExtended     int
 	userAttrCountExtended int
-	salt                  []byte
 }
 
 // zkDilCredentialDisclosure implements gabi.CredentialDisclosure.
@@ -58,7 +57,6 @@ func NewCredential(
 	attrs []*attribute.Attribute,
 	attrCount int,
 	userAttrCount int,
-	salt []byte,
 ) (credtypes.Credential, error) {
 	concreteSig, ok := sig.(*zkDilSignature)
 	if !ok {
@@ -85,7 +83,7 @@ func NewCredential(
 
 	//salt
 	//TODO the Value doesnt match the Hash will that be a problem?
-	attrsExtended = append(attrsExtended, &attribute.Attribute{Value: salt, Hash: salt})
+	attrsExtended = append(attrsExtended, &attribute.Attribute{Value: sig.GetIssuanceSalt(), Hash: sig.GetIssuanceSalt()})
 	userAttrCountExtended++
 	attrCountExtended++
 
@@ -109,7 +107,6 @@ func NewCredential(
 		userAttrCount:         userAttrCount,
 		attrCountExtended:     attrCountExtended,
 		userAttrCountExtended: userAttrCountExtended,
-		salt:                  salt,
 	}, nil
 }
 
@@ -198,10 +195,6 @@ func (c *zkDilCredential) UserAttrCount() int {
 	return c.userAttrCount
 }
 
-func (c *zkDilCredential) Salt() []byte {
-	return c.salt
-}
-
 func (c *zkDilCredential) UpdateAttributes(keepCount int, attrs []*attribute.Attribute) error {
 	c.attrs = append(c.attrs[:keepCount], attrs...)
 	c.attrCount = len(c.attrs)
@@ -227,7 +220,7 @@ func (c *zkDilCredential) UpdateAttributes(keepCount int, attrs []*attribute.Att
 
 	//salt
 	//TODO the Value doesnt match the Hash will that be a problem?
-	attrsExtended = append(attrsExtended, &attribute.Attribute{Value: c.salt, Hash: c.salt})
+	attrsExtended = append(attrsExtended, &attribute.Attribute{Value: c.Signature().GetIssuanceSalt(), Hash: c.Signature().GetIssuanceSalt()})
 	userAttrCountExtended++
 	attrCountExtended++
 

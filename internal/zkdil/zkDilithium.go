@@ -40,10 +40,11 @@ const MUSIZE = 24
 const DIGEST_SIZE = 12
 
 type zkDilSignature struct {
-	Pk     *PublicKey   `json:"pk"`
-	CTilde []int        `json:"ctilde"`
-	Z      *algebra.Vec `json:"z"`
-	Msg    []uint32     `json:"msg"`
+	Pk           *PublicKey   `json:"pk"`
+	CTilde       []int        `json:"ctilde"`
+	Z            *algebra.Vec `json:"z"`
+	Msg          []uint32     `json:"msg"`
+	IssuanceSalt []byte       `json:"issuanceSalt"`
 }
 
 type zkDilSignatureExpanded struct {
@@ -249,6 +250,14 @@ func (sig *zkDilSignature) Verify() (bool, error) {
 	}
 
 	return true, nil
+}
+
+func (sig *zkDilSignature) SetIssuanceSalt(salt []byte) {
+	sig.IssuanceSalt = salt
+}
+
+func (sig *zkDilSignature) GetIssuanceSalt() []byte {
+	return sig.IssuanceSalt
 }
 
 func (sig *zkDilSignature) expand() (*zkDilSignatureExpanded, error) {

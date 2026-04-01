@@ -90,7 +90,9 @@ func Test() {
 				panic(err)
 			}
 
-			cred, err := NewCredential(sig, attributes, len(attributes), 1, salt)
+			sig.SetIssuanceSalt(salt)
+
+			cred, err := NewCredential(sig, attributes, len(attributes), 1)
 			if err != nil {
 				panic(err)
 			}

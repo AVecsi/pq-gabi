@@ -6,6 +6,8 @@ import "github.com/AVecsi/pq-gabi/attribute"
 type Signature interface {
 	Verify() (bool, error)
 	CreateProof() (SignatureProof, error)
+	SetIssuanceSalt(salt []byte)
+	GetIssuanceSalt() []byte
 }
 
 type SignatureProof interface {
@@ -20,7 +22,6 @@ type Credential interface {
 	Signature() Signature
 	Attributes() []*attribute.Attribute
 	UserAttrCount() int
-	Salt() []byte
 	UpdateAttributes(keepCount int, attrs []*attribute.Attribute) error
 }
 
