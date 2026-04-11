@@ -143,29 +143,29 @@ func Test() {
 				disclosureProofMaxIter = counter
 			}
 
-			// disclosureProofLen += len(disclosureProof.AttrProof)
+			disclosureProofLen += len(disclosureProof.AttrProof())
 
-			// if len(disclosureProof.AttrProof) < disclosureProofLenMin {
-			// 	disclosureProofLenMin = len(disclosureProof.AttrProof)
-			// 	disclosureProofLenMinIter = counter
-			// }
+			if len(disclosureProof.AttrProof()) < disclosureProofLenMin {
+				disclosureProofLenMin = len(disclosureProof.AttrProof())
+				disclosureProofLenMinIter = counter
+			}
 
-			// if len(disclosureProof.AttrProof) > disclosureProofLenMax {
-			// 	disclosureProofLenMax = len(disclosureProof.AttrProof)
-			// 	disclosureProofLenMaxIter = counter
-			// }
+			if len(disclosureProof.AttrProof()) > disclosureProofLenMax {
+				disclosureProofLenMax = len(disclosureProof.AttrProof())
+				disclosureProofLenMaxIter = counter
+			}
 
-			// sigProofLen += len(disclosureProof.CredentialDisclosures[0].SignatureProof.Proof)
+			sigProofLen += len(disclosureProof.CredentialDisclosures()[0].SignatureProof().ProofBytes())
 
-			// if len(disclosureProof.CredentialDisclosures[0].SignatureProof.Proof) < sigProofLenMin {
-			// 	sigProofLenMin = len(disclosureProof.CredentialDisclosures[0].SignatureProof.Proof)
-			// 	sigProofLenMinIter = counter
-			// }
+			if len(disclosureProof.CredentialDisclosures()[0].SignatureProof().ProofBytes()) < sigProofLenMin {
+				sigProofLenMin = len(disclosureProof.CredentialDisclosures()[0].SignatureProof().ProofBytes())
+				sigProofLenMinIter = counter
+			}
 
-			// if len(disclosureProof.CredentialDisclosures[0].SignatureProof.Proof) > disclosureProofLenMax {
-			// 	sigProofLenMax = len(disclosureProof.CredentialDisclosures[0].SignatureProof.Proof)
-			// 	sigProofLenMaxIter = counter
-			// }
+			if len(disclosureProof.CredentialDisclosures()[0].SignatureProof().ProofBytes()) > disclosureProofLenMax {
+				sigProofLenMax = len(disclosureProof.CredentialDisclosures()[0].SignatureProof().ProofBytes())
+				sigProofLenMaxIter = counter
+			}
 
 			start = time.Now()
 
