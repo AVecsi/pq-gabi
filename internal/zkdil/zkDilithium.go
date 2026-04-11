@@ -1,11 +1,30 @@
 package zkdil
 
 /*
-#cgo android,arm LDFLAGS: -L../../lib/armeabi-v7a -lzk_dilithium -lm
-#cgo android,arm64 LDFLAGS: -L../../lib/arm64-v8a -lzk_dilithium -lm
-#cgo android,386 LDFLAGS: -L../../lib/x86 -lzk_dilithium -lm
-#cgo android,amd64 LDFLAGS: -L../../lib/x86_64 -lzk_dilithium -lm
-#cgo arm64 LDFLAGS: -L../../lib -lzk_dilithium
+// ── Android ────────────────────────────────────────────────────────────────
+#cgo android,arm     LDFLAGS: -L../../lib/armeabi-v7a  -lzk_dilithium -lm
+#cgo android,arm64   LDFLAGS: -L../../lib/arm64-v8a    -lzk_dilithium -lm
+#cgo android,386     LDFLAGS: -L../../lib/x86           -lzk_dilithium -lm
+#cgo android,amd64   LDFLAGS: -L../../lib/x86_64        -lzk_dilithium -lm
+
+// ── iOS ────────────────────────────────────────────────────────────────────
+#cgo ios,arm64       LDFLAGS: -L../../lib/ios           -lzk_dilithium
+
+// ── macOS ──────────────────────────────────────────────────────────────────
+#cgo darwin,arm64    LDFLAGS: -L../../lib               -lzk_dilithium
+#cgo darwin,amd64    LDFLAGS: -L../../lib               -lzk_dilithium
+
+// ── Linux ──────────────────────────────────────────────────────────────────
+#cgo linux,amd64     LDFLAGS: -L../../lib               -lzk_dilithium -lm
+#cgo linux,arm64     LDFLAGS: -L../../lib               -lzk_dilithium -lm
+#cgo linux,arm       LDFLAGS: -L../../lib               -lzk_dilithium -lm
+#cgo linux,386       LDFLAGS: -L../../lib               -lzk_dilithium -lm
+
+// ── Windows ────────────────────────────────────────────────────────────────
+#cgo windows,amd64   LDFLAGS: -L../../lib               -lzk_dilithium -lm
+#cgo windows,arm64   LDFLAGS: -L../../lib               -lzk_dilithium -lm
+#cgo windows,386     LDFLAGS: -L../../lib               -lzk_dilithium -lm
+
 #include "../../lib/zkDilithiumProof.h"
 #include <stdlib.h>
 */
