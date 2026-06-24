@@ -6,15 +6,13 @@ import "github.com/AVecsi/pq-gabi/attribute"
 type Signature interface {
 	Verify() (bool, error)
 	CreateProof() (SignatureProof, error)
-	SetIssuanceSalt(salt []byte)
-	GetIssuanceSalt() []byte
 }
 
 type SignatureProof interface {
 	Verify() bool
 	ProofBytes() []byte
-	SaltedCredHash() []uint32
-	Salt() []uint32
+	SaltedCredHash() []byte
+	Salt() []byte
 }
 
 type Credential interface {

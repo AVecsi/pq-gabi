@@ -31,17 +31,19 @@ package zkdil
 import "C"
 
 import (
+	"encoding/binary"
 	"encoding/json"
 	"fmt"
 
 	"unsafe"
 
-	"github.com/AVecsi/pq-gabi/algebra"
 	"github.com/AVecsi/pq-gabi/attribute"
 	"github.com/AVecsi/pq-gabi/credtypes"
 	"github.com/AVecsi/pq-gabi/gabikeys"
 	"github.com/AVecsi/pq-gabi/internal/common"
-	"github.com/AVecsi/pq-gabi/poseidon"
+	"github.com/AVecsi/pq-gabi/internal/dilcommon"
+	"github.com/AVecsi/pq-gabi/internal/zkdil/algebra"
+	"github.com/AVecsi/pq-gabi/internal/zkdil/poseidon"
 	"github.com/go-errors/errors"
 )
 
@@ -102,7 +104,7 @@ func SampleInBall(h *poseidon.Poseidon) *algebra.Poly {
 		q := fe / twoPowerSignsPerFe
 		r := fe % twoPowerSignsPerFe
 
-		if q == common.Q/twoPowerSignsPerFe {
+		if q == dilcommon.Q/twoPowerSignsPerFe {
 			return nil
 		}
 
@@ -110,7 +112,7 @@ func SampleInBall(h *poseidon.Poseidon) *algebra.Poly {
 			if r&1 == 0 {
 				signs = append(signs, 1)
 			} else {
-				signs = append(signs, common.Q-1)
+				signs = append(signs, dilcommon.Q-1)
 			}
 			r >>= 1
 		}
@@ -121,7 +123,7 @@ func SampleInBall(h *poseidon.Poseidon) *algebra.Poly {
 			q := fe / int64(base+1)
 			r := fe % int64(base+1)
 
-			if q == common.Q/int64(base+1) {
+			if q == dilcommon.Q/int64(base+1) {
 				return nil
 			}
 
@@ -154,8 +156,8 @@ func Sign(pk gabikeys.PublicKey, sk gabikeys.PrivateKey, msg []uint32) (credtype
 	Ahat := algebra.SampleMatrix(pubK.Rho)
 
 	// Poseidon hash of message
-	h := poseidon.NewPoseidon([]int{0}, POS_RF, POS_T, POS_RATE, common.Q)
-	h.WriteInts(common.UnpackFesLoose(tr))
+	h := poseidon.NewPoseidon([]int{0}, POS_RF, POS_T, POS_RATE, dilcommon.Q)
+	h.WriteInts(dilcommon.UnpackFesLoose(tr))
 	h.Permute()
 	h.WriteUint32(msg)
 	mu := h.Read(MUSIZE)
@@ -166,27 +168,27 @@ func Sign(pk gabikeys.PublicKey, sk gabikeys.PrivateKey, msg []uint32) (credtype
 
 	// Challenge generation loop
 	yNonce := 0 //TODO
-	rho2 := common.H(append(privK.CNS, common.H(append(tr, common.PackFesUint32(msg)...), 64)...), 64)
+	rho2 := common.H(append(privK.CNS, common.H(append(tr, dilcommon.PackFesUint32(msg)...), 64)...), 64)
 
 	for {
 		// Sample Y and compute w
 		y := algebra.SampleY(rho2, yNonce)
-		yNonce += common.L
+		yNonce += dilcommon.L
 		w := Ahat.MulNTT(y.NTT()).InvNTT()
 		_, w1 := w.Decompose()
 
 		// Poseidon hash of mu and w
-		h = poseidon.NewPoseidon(nil, POS_RF, POS_T, POS_RATE, common.Q)
+		h = poseidon.NewPoseidon(nil, POS_RF, POS_T, POS_RATE, dilcommon.Q)
 		h.WriteInts(mu)
-		for i := 0; i < common.N; i++ {
-			for j := 0; j < common.K; j++ {
+		for i := 0; i < dilcommon.N; i++ {
+			for j := 0; j < dilcommon.K; j++ {
 				h.WriteInts([]int{int(w1.Ps[j].Cs[i])})
 			}
 		}
 		cTilde := h.Read(CSIZE)
 
 		// Sample challenge c
-		h = poseidon.NewPoseidon([]int{2}, POS_RF, POS_T, POS_RATE, common.Q)
+		h = poseidon.NewPoseidon([]int{2}, POS_RF, POS_T, POS_RATE, dilcommon.Q)
 		h.WriteInts(cTilde)
 		c := SampleInBall(h)
 		if c == nil {
@@ -200,14 +202,14 @@ func Sign(pk gabikeys.PublicKey, sk gabikeys.PrivateKey, msg []uint32) (credtype
 
 		// Compute r0 and check norm
 		r0, _ := (w.Sub(cs2)).Decompose()
-		if r0.RNorm() >= common.GAMMA2-BETA {
+		if r0.RNorm() >= dilcommon.GAMMA2-BETA {
 			//fmt.Println("Retrying because of r0 check")
 			continue
 		}
 
 		// Compute z and check norm
 		z := y.Add(s1Hat.ScalarMulNTT(cHat).InvNTT())
-		if z.Norm() >= common.GAMMA1-BETA {
+		if z.Norm() >= dilcommon.GAMMA1-BETA {
 			//fmt.Println("Retrying because of z check")
 			continue
 		}
@@ -225,21 +227,21 @@ func (sig *zkDilSignature) Verify() (bool, error) {
 	tr := common.H(append(pk.Rho, tPacked...), 32)
 
 	// Poseidon hash of message
-	h := poseidon.NewPoseidon([]int{0}, POS_RF, POS_T, POS_RATE, common.Q)
-	h.WriteInts(common.UnpackFesLoose(tr))
+	h := poseidon.NewPoseidon([]int{0}, POS_RF, POS_T, POS_RATE, dilcommon.Q)
+	h.WriteInts(dilcommon.UnpackFesLoose(tr))
 	h.Permute()
 	h.WriteUint32(sig.Msg)
 	mu := h.Read(MUSIZE)
 
 	// Sample challenge c
-	c := SampleInBall(poseidon.NewPoseidon(append([]int{2}, sig.CTilde...), POS_RF, POS_T, POS_RATE, common.Q))
+	c := SampleInBall(poseidon.NewPoseidon(append([]int{2}, sig.CTilde...), POS_RF, POS_T, POS_RATE, dilcommon.Q))
 	if c == nil {
 		return false, nil
 	}
 
 	// Apply NTT to challenge
 	cHat := c.NTT()
-	if sig.Z.Norm() >= common.GAMMA1-BETA {
+	if sig.Z.Norm() >= dilcommon.GAMMA1-BETA {
 		return false, nil
 	}
 
@@ -252,10 +254,10 @@ func (sig *zkDilSignature) Verify() (bool, error) {
 	_, w1 := (Ahat.MulNTT(zHat).Sub(tHat.ScalarMulNTT(cHat))).InvNTT().Decompose()
 
 	// Poseidon hash of mu and w1
-	h = poseidon.NewPoseidon(nil, POS_RF, POS_T, POS_RATE, common.Q)
+	h = poseidon.NewPoseidon(nil, POS_RF, POS_T, POS_RATE, dilcommon.Q)
 	h.WriteInts(mu)
-	for i := 0; i < common.N; i++ {
-		for j := 0; j < common.K; j++ {
+	for i := 0; i < dilcommon.N; i++ {
+		for j := 0; j < dilcommon.K; j++ {
 			h.WriteInts([]int{int(w1.Ps[j].Cs[i])})
 		}
 	}
@@ -271,14 +273,6 @@ func (sig *zkDilSignature) Verify() (bool, error) {
 	return true, nil
 }
 
-func (sig *zkDilSignature) SetIssuanceSalt(salt []byte) {
-	sig.IssuanceSalt = salt
-}
-
-func (sig *zkDilSignature) GetIssuanceSalt() []byte {
-	return sig.IssuanceSalt
-}
-
 func (sig *zkDilSignature) expand() (*zkDilSignatureExpanded, error) {
 
 	pk := sig.Pk
@@ -286,7 +280,7 @@ func (sig *zkDilSignature) expand() (*zkDilSignatureExpanded, error) {
 	Ahat := algebra.SampleMatrix(pk.Rho)
 
 	c := SampleInBall(poseidon.NewPoseidon(
-		append([]int{2}, sig.CTilde...), POS_RF, POS_T, POS_RATE, common.Q,
+		append([]int{2}, sig.CTilde...), POS_RF, POS_T, POS_RATE, dilcommon.Q,
 	))
 
 	if c == nil {
@@ -313,12 +307,12 @@ func (sig *zkDilSignature) CreateProof() (credtypes.SignatureProof, error) {
 }
 
 func (e *zkDilSignatureExpanded) createProof() credtypes.SignatureProof {
-	cTildeUint32 := common.IntsToUint32s(e.sig.CTilde)
+	cTildeUint32 := dilcommon.IntsToUint32s(e.sig.CTilde)
 
 	// TODO: generate randomly
 	salt := []uint32{1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1}
 
-	h := poseidon.NewPoseidon(nil, POS_RF, POS_T, POS_RATE, common.Q)
+	h := poseidon.NewPoseidon(nil, POS_RF, POS_T, POS_RATE, dilcommon.Q)
 	h.WriteUint32(append(e.sig.Msg, salt...))
 	saltedHash := h.ReadUint32(DIGEST_SIZE)
 
@@ -356,9 +350,28 @@ func (p *signatureProof) Verify() bool {
 	) == 1
 }
 
-func (p *signatureProof) ProofBytes() []byte       { return p.Proof }
-func (p *signatureProof) SaltedCredHash() []uint32 { return p.SaltedHash }
-func (p *signatureProof) Salt() []uint32           { return p.Salt_ }
+func (p *signatureProof) ProofBytes() []byte     { return p.Proof }
+func (p *signatureProof) SaltedCredHash() []byte { return fesToBytes(p.SaltedHash) }
+func (p *signatureProof) Salt() []byte           { return fesToBytes(p.Salt_) }
+
+// fesToBytes / bytesToFes losslessly convert between the zkDilithium digest
+// representation (field elements < Q < 2^32) and the scheme-agnostic []byte the
+// high-level gabi API exposes. Each element is 4 bytes, big-endian.
+func fesToBytes(fes []uint32) []byte {
+	b := make([]byte, len(fes)*4)
+	for i, fe := range fes {
+		binary.BigEndian.PutUint32(b[i*4:], fe)
+	}
+	return b
+}
+
+func bytesToFes(b []byte) []uint32 {
+	fes := make([]uint32, len(b)/4)
+	for i := range fes {
+		fes[i] = binary.BigEndian.Uint32(b[i*4:])
+	}
+	return fes
+}
 
 func ParseSignature(data []byte) (credtypes.Signature, error) {
 	var sig zkDilSignature
@@ -368,12 +381,12 @@ func ParseSignature(data []byte) (credtypes.Signature, error) {
 	return &sig, nil
 }
 
-func CombineHiddenPublic(hiddenAttrsHash []uint32, publicAttributes []*attribute.Attribute) []uint32 {
+func CombineHiddenPublic(hiddenAttrsHash []byte, publicAttributes []*attribute.Attribute) []uint32 {
 
-	h := poseidon.NewPoseidon(nil, POS_RF, POS_T, POS_RATE, common.Q)
+	h := poseidon.NewPoseidon(nil, POS_RF, POS_T, POS_RATE, dilcommon.Q)
 
 	for _, attr := range publicAttributes {
-		attrFes, _ := common.UnpackFes22Bit(attr.Hash)
+		attrFes, _ := dilcommon.UnpackFes22Bit(attr.Hash)
 		h.WriteInts(attrFes)
 	}
 
@@ -385,7 +398,7 @@ func CombineHiddenPublic(hiddenAttrsHash []uint32, publicAttributes []*attribute
 	publicAttrsHash := h.Read(12)
 
 	h.Reset()
-	h.WriteUint32(hiddenAttrsHash)
+	h.WriteUint32(bytesToFes(hiddenAttrsHash))
 	h.WriteInts(publicAttrsHash)
 
 	return h.ReadUint32(12)
@@ -400,14 +413,18 @@ func GenerateSalt() ([]byte, error) {
 	return salt.Bytes(), nil
 }
 
-func HideAttributes(attributes []*attribute.Attribute) ([]uint32, []byte, error) {
+// Commit produces the issuance commitment to the hidden attributes (e.g. the
+// user link secret) together with the opening that the client keeps secret and
+// stores in the credential. For zkDilithium the commitment is the Poseidon
+// hash and the opening is the salt.
+func Commit(attributes []*attribute.Attribute) ([]byte, []byte, error) {
 
 	salt, err := GenerateSalt()
 	if err != nil {
 		return nil, nil, err
 	}
 
-	h := poseidon.NewPoseidon(nil, POS_RF, POS_T, POS_RATE, common.Q)
+	h := poseidon.NewPoseidon(nil, POS_RF, POS_T, POS_RATE, dilcommon.Q)
 
 	for _, attribute := range attributes {
 		h.Write(attribute.Hash)
@@ -421,5 +438,5 @@ func HideAttributes(attributes []*attribute.Attribute) ([]uint32, []byte, error)
 	//salt
 	h.Write(salt)
 
-	return h.ReadUint32(12), salt, nil
+	return fesToBytes(h.ReadUint32(12)), salt, nil
 }

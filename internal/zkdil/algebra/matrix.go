@@ -2,6 +2,7 @@ package algebra
 
 import (
 	"github.com/AVecsi/pq-gabi/internal/common"
+	"github.com/AVecsi/pq-gabi/internal/dilcommon"
 )
 
 type Matrix struct {
@@ -51,10 +52,10 @@ func (m *Matrix) SchoolbookMulDebug(vec *Vec) (*Vec, *Vec) {
 func SampleMatrix(rho []byte) *Matrix {
 	rhoCopy := make([]byte, len(rho))
 	copy(rhoCopy, rho)
-	matrix := make([][]*Poly, common.K)
-	for i := 0; i < common.K; i++ {
-		row := make([]*Poly, common.L)
-		for j := 0; j < common.L; j++ {
+	matrix := make([][]*Poly, dilcommon.K)
+	for i := 0; i < dilcommon.K; i++ {
+		row := make([]*Poly, dilcommon.L)
+		for j := 0; j < dilcommon.L; j++ {
 			row[j] = sampleUniform(common.XOF128(rhoCopy, 256*i+j))
 		}
 		matrix[i] = row

@@ -29,17 +29,20 @@ func GenerateSalt() ([]byte, error) {
 	return salt, nil
 }
 
-// TODO probably return types will need to be changed
-func HideAttributes(attributes []*attribute.Attribute) ([]uint32, []byte, error) {
+// Commit produces an opaque issuance commitment to the hidden attributes (the
+// user link secret) and the opaque opening the client keeps and later passes to
+// NewCredential. Both are scheme-defined; the protocol layer treats them as
+// opaque bytes.
+func Commit(attributes []*attribute.Attribute) ([]byte, []byte, error) {
 
-	hiddenAttrs, salt, err := zkdil.HideAttributes(attributes)
+	commitment, opening, err := zkdil.Commit(attributes)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	return hiddenAttrs, salt, nil
+	return commitment, opening, nil
 }
 
-func CombineHiddenPublic(hiddenAttrsHash []uint32, publicAttributes []*attribute.Attribute) []uint32 {
+func CombineHiddenPublic(hiddenAttrsHash []byte, publicAttributes []*attribute.Attribute) []uint32 {
 	return zkdil.CombineHiddenPublic(hiddenAttrsHash, publicAttributes)
 }

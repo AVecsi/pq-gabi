@@ -5,7 +5,7 @@ import (
 
 	//"fmt"
 	"github.com/AVecsi/pq-gabi/big"
-	"github.com/AVecsi/pq-gabi/internal/common"
+	"github.com/AVecsi/pq-gabi/internal/dilcommon"
 )
 
 // Poseidon structure
@@ -61,7 +61,7 @@ func (p *Poseidon) WriteInts(fes []int) error {
 // Write for hash.Hash interface (accepts byte slices)
 func (p *Poseidon) Write(data []byte) (n int, err error) {
 	// Convert bytes to integers for Poseidon
-	fes, err := common.UnpackFes22Bit(data)
+	fes, err := dilcommon.UnpackFes22Bit(data)
 	if err != nil {
 		return 0, err
 	}
@@ -70,14 +70,14 @@ func (p *Poseidon) Write(data []byte) (n int, err error) {
 }
 
 func (p *Poseidon) WriteUint32(fes []uint32) error {
-	return p.WriteInts(common.Uint32sToInts(fes))
+	return p.WriteInts(dilcommon.Uint32sToInts(fes))
 }
 
 // Sum appends the hash and returns the resulting slice
 func (p *Poseidon) Sum(b []byte) []byte {
 	// Squeeze output
 	out := p.Read(12)
-	outBytes := common.PackFesInt(out)
+	outBytes := dilcommon.PackFesInt(out)
 	b = append(b, outBytes...) // Modulo to fit in a byte
 	return b
 }
@@ -182,7 +182,7 @@ func (p *Poseidon) Read(n int) []int {
 }
 
 func (p *Poseidon) ReadUint32(n int) []uint32 {
-	return common.IntsToUint32s(p.Read(n))
+	return dilcommon.IntsToUint32s(p.Read(n))
 }
 
 // ReadNoMod is Read without modulus

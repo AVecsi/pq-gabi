@@ -1,4 +1,4 @@
-package common
+package dilcommon
 
 // TODO pull from C header
 const Q = 7340033

@@ -5,7 +5,7 @@ import (
 	"fmt"
 
 	"github.com/AVecsi/pq-gabi/big"
-	"github.com/AVecsi/pq-gabi/internal/common"
+	"github.com/AVecsi/pq-gabi/internal/dilcommon"
 )
 
 // Poly represents an element of the polynomial ring Z_q[x]/<x^256+1>.
@@ -17,7 +17,7 @@ type Poly struct {
 func NewPoly(Cs []int64) *Poly {
 	p := new(Poly)
 	if Cs == nil {
-		for i := 0; i < common.N; i++ {
+		for i := 0; i < dilcommon.N; i++ {
 			p.Cs[i] = 0
 		}
 	} else {
@@ -28,18 +28,18 @@ func NewPoly(Cs []int64) *Poly {
 
 // Add adds two polynomials.
 func (p *Poly) Add(other *Poly) *Poly {
-	result := make([]int64, common.N)
-	for i := 0; i < common.N; i++ {
-		result[i] = (p.Cs[i] + other.Cs[i]) % common.Q
+	result := make([]int64, dilcommon.N)
+	for i := 0; i < dilcommon.N; i++ {
+		result[i] = (p.Cs[i] + other.Cs[i]) % dilcommon.Q
 	}
 	return NewPoly(result)
 }
 
 // Neg negates a polynomial.
 func (p *Poly) Neg() *Poly {
-	result := make([]int64, common.N)
-	for i := 0; i < common.N; i++ {
-		result[i] = (common.Q - p.Cs[i]) % common.Q //TODO Cs[i] should be smaller then Q so the modulo is useless
+	result := make([]int64, dilcommon.N)
+	for i := 0; i < dilcommon.N; i++ {
+		result[i] = (dilcommon.Q - p.Cs[i]) % dilcommon.Q //TODO Cs[i] should be smaller then Q so the modulo is useless
 	}
 	return NewPoly(result)
 }
@@ -56,7 +56,7 @@ func (p *Poly) String() string {
 
 // Equal checks if two polynomials are equal.
 func (p *Poly) Equal(other *Poly) bool {
-	for i := 0; i < common.N; i++ {
+	for i := 0; i < dilcommon.N; i++ {
 		if p.Cs[i] != other.Cs[i] {
 			return false
 		}
@@ -66,22 +66,22 @@ func (p *Poly) Equal(other *Poly) bool {
 
 // NTT applies the Number Theoretic Transform.
 func (p *Poly) NTT() *Poly {
-	Cs := make([]int64, common.N)
+	Cs := make([]int64, dilcommon.N)
 	copy(Cs, p.Cs[:])
-	layer := common.N / 2
+	layer := dilcommon.N / 2
 	zi := 0
 	for layer >= 1 {
-		for offset := 0; offset < common.N-layer; offset += 2 * layer {
-			z := common.ZETAS[zi]
+		for offset := 0; offset < dilcommon.N-layer; offset += 2 * layer {
+			z := dilcommon.ZETAS[zi]
 			zi++
 			for j := offset; j < offset+layer; j++ {
-				t := (z * Cs[j+layer]) % common.Q
+				t := (z * Cs[j+layer]) % dilcommon.Q
 				if Cs[j] < t {
-					Cs[j+layer] = Cs[j] + common.Q - t
+					Cs[j+layer] = Cs[j] + dilcommon.Q - t
 				} else {
 					Cs[j+layer] = Cs[j] - t
 				}
-				Cs[j] = (Cs[j] + t) % common.Q
+				Cs[j] = (Cs[j] + t) % dilcommon.Q
 			}
 		}
 		layer /= 2
@@ -91,26 +91,26 @@ func (p *Poly) NTT() *Poly {
 
 // InvNTT applies the inverse Number Theoretic Transform.
 func (p *Poly) InvNTT() *Poly {
-	Cs := make([]int64, common.N)
+	Cs := make([]int64, dilcommon.N)
 	copy(Cs, p.Cs[:])
 	layer := 1
 	zi := 0
-	for layer < common.N {
-		for offset := 0; offset < common.N-layer; offset += 2 * layer {
-			z := common.INVZETAS[zi]
+	for layer < dilcommon.N {
+		for offset := 0; offset < dilcommon.N-layer; offset += 2 * layer {
+			z := dilcommon.INVZETAS[zi]
 			zi++
 			for j := offset; j < offset+layer; j++ {
 				t := int64(0)
 				if Cs[j] < Cs[j+layer] {
-					t = Cs[j] + common.Q - Cs[j+layer]
+					t = Cs[j] + dilcommon.Q - Cs[j+layer]
 				} else {
 					t = Cs[j] - Cs[j+layer]
 				}
 				bigCS := big.NewInt(int64(Cs[j] + Cs[j+layer]))
-				bigINV2 := big.NewInt(common.INV2)
-				Cs[j] = bigCS.Mul(bigCS, bigINV2).Mod(bigCS, big.NewInt(common.Q)).Int64()
+				bigINV2 := big.NewInt(dilcommon.INV2)
+				Cs[j] = bigCS.Mul(bigCS, bigINV2).Mod(bigCS, big.NewInt(dilcommon.Q)).Int64()
 
-				Cs[j+layer] = bigINV2.Mul(bigINV2, big.NewInt(int64(z))).Mul(bigINV2, big.NewInt(int64(t))).Mod(bigINV2, big.NewInt(common.Q)).Int64()
+				Cs[j+layer] = bigINV2.Mul(bigINV2, big.NewInt(int64(z))).Mul(bigINV2, big.NewInt(int64(t))).Mod(bigINV2, big.NewInt(dilcommon.Q)).Int64()
 			}
 		}
 		layer *= 2
@@ -120,9 +120,9 @@ func (p *Poly) InvNTT() *Poly {
 
 // MulNTT performs componentwise multiplication in the NTT domain.
 func (p *Poly) MulNTT(other *Poly) *Poly {
-	result := make([]int64, common.N)
-	for i := 0; i < common.N; i++ {
-		result[i] = (p.Cs[i] * other.Cs[i]) % common.Q
+	result := make([]int64, dilcommon.N)
+	for i := 0; i < dilcommon.N; i++ {
+		result[i] = (p.Cs[i] * other.Cs[i]) % dilcommon.Q
 	}
 	return NewPoly(result)
 }
@@ -132,14 +132,14 @@ func (p *Poly) SchoolbookMul(other *Poly) (*Poly, *Poly) {
 	s := make([]int64, 512)
 	for i := 0; i < 511; i++ {
 		for j := max(i-255, 0); j < min(i+1, 256); j++ {
-			s[i] = (s[i] + p.Cs[j]*other.Cs[i-j]) % common.Q
+			s[i] = (s[i] + p.Cs[j]*other.Cs[i-j]) % dilcommon.Q
 		}
 	}
 	q := NewPoly(s[256:])
 	r := make([]int64, 256)
 	for i := 0; i < 256; i++ {
 		if s[i] < s[256+i] {
-			r[i] = s[i] + common.Q - s[256+i]
+			r[i] = s[i] + dilcommon.Q - s[256+i]
 		} else {
 			r[i] = s[i] - s[256+i]
 		}
@@ -150,7 +150,7 @@ func (p *Poly) SchoolbookMul(other *Poly) (*Poly, *Poly) {
 
 // pack packs the coefficients into bytes.
 func (p *Poly) Pack() []byte {
-	return common.PackFes(p.Cs[:])
+	return dilcommon.PackFes(p.Cs[:])
 }
 
 // unpackPoly unpacks a byte array into a Poly structure
@@ -158,19 +158,19 @@ func UnpackPoly(bs []byte) *Poly {
 	if len(bs) != 256*3 {
 		panic("invalid byte array length for Poly")
 	}
-	return NewPoly(common.UnpackFes(bs, common.Q))
+	return NewPoly(dilcommon.UnpackFes(bs, dilcommon.Q))
 }
 
 // packLeqEta packs the coefficients with eta constraint.
 // TODO didnt check
 func (p *Poly) PackLeqEta() []byte {
 	var buf bytes.Buffer
-	Cs := make([]int64, common.N)
-	for i := 0; i < common.N; i++ {
-		if common.ETA < p.Cs[i] {
-			Cs[i] = common.ETA + common.Q - p.Cs[i]
+	Cs := make([]int64, dilcommon.N)
+	for i := 0; i < dilcommon.N; i++ {
+		if dilcommon.ETA < p.Cs[i] {
+			Cs[i] = dilcommon.ETA + dilcommon.Q - p.Cs[i]
 		} else {
-			Cs[i] = common.ETA - p.Cs[i]
+			Cs[i] = dilcommon.ETA - p.Cs[i]
 		}
 	}
 	for i := 0; i < 256; i += 8 {
@@ -196,10 +196,10 @@ func UnpackPolyLeqEta(bs []byte) *Poly {
 	}
 	Cs := make([]int64, len(ret))
 	for i, c := range ret {
-		if common.ETA < c {
-			Cs[i] = common.ETA + common.Q - c
+		if dilcommon.ETA < c {
+			Cs[i] = dilcommon.ETA + dilcommon.Q - c
 		} else {
-			Cs[i] = common.ETA - c
+			Cs[i] = dilcommon.ETA - c
 		}
 	}
 	return NewPoly(Cs)
@@ -209,12 +209,12 @@ func UnpackPolyLeqEta(bs []byte) *Poly {
 // TODO didnt check
 func (p *Poly) PackLeGamma1() []byte {
 	var buf bytes.Buffer
-	Cs := make([]int64, common.N)
-	for i := 0; i < common.N; i++ {
-		if common.GAMMA1 < p.Cs[i] {
-			Cs[i] = common.GAMMA1 + common.Q - p.Cs[i]
+	Cs := make([]int64, dilcommon.N)
+	for i := 0; i < dilcommon.N; i++ {
+		if dilcommon.GAMMA1 < p.Cs[i] {
+			Cs[i] = dilcommon.GAMMA1 + dilcommon.Q - p.Cs[i]
 		} else {
-			Cs[i] = common.GAMMA1 - p.Cs[i]
+			Cs[i] = dilcommon.GAMMA1 - p.Cs[i]
 		}
 	}
 	for i := 0; i < 256; i += 4 {
@@ -242,17 +242,17 @@ func UnpackPolyLeGamma1(bs []byte) *Poly {
 			(int64(bs[i+6]) >> 6) | (int64(bs[i+7]) << 2) | (int64(bs[i+8]) << 10),
 		}
 		for _, c := range Cs {
-			if common.GAMMA1 < c {
-				ret = append(ret, common.GAMMA1+common.Q-c)
+			if dilcommon.GAMMA1 < c {
+				ret = append(ret, dilcommon.GAMMA1+dilcommon.Q-c)
 			} else {
-				ret = append(ret, common.GAMMA1-c)
+				ret = append(ret, dilcommon.GAMMA1-c)
 			}
 
 		}
 	}
 	poly := NewPoly(ret)
-	if poly.Norm() > common.GAMMA1 {
-		panic(fmt.Sprintf("Poly norm %d exceeds GAMMA1 %d", poly.Norm(), common.GAMMA1))
+	if poly.Norm() > dilcommon.GAMMA1 {
+		panic(fmt.Sprintf("Poly norm %d exceeds GAMMA1 %d", poly.Norm(), dilcommon.GAMMA1))
 	}
 	return poly
 }
@@ -261,8 +261,8 @@ func UnpackPolyLeGamma1(bs []byte) *Poly {
 func (p *Poly) Norm() int64 {
 	n := int64(0)
 	for _, c := range p.Cs {
-		if c > (common.Q-1)/2 {
-			c = common.Q - c
+		if c > (dilcommon.Q-1)/2 {
+			c = dilcommon.Q - c
 		}
 		if c > n {
 			n = c
@@ -286,10 +286,10 @@ func (p *Poly) RNorm() int64 {
 
 // decompose splits the polynomial into two parts.
 func (p *Poly) Decompose() (*Poly, *Poly) {
-	p0 := make([]int64, common.N)
-	p1 := make([]int64, common.N)
+	p0 := make([]int64, dilcommon.N)
+	p1 := make([]int64, dilcommon.N)
 	for i, c := range p.Cs {
-		c0, c1 := common.Decompose(c) // Assuming decompose() is defined
+		c0, c1 := dilcommon.Decompose(c) // Assuming decompose() is defined
 		p0[i] = c0
 		p1[i] = c1
 	}
@@ -304,12 +304,12 @@ func sampleUniform(stream *bytes.Reader) *Poly {
 		stream.Read(b)
 		d := int64(b[0]) + (int64(b[1]) << 8) + (int64(b[2]) << 16)
 		d &= 0x7fffff
-		if d >= common.Q {
+		if d >= dilcommon.Q {
 			continue
 		}
 		Cs[i] = d
 		i++
-		if i == common.N {
+		if i == dilcommon.N {
 			return &Poly{*Cs}
 		}
 	}
@@ -333,13 +333,13 @@ func SampleLeqEta(stream *bytes.Reader) *Poly {
 		for _, d := range ds {
 			if d <= 14 {
 				if 2-(d%5) < 0 {
-					Cs[i] = int64(2 - (d % 5) + common.Q)
+					Cs[i] = int64(2 - (d % 5) + dilcommon.Q)
 				} else {
 					Cs[i] = int64(2 - (d % 5))
 				}
 				i++
 			}
-			if i == common.N {
+			if i == dilcommon.N {
 				return &Poly{*Cs}
 			}
 		}

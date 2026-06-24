@@ -37,7 +37,7 @@ import (
 
 	"github.com/AVecsi/pq-gabi/attribute"
 	"github.com/AVecsi/pq-gabi/credtypes"
-	"github.com/AVecsi/pq-gabi/internal/common"
+	"github.com/AVecsi/pq-gabi/internal/dilcommon"
 	"github.com/go-errors/errors"
 )
 
@@ -76,10 +76,18 @@ func NewCredential(
 	attrs []*attribute.Attribute,
 	attrCount int,
 	userAttrCount int,
+	opening []byte,
 ) (credtypes.Credential, error) {
 	concreteSig, ok := sig.(*zkDilSignature)
 	if !ok {
 		return nil, errors.New("NewCredential: unsupported signature type")
+	}
+
+	// On fresh issuance the client supplies the commitment opening (for
+	// zkDilithium, the salt); on reload it is already carried by the
+	// deserialized signature, so opening is nil.
+	if opening != nil {
+		concreteSig.IssuanceSalt = opening
 	}
 
 	var attrsExtended []*attribute.Attribute
@@ -102,7 +110,7 @@ func NewCredential(
 
 	//salt
 	//TODO the Value doesnt match the Hash will that be a problem?
-	attrsExtended = append(attrsExtended, &attribute.Attribute{Value: sig.GetIssuanceSalt(), Hash: sig.GetIssuanceSalt()})
+	attrsExtended = append(attrsExtended, &attribute.Attribute{Value: concreteSig.IssuanceSalt, Hash: concreteSig.IssuanceSalt})
 	userAttrCountExtended++
 	attrCountExtended++
 
@@ -153,7 +161,7 @@ func CreateDisclosureProof(credentials []credtypes.Credential, disclosures []cre
 		attrs := cred.attrsExtended
 		attrBufs[i] = make([]uint32, len(attrs)*DIGEST_SIZE)
 		for j, attr := range attrs {
-			fes, _ := common.UnpackFes22Bit(attr.Hash)
+			fes, _ := dilcommon.UnpackFes22Bit(attr.Hash)
 			for k, fe := range fes {
 				attrBufs[i][j*DIGEST_SIZE+k] = uint32(fe)
 			}
@@ -166,8 +174,8 @@ func CreateDisclosureProof(credentials []credtypes.Credential, disclosures []cre
 			indexBufs[i][j] = C.size_t(idx)
 		}
 
-		saltedHash := disc.SignatureProof().SaltedCredHash()
-		salt := disc.SignatureProof().Salt()
+		saltedHash := bytesToFes(disc.SignatureProof().SaltedCredHash())
+		salt := bytesToFes(disc.SignatureProof().Salt())
 
 		cCreds[i] = C.CCredential{
 			attributes:          (*C.uint32_t)(&attrBufs[i][0]),
@@ -239,7 +247,7 @@ func (c *zkDilCredential) UpdateAttributes(keepCount int, attrs []*attribute.Att
 
 	//salt
 	//TODO the Value doesnt match the Hash will that be a problem?
-	attrsExtended = append(attrsExtended, &attribute.Attribute{Value: c.Signature().GetIssuanceSalt(), Hash: c.Signature().GetIssuanceSalt()})
+	attrsExtended = append(attrsExtended, &attribute.Attribute{Value: c.signature.IssuanceSalt, Hash: c.signature.IssuanceSalt})
 	userAttrCountExtended++
 	attrCountExtended++
 
@@ -343,11 +351,11 @@ func (p *zkDilDisclosureProof) Verify() bool {
 	for i, credDiscl := range p.CredDisclosures {
 		disclosedAttrs := credDiscl.DisclosedAttributes()
 		disclosedIndices := credDiscl.DisclosedAttributeIndices()
-		saltedHash := credDiscl.SignatureProof().SaltedCredHash()
+		saltedHash := bytesToFes(credDiscl.SignatureProof().SaltedCredHash())
 
 		attrBufs[i] = make([]uint32, len(disclosedAttrs)*DIGEST_SIZE)
 		for j, attr := range disclosedAttrs {
-			fes, _ := common.UnpackFes22Bit(attr.Hash)
+			fes, _ := dilcommon.UnpackFes22Bit(attr.Hash)
 			for k, fe := range fes {
 				attrBufs[i][j*DIGEST_SIZE+k] = uint32(fe)
 			}

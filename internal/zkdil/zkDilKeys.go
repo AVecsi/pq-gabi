@@ -6,9 +6,9 @@ import (
 	"os"
 	"time"
 
-	"github.com/AVecsi/pq-gabi/algebra"
 	"github.com/AVecsi/pq-gabi/gabikeys"
 	"github.com/AVecsi/pq-gabi/internal/common"
+	"github.com/AVecsi/pq-gabi/internal/zkdil/algebra"
 )
 
 // PublicKey is the zkdil-specific public key.

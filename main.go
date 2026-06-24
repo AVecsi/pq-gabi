@@ -6,11 +6,11 @@ import (
 	"time"
 
 	"github.com/AVecsi/pq-gabi/big"
-	"github.com/AVecsi/pq-gabi/internal/common"
+	"github.com/AVecsi/pq-gabi/internal/dilcommon"
 )
 
 // func hashStrategy() hash.Hash {
-// 	h := poseidon.NewPoseidon(nil, POS_RF, POS_T, POS_RATE, common.Q)
+// 	h := poseidon.NewPoseidon(nil, POS_RF, POS_T, POS_RATE, dilcommon.Q)
 
 // 	return h
 // }
@@ -77,7 +77,7 @@ func Test() {
 
 			seed := make([]byte, 32)
 
-			hiddenAttrsHash, salt, err := HideAttributes([]*Attribute{attributes[0]})
+			commitment, opening, err := Commit([]*Attribute{attributes[0]})
 			if err != nil {
 				panic(err)
 			}
@@ -85,14 +85,12 @@ func Test() {
 			sk, pk, _ := GenerateKeyPair(seed, 0, time.Now().AddDate(1, 0, 0))
 			issuer := NewIssuer(sk, pk, *big.NewInt(1))
 
-			sig, err := issuer.IssueSignature(hiddenAttrsHash, attributes[1:])
+			sig, err := issuer.IssueSignature(commitment, attributes[1:])
 			if err != nil {
 				panic(err)
 			}
 
-			sig.SetIssuanceSalt(salt)
-
-			cred, err := NewCredential(sig, attributes, len(attributes), 1)
+			cred, err := NewCredential(sig, attributes, len(attributes), 1, opening)
 			if err != nil {
 				panic(err)
 			}
@@ -187,7 +185,7 @@ func Test() {
 			} else {
 				failcounter += 1
 				for i := 0; i < attrCount; i++ {
-					fmt.Println(common.UnpackFes(attributes[i].Hash, common.Q))
+					fmt.Println(dilcommon.UnpackFes(attributes[i].Hash, dilcommon.Q))
 				}
 				fmt.Println()
 				//fmt.Println(disclosureProof.CredentialDisclosures[0].SignatureProof.SaltedCredHash)
@@ -320,7 +318,7 @@ func Test() {
 					disclosedAttributes1[i] = cred1.Attributes[disclosedAttributeIndices[i]]
 				}
 
-				msgFes1 := common.UnpackFesInt(msg1, common.Q)
+				msgFes1 := dilcommon.UnpackFesInt(msg1, dilcommon.Q)
 				nonce1 := []int{1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1}
 
 				merkleComm1, err := NewRandomCommitment(msgFes1, nonce1)
@@ -375,7 +373,7 @@ func Test() {
 					disclosedAttributes2[i] = cred2.Attributes[disclosedAttributeIndices[i]]
 				}
 
-				msgFes2 := common.UnpackFesInt(msg2, common.Q)
+				msgFes2 := dilcommon.UnpackFesInt(msg2, dilcommon.Q)
 				nonce2 := []int{1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1}
 
 				merkleComm2, err := NewRandomCommitment(msgFes2, nonce2)
@@ -547,7 +545,7 @@ func TestThreeCert() {
 						disclosedAttributes1[i] = cred1.Attributes[disclosedAttributeIndices[i]]
 					}
 
-					msgFes1 := common.UnpackFesInt(msg1, common.Q)
+					msgFes1 := dilcommon.UnpackFesInt(msg1, dilcommon.Q)
 					nonce1 := []int{1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1}
 
 					merkleComm1, err := NewRandomCommitment(msgFes1, nonce1)
@@ -602,7 +600,7 @@ func TestThreeCert() {
 						disclosedAttributes2[i] = cred2.Attributes[disclosedAttributeIndices[i]]
 					}
 
-					msgFes2 := common.UnpackFesInt(msg2, common.Q)
+					msgFes2 := dilcommon.UnpackFesInt(msg2, dilcommon.Q)
 					nonce2 := []int{1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1}
 
 					merkleComm2, err := NewRandomCommitment(msgFes2, nonce2)
@@ -657,7 +655,7 @@ func TestThreeCert() {
 						disclosedAttributes3[i] = cred3.Attributes[disclosedAttributeIndices[i]]
 					}
 
-					msgFes3 := common.UnpackFesInt(msg3, common.Q)
+					msgFes3 := dilcommon.UnpackFesInt(msg3, dilcommon.Q)
 					nonce3 := []int{1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1}
 
 					merkleComm3, err := NewRandomCommitment(msgFes3, nonce3)

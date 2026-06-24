@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/AVecsi/pq-gabi/internal/common"
+	"github.com/AVecsi/pq-gabi/internal/dilcommon"
 	"golang.org/x/crypto/sha3"
 )
 
@@ -38,7 +39,7 @@ func (v *Vec) InvNTT() *Vec {
 
 // DotNTT computes the dot product of two Vecs in the NTT domain
 func (v *Vec) DotNTT(other *Vec) *Poly {
-	sum := NewPoly(make([]int64, common.N)) // TODO Assuming zero-initialized Poly
+	sum := NewPoly(make([]int64, dilcommon.N)) // TODO Assuming zero-initialized Poly
 	for i := range v.Ps {
 		sum = sum.Add(v.Ps[i].MulNTT(other.Ps[i]))
 	}
@@ -47,8 +48,8 @@ func (v *Vec) DotNTT(other *Vec) *Poly {
 
 // SchoolbookDot computes the dot product of two Vecs using Schoolbook multiplication
 func (v *Vec) SchoolbookDot(other *Vec) (*Poly, *Poly) {
-	retr := NewPoly(make([]int64, common.N))
-	retq := NewPoly(make([]int64, common.N))
+	retr := NewPoly(make([]int64, dilcommon.N))
+	retq := NewPoly(make([]int64, dilcommon.N))
 	for i := range v.Ps {
 		q, r := v.Ps[i].SchoolbookMul(other.Ps[i])
 		retr = retr.Add(r)
@@ -174,12 +175,12 @@ func (v *Vec) PackLeGamma1() []byte {
 
 // unpackVecLeGamma1 unpacks a byte slice into a Vec of length l, assuming each Poly is packed with elements bounded by Gamma1.
 func UnpackVecLeGamma1(bs []byte, l int) *Vec {
-	if len(bs) != l*common.POLY_LE_GAMMA1_SIZE {
+	if len(bs) != l*dilcommon.POLY_LE_GAMMA1_SIZE {
 		panic("invalid byte array length for Vec gamma1")
 	}
 	Ps := make([]*Poly, l)
 	for i := 0; i < l; i++ {
-		Ps[i] = UnpackPolyLeGamma1(bs[common.POLY_LE_GAMMA1_SIZE*i : common.POLY_LE_GAMMA1_SIZE*(i+1)])
+		Ps[i] = UnpackPolyLeGamma1(bs[dilcommon.POLY_LE_GAMMA1_SIZE*i : dilcommon.POLY_LE_GAMMA1_SIZE*(i+1)])
 	}
 	return NewVec(Ps)
 }
@@ -242,16 +243,16 @@ func (v *Vec) String() string {
 func SampleSecret(rho []byte) (*Vec, *Vec) {
 	rhoCopy := make([]byte, len(rho))
 	copy(rhoCopy, rho)
-	Ps := make([]*Poly, common.K+common.L)
-	for i := 0; i < common.K+common.L; i++ {
+	Ps := make([]*Poly, dilcommon.K+dilcommon.L)
+	for i := 0; i < dilcommon.K+dilcommon.L; i++ {
 		Ps[i] = SampleLeqEta(common.XOF256(rhoCopy, i))
 	}
-	return &Vec{Ps[:common.L]}, &Vec{Ps[common.L:]}
+	return &Vec{Ps[:dilcommon.L]}, &Vec{Ps[dilcommon.L:]}
 }
 
 func SampleY(rho []byte, nonce int) *Vec {
-	Ps := make([]*Poly, common.L)
-	for i := 0; i < common.L; i++ {
+	Ps := make([]*Poly, dilcommon.L)
+	for i := 0; i < dilcommon.L; i++ {
 		h := make([]byte, 576)
 		sha3.ShakeSum256(h, append(rho, []byte{byte((nonce + i) & 255), byte((nonce + i) >> 8)}...))
 		Ps[i] = UnpackPolyLeGamma1(h[:])
