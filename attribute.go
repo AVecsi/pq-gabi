@@ -5,7 +5,7 @@ import (
 	"github.com/AVecsi/pq-gabi/attribute"
 	"github.com/AVecsi/pq-gabi/big"
 	"github.com/AVecsi/pq-gabi/internal/common"
-	"github.com/AVecsi/pq-gabi/internal/zkdil"
+	"github.com/AVecsi/pq-gabi/internal/scheme"
 )
 
 // Re-export Attribute so callers can use pqgabi.Attribute
@@ -21,7 +21,7 @@ func GenerateSecretAttribute() (*big.Int, error) {
 
 func GenerateSalt() ([]byte, error) {
 
-	salt, err := zkdil.GenerateSalt()
+	salt, err := scheme.GenerateSalt()
 	if err != nil {
 		return nil, err
 	}
@@ -35,7 +35,7 @@ func GenerateSalt() ([]byte, error) {
 // opaque bytes.
 func Commit(attributes []*attribute.Attribute) ([]byte, []byte, error) {
 
-	commitment, opening, err := zkdil.Commit(attributes)
+	commitment, opening, err := scheme.Commit(attributes)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -44,5 +44,5 @@ func Commit(attributes []*attribute.Attribute) ([]byte, []byte, error) {
 }
 
 func CombineHiddenPublic(hiddenAttrsHash []byte, publicAttributes []*attribute.Attribute) []uint32 {
-	return zkdil.CombineHiddenPublic(hiddenAttrsHash, publicAttributes)
+	return scheme.CombineHiddenPublic(hiddenAttrsHash, publicAttributes)
 }

@@ -3,7 +3,7 @@ package gabi
 import (
 	"github.com/AVecsi/pq-gabi/big"
 	"github.com/AVecsi/pq-gabi/gabikeys"
-	zkdil "github.com/AVecsi/pq-gabi/internal/zkdil"
+	"github.com/AVecsi/pq-gabi/internal/scheme"
 )
 
 // Issuer holds the key material for a credential issuer.
@@ -20,7 +20,7 @@ func NewIssuer(sk gabikeys.PrivateKey, pk gabikeys.PublicKey, context big.Int) *
 
 // hiddenHashFes has to be the result of Poseidon hashing an even number of user attributes (padded to even if needed).
 func (i *Issuer) IssueSignature(commitment []byte, publicAttributes []*Attribute) (Signature, error) {
-	combinedHash := zkdil.CombineHiddenPublic(commitment, publicAttributes)
+	combinedHash := scheme.CombineHiddenPublic(commitment, publicAttributes)
 
 	signature, err := Sign(i.Pk, i.Sk, combinedHash)
 	if err != nil {

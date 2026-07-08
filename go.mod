@@ -10,6 +10,12 @@ require (
 	golang.org/x/crypto v0.49.0
 )
 
+// lazer (Falcon-512 / LNP) anonymous-credentials backend, used only by the
+// -tags lazer build (internal/lazeranon). Resolved to the local cgo wrapper.
+require XXX1.org/lazer v0.0.0
+
+replace XXX1.org/lazer => /Users/vecsiadam/Documents/MPI-SP/lazer/golang/lazer
+
 require (
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/kr/pretty v0.3.1 // indirect
