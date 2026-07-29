@@ -3,7 +3,7 @@ module github.com/AVecsi/pq-gabi
 go 1.25.0
 
 require (
-	github.com/AVecsi/lazer v0.0.0-20260729101002-e8192d524694
+	github.com/AVecsi/lazer v0.0.0-20260729130749-c88d08fc64c4
 	github.com/fxamacker/cbor v1.5.1
 	github.com/go-errors/errors v1.5.1
 	github.com/sirupsen/logrus v1.9.4
