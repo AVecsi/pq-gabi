@@ -11,7 +11,7 @@ import (
 	"github.com/AVecsi/pq-gabi/gabikeys"
 	"github.com/AVecsi/pq-gabi/internal/common"
 
-	"XXX1.org/lazer"
+	"github.com/AVecsi/lazer"
 )
 
 // PublicKey is the lazer-specific issuer public key: a Falcon-512 public key

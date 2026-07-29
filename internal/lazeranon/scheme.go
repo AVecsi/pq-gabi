@@ -26,7 +26,7 @@ import (
 	"github.com/AVecsi/pq-gabi/gabikeys"
 	"github.com/go-errors/errors"
 
-	"XXX1.org/lazer"
+	"github.com/AVecsi/lazer"
 )
 
 // Block layout, mirroring the lazer C parameters:

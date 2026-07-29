@@ -10,7 +10,7 @@ import (
 	"github.com/AVecsi/pq-gabi/credtypes"
 	"github.com/go-errors/errors"
 
-	"XXX1.org/lazer"
+	"github.com/AVecsi/lazer"
 )
 
 // lazerCredential implements credtypes.Credential.
