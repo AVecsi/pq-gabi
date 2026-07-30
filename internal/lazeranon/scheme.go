@@ -29,15 +29,54 @@ import (
 	"github.com/AVecsi/lazer"
 )
 
-// Block layout, mirroring the lazer C parameters:
-//   blocks [0, nSecret)  -> user secret (link attribute), committed by user
-//   blocks [nSecret, ..) -> issuer attributes (metadata + public), 1 each
+// Block layout, mirroring the lazer C parameters. It reserves a fixed
+// device-binding region between the secret and the issuer attributes, so the
+// logical message order is [ secret | device-binding key | metadata + public
+// attributes ] (the protocol slot order: index 0 secret, index 1 device
+// binding, index 2 metadata, then attributes):
+//
+//	blocks [0, nSecret)                     -> user secret (link attribute)
+//	blocks [nSecret, nSecret+devKeyBlocks)  -> device-binding key (Falcon-512
+//	                                           public key h, 8 blocks). RESERVED
+//	                                           and MOCKED as zero for now; wired
+//	                                           in once the device-binding proof
+//	                                           lands. Never disclosed.
+//	blocks [nSecret+devKeyBlocks, ..)       -> issuer attributes (metadata is
+//	                                           the first one), 1 block each
+//
 // The total block count is dynamic (chosen by tier); see nmsgBytes / the lazer
-// tier helpers.
+// tier helpers. lazer itself stays generic (a flat block message): this reserved
+// region is a pq-gabi convention that the C library need not know about.
 const (
-	nSecret    = lazer.AnonNumSecret // 4
-	blockBytes = 8                   // 64 bits per block
+	nSecret      = lazer.AnonNumSecret       // 4
+	blockBytes   = 8                         // 64 bits per block
+	devKeyBlocks = 8                         // Falcon-512 public key = 512 coeffs = 8 blocks
+	DeviceKeyLen = devKeyBlocks * blockBytes // 64 bytes: the device-binding key region
 )
+
+// issuerBlocks is the number of lazer issuer blocks needed to carry numAttrs
+// issuer attributes: the reserved device-binding region plus one block per
+// attribute. This is the value passed to the lazer tier helpers.
+func issuerBlocks(numAttrs int) int {
+	return devKeyBlocks + numAttrs
+}
+
+// zeroDeviceKey is the current (mock) device-binding key: all zero. It is a
+// real, stored value that rides through issuance (the issuer signs over it),
+// persists in the signature, and is reproduced at disclosure — only its value
+// is a placeholder. Replace this with the device's Falcon-512 public key (h)
+// once device binding is wired in; nothing else in the data path changes.
+func zeroDeviceKey() []byte { return make([]byte, DeviceKeyLen) }
+
+// deviceKeyOrZero returns dk if it is a full device-key region, else the zero
+// key. It guards credentials whose stored signature predates the device-key
+// field (they were signed with a zero region, so zero reproduces them).
+func deviceKeyOrZero(dk []byte) []byte {
+	if len(dk) == DeviceKeyLen {
+		return dk
+	}
+	return zeroDeviceKey()
+}
 
 // nmsgBytes is the full message length (secret + the tier's issuer capacity).
 func nmsgBytes(tier int) int {
@@ -51,10 +90,11 @@ func nmsgBytes(tier int) int {
 // serialized signature and is available on credential reload, mirroring
 // zkDilithium's IssuanceSalt.
 type lazerSignature struct {
-	Pk       []byte `json:"pk"`
-	Blindsig []byte `json:"blindsig"`
-	Tier     int    `json:"tier"`
-	Opening  []byte `json:"opening,omitempty"`
+	Pk        []byte `json:"pk"`
+	Blindsig  []byte `json:"blindsig"`
+	Tier      int    `json:"tier"`
+	Opening   []byte `json:"opening,omitempty"`
+	DeviceKey []byte `json:"deviceKey,omitempty"` // reserved device-binding key (mock: all zero)
 }
 
 // --- credtypes.Signature ---
@@ -93,12 +133,12 @@ func Commit(hidden []*attribute.Attribute) ([]byte, []byte, error) {
 // and bundles them with the commitment and tier so Sign can add them and
 // blind-sign. The result is carried as []uint32 to match the scheme contract.
 func CombineHiddenPublic(commitment []byte, publicAttributes []*attribute.Attribute) []uint32 {
-	tier := lazer.AnonTierForNpub(len(publicAttributes))
+	tier := lazer.AnonTierForNpub(issuerBlocks(len(publicAttributes)))
 	if tier < 0 {
 		// too many attributes; Sign will reject the tier=-1 bundle.
 		return bytesToU32(bundle(commitment, nil, -1))
 	}
-	return bytesToU32(bundle(commitment, pubBlocksForTier(publicAttributes, tier), tier))
+	return bytesToU32(bundle(commitment, pubBlocksForTier(zeroDeviceKey(), publicAttributes, tier), tier))
 }
 
 // Sign blind-signs the commitment after the issuer adds its blocks. The bundled
@@ -126,7 +166,13 @@ func Sign(pk gabikeys.PublicKey, sk gabikeys.PrivateKey, msg []uint32) (credtype
 		return nil, errors.New("lazeranon.Sign: masked message rejected (invalid well-formedness proof)")
 	}
 
-	return &lazerSignature{Pk: pubK.Pk, Blindsig: blindsig, Tier: tier}, nil
+	// Persist the device-binding key region the issuer just signed over (the
+	// first devKeyBlocks blocks of the issuer message). Storing it here lets
+	// disclosure reproduce the exact signed message from the credential alone.
+	deviceKey := make([]byte, DeviceKeyLen)
+	copy(deviceKey, pubMsg)
+
+	return &lazerSignature{Pk: pubK.Pk, Blindsig: blindsig, Tier: tier, DeviceKey: deviceKey}, nil
 }
 
 // GenerateSalt has no role in lazer (the opening replaces zkDilithium's salt).
@@ -160,12 +206,17 @@ func attrBlock(attr *attribute.Attribute) []byte {
 	return b
 }
 
-// pubBlocksForTier packs the issuer attributes into the tier's issuer message
-// (AnonTierNpub(tier) blocks): attribute j -> issuer block j, the rest zero.
-func pubBlocksForTier(publicAttributes []*attribute.Attribute, tier int) []byte {
+// pubBlocksForTier packs the issuer message for a tier (AnonTierNpub(tier)
+// blocks): the first devKeyBlocks blocks hold the device-binding key, then
+// attribute j goes to issuer block devKeyBlocks+j, and the rest stay zero.
+// Issuance and disclosure must pass the SAME deviceKey so the reproduced
+// message matches what was signed.
+func pubBlocksForTier(deviceKey []byte, publicAttributes []*attribute.Attribute, tier int) []byte {
 	out := make([]byte, lazer.AnonTierNpub(tier)*blockBytes)
+	copy(out, deviceKey) // reserved region: blocks [0, devKeyBlocks)
 	for j, a := range publicAttributes {
-		copy(out[j*blockBytes:(j+1)*blockBytes], attrBlock(a))
+		b := devKeyBlocks + j
+		copy(out[b*blockBytes:(b+1)*blockBytes], attrBlock(a))
 	}
 	return out
 }

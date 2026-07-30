@@ -51,13 +51,16 @@ type lazerSignatureProof struct {
 
 // blockIndex maps a gabi attribute index to its message block index. The first
 // userAttrCount attributes are the (hidden) secret, occupying blocks
-// [0, nSecret); each subsequent attribute occupies one issuer block starting at
-// nSecret. Disclosing a hidden/secret attribute is not supported.
+// [0, nSecret); then the reserved device-binding region occupies the next
+// devKeyBlocks blocks; each issuer attribute occupies one block starting at
+// nSecret+devKeyBlocks. Disclosing a hidden/secret attribute is not supported
+// (and the device-binding region is never a gabi attribute, so it is never
+// addressed here).
 func blockIndex(gabiIdx, userAttrCount int) (uint, error) {
 	if gabiIdx < userAttrCount {
 		return 0, errors.Errorf("lazeranon: cannot disclose hidden attribute %d (the link secret stays hidden)", gabiIdx)
 	}
-	return uint(nSecret + gabiIdx - userAttrCount), nil
+	return uint(nSecret + devKeyBlocks + gabiIdx - userAttrCount), nil
 }
 
 // NewCredential constructs a lazer credential. On fresh issuance the client
@@ -74,8 +77,8 @@ func NewCredential(
 	if !ok {
 		return nil, errors.New("lazeranon.NewCredential: unsupported signature type")
 	}
-	if attrCount-userAttrCount > lazer.AnonNpubMax {
-		return nil, errors.Errorf("lazeranon.NewCredential: %d issuer attributes exceeds the %d-attribute cap", attrCount-userAttrCount, lazer.AnonNpubMax)
+	if issuerBlocks(attrCount-userAttrCount) > lazer.AnonNpubMax {
+		return nil, errors.Errorf("lazeranon.NewCredential: %d issuer attributes + %d reserved device-key blocks exceeds the %d-block cap", attrCount-userAttrCount, devKeyBlocks, lazer.AnonNpubMax)
 	}
 	if opening != nil {
 		concreteSig.Opening = opening
@@ -107,8 +110,8 @@ func (c *lazerCredential) UserAttrCount() int                 { return c.userAtt
 func (c *lazerCredential) UpdateAttributes(keepCount int, attrs []*attribute.Attribute) error {
 	c.attrs = append(c.attrs[:keepCount], attrs...)
 	c.attrCount = len(c.attrs)
-	if c.attrCount-c.userAttrCount > lazer.AnonNpubMax {
-		return errors.Errorf("lazeranon.UpdateAttributes: %d issuer attributes exceeds the %d-attribute cap", c.attrCount-c.userAttrCount, lazer.AnonNpubMax)
+	if issuerBlocks(c.attrCount-c.userAttrCount) > lazer.AnonNpubMax {
+		return errors.Errorf("lazeranon.UpdateAttributes: %d issuer attributes + %d reserved device-key blocks exceeds the %d-block cap", c.attrCount-c.userAttrCount, devKeyBlocks, lazer.AnonNpubMax)
 	}
 	return nil
 }
@@ -116,14 +119,15 @@ func (c *lazerCredential) UpdateAttributes(keepCount int, attrs []*attribute.Att
 // CreateDisclosure produces the lazer disclosure proof for the given attribute
 // indices (which must be issuer attributes; the secret cannot be disclosed).
 func (c *lazerCredential) CreateDisclosure(disclosedAttributeIndices []int) (credtypes.CredentialDisclosure, error) {
-	tier := lazer.AnonTierForNpub(c.attrCount - c.userAttrCount)
+	tier := lazer.AnonTierForNpub(issuerBlocks(c.attrCount - c.userAttrCount))
 	if tier < 0 {
-		return nil, errors.Errorf("lazeranon.CreateDisclosure: %d issuer attributes exceeds the %d-attribute cap", c.attrCount-c.userAttrCount, lazer.AnonNpubMax)
+		return nil, errors.Errorf("lazeranon.CreateDisclosure: %d issuer attributes + %d reserved device-key blocks exceeds the %d-block cap", c.attrCount-c.userAttrCount, devKeyBlocks, lazer.AnonNpubMax)
 	}
 
-	// Reconstruct the issuer blocks the issuer signed, from the public
-	// attributes (the client re-derives them, exactly as zkDilithium does).
-	pubMsg := pubBlocksForTier(c.attrs[c.userAttrCount:], tier)
+	// Reconstruct the issuer blocks the issuer signed: the stored device-binding
+	// key in the reserved region, then the public attributes (the client
+	// re-derives those, exactly as zkDilithium does).
+	pubMsg := pubBlocksForTier(deviceKeyOrZero(c.signature.DeviceKey), c.attrs[c.userAttrCount:], tier)
 
 	pubMvec := make([]uint, len(disclosedAttributeIndices))
 	disclosedAttrs := make([]*attribute.Attribute, len(disclosedAttributeIndices))
@@ -163,11 +167,13 @@ func (c *lazerCredential) CreateDisclosure(disclosedAttributeIndices []int) (cre
 
 // --- credtypes.CredentialDisclosure ---
 
-func (d *lazerCredentialDisclosure) DisclosedAttributes() []*attribute.Attribute { return d.DisclosedAttrs }
-func (d *lazerCredentialDisclosure) DisclosedAttributeIndices() []int            { return d.DisclosedAttrIndices }
-func (d *lazerCredentialDisclosure) NumOfAllAttributes() int                     { return d.NumAllAttributes }
-func (d *lazerCredentialDisclosure) NumOfUserAttributes() int                    { return d.NumUserAttributes }
-func (d *lazerCredentialDisclosure) SignatureProof() credtypes.SignatureProof    { return d.SigProof }
+func (d *lazerCredentialDisclosure) DisclosedAttributes() []*attribute.Attribute {
+	return d.DisclosedAttrs
+}
+func (d *lazerCredentialDisclosure) DisclosedAttributeIndices() []int         { return d.DisclosedAttrIndices }
+func (d *lazerCredentialDisclosure) NumOfAllAttributes() int                  { return d.NumAllAttributes }
+func (d *lazerCredentialDisclosure) NumOfUserAttributes() int                 { return d.NumUserAttributes }
+func (d *lazerCredentialDisclosure) SignatureProof() credtypes.SignatureProof { return d.SigProof }
 
 // --- credtypes.SignatureProof ---
 
