@@ -185,7 +185,15 @@ func Test() {
 			} else {
 				failcounter += 1
 				for i := 0; i < attrCount; i++ {
-					fmt.Println(dilcommon.UnpackFes(attributes[i].Hash, dilcommon.Q))
+					// Hash is a 32-byte SHA-256 digest, so it must be unpacked as 12
+					// 22-bit field elements. UnpackFes wants a multiple of 3 bytes and
+					// panicked here, replacing the diagnostic below with a stack trace.
+					fes, err := dilcommon.UnpackFes22Bit(attributes[i].Hash)
+					if err != nil {
+						fmt.Printf("attribute %d: cannot unpack hash: %v\n", i, err)
+						continue
+					}
+					fmt.Println(fes)
 				}
 				fmt.Println()
 				//fmt.Println(disclosureProof.CredentialDisclosures[0].SignatureProof.SaltedCredHash)

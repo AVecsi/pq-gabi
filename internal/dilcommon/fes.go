@@ -11,7 +11,11 @@ import (
 	"github.com/AVecsi/pq-gabi/big"
 )
 
-const GAMMA2 = 65536
+// GAMMA2 = (Q-1)/88, the FIPS 204 ML-DSA-44 value. Decompose relies on 2*GAMMA2
+// dividing Q-1 exactly, which bounds w1 to [0, 43]. The r0 window is
+// (-GAMMA2, GAMMA2] -- open at the bottom, closed at the top, per the mod+-
+// convention of FIPS 204 section 2.3.
+const GAMMA2 = 95232
 
 func Decompose(r int64) (int64, int64) {
 	// Calculate r0
