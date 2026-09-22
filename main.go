@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/AVecsi/pq-gabi/big"
+	"github.com/AVecsi/pq-gabi/gabikeys"
 	"github.com/AVecsi/pq-gabi/internal/dilcommon"
 )
 
@@ -75,14 +76,17 @@ func Test() {
 				attributes = append(attributes, attribute)
 			}
 
-			seed := make([]byte, 32)
-
 			commitment, opening, err := Commit([]*Attribute{attributes[0]})
 			if err != nil {
 				panic(err)
 			}
 
-			sk, pk, _ := GenerateKeyPair(seed, 0, time.Now().AddDate(1, 0, 0))
+			// A fresh random issuer key per iteration, which also exercises
+			// that the proof system is not tied to one particular key.
+			sk, pk, err := GenerateRandomKeyPair(0, time.Now().AddDate(1, 0, 0))
+			if err != nil {
+				panic(err)
+			}
 			issuer := NewIssuer(sk, pk, *big.NewInt(1))
 
 			sig, err := issuer.IssueSignature(commitment, attributes[1:])
@@ -175,7 +179,7 @@ func Test() {
 
 			start = time.Now()
 
-			if disclosureProof.Verify(sessionNonce) {
+			if disclosureProof.Verify([]gabikeys.PublicKey{pk}, sessionNonce) {
 				verifyTime := time.Since(start)
 				verifySum += verifyTime
 

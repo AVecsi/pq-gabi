@@ -38,6 +38,7 @@ import (
 
 	"github.com/AVecsi/pq-gabi/attribute"
 	"github.com/AVecsi/pq-gabi/credtypes"
+	"github.com/AVecsi/pq-gabi/gabikeys"
 	"github.com/AVecsi/pq-gabi/internal/dilcommon"
 	"github.com/go-errors/errors"
 )
@@ -348,7 +349,11 @@ func (d *zkDilCredentialDisclosure) SignatureProof() credtypes.SignatureProof {
 
 // --- gabi.DisclosureProof ---
 
-func (p *zkDilDisclosureProof) Verify(nonce []byte) bool {
+// Verify checks that the proof was made for this session, then checks each
+// credential's signature proof against publicKeys[i] — the issuer key the
+// verifier trusts for that credential — and finally the single attribute proof
+// covering all of them.
+func (p *zkDilDisclosureProof) Verify(publicKeys []gabikeys.PublicKey, nonce []byte) bool {
 	// Before any cryptography: this proof must have been made for the session
 	// being verified. Constant-time, and an empty expected nonce always fails,
 	// so a caller that forgot to thread one through cannot accidentally accept
@@ -362,8 +367,18 @@ func (p *zkDilDisclosureProof) Verify(nonce []byte) bool {
 		return false
 	}
 
-	for _, credDiscl := range p.CredDisclosures {
-		if !credDiscl.SignatureProof().Verify() {
+	if len(publicKeys) != len(p.CredDisclosures) {
+		log.Warnf("zkdil: got %d issuer public keys for %d credential disclosures", len(publicKeys), len(p.CredDisclosures))
+		return false
+	}
+
+	for i, credDiscl := range p.CredDisclosures {
+		sigProof := credDiscl.SignatureProof()
+		if sigProof == nil {
+			log.Warn("zkdil: credential disclosure has no signature proof")
+			return false
+		}
+		if !sigProof.Verify(publicKeys[i]) {
 			fmt.Println("Signature proof verification failed.")
 			return false
 		}

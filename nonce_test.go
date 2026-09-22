@@ -16,11 +16,13 @@ import (
 	"time"
 
 	"github.com/AVecsi/pq-gabi/big"
+	"github.com/AVecsi/pq-gabi/gabikeys"
 )
 
 // issueTestCredential drives the full issuance flow and returns a credential
-// with attrCount attributes, the zeroth being the hidden link secret.
-func issueTestCredential(t *testing.T, attrCount int) Credential {
+// with attrCount attributes, the zeroth being the hidden link secret, together
+// with the issuer public key a verifier needs.
+func issueTestCredential(t *testing.T, attrCount int) (Credential, gabikeys.PublicKey) {
 	t.Helper()
 
 	var attributes []*Attribute
@@ -37,10 +39,9 @@ func issueTestCredential(t *testing.T, attrCount int) Credential {
 		t.Fatalf("Commit: %v", err)
 	}
 
-	seed := make([]byte, 32)
-	sk, pk, err := GenerateKeyPair(seed, 0, time.Now().AddDate(1, 0, 0))
+	sk, pk, err := GenerateRandomKeyPair(0, time.Now().AddDate(1, 0, 0))
 	if err != nil {
-		t.Fatalf("GenerateKeyPair: %v", err)
+		t.Fatalf("GenerateRandomKeyPair: %v", err)
 	}
 	issuer := NewIssuer(sk, pk, *big.NewInt(1))
 
@@ -53,7 +54,7 @@ func issueTestCredential(t *testing.T, attrCount int) Credential {
 	if err != nil {
 		t.Fatalf("NewCredential: %v", err)
 	}
-	return cred
+	return cred, pk
 }
 
 func freshNonce(t *testing.T) []byte {
@@ -68,13 +69,14 @@ func freshNonce(t *testing.T) []byte {
 // TestDisclosureProofNonceIsChecked builds one proof (the expensive part) and
 // exercises every nonce outcome against it.
 func TestDisclosureProofNonceIsChecked(t *testing.T) {
-	cred := issueTestCredential(t, 8)
+	cred, pk := issueTestCredential(t, 8)
 
 	cd, err := cred.CreateDisclosure([]int{2})
 	if err != nil {
 		t.Fatalf("CreateDisclosure: %v", err)
 	}
 
+	keys := []gabikeys.PublicKey{pk}
 	nonce := freshNonce(t)
 	dp, err := CreateDisclosureProof([]Credential{cred}, []CredentialDisclosure{cd}, nonce)
 	if err != nil {
@@ -84,21 +86,21 @@ func TestDisclosureProofNonceIsChecked(t *testing.T) {
 	if got := dp.Nonce(); !bytes.Equal(got, nonce) {
 		t.Fatalf("proof carries wrong nonce: got %x want %x", got, nonce)
 	}
-	if !dp.Verify(nonce) {
+	if !dp.Verify(keys, nonce) {
 		t.Fatal("proof rejected under the nonce it was created for")
 	}
-	if dp.Verify(freshNonce(t)) {
+	if dp.Verify(keys, freshNonce(t)) {
 		t.Fatal("proof accepted under a different nonce (a replay would succeed)")
 	}
-	if dp.Verify(nil) {
+	if dp.Verify(keys, nil) {
 		t.Fatal("proof accepted with a nil nonce")
 	}
-	if dp.Verify([]byte{}) {
+	if dp.Verify(keys, []byte{}) {
 		t.Fatal("proof accepted with an empty nonce")
 	}
 	// A nonce of the right length but all zeros is the specific footgun the
 	// old irmago GetNonce zero-default would have produced.
-	if dp.Verify(make([]byte, 32)) {
+	if dp.Verify(keys, make([]byte, 32)) {
 		t.Fatal("proof accepted under an all-zero nonce")
 	}
 }
@@ -106,7 +108,7 @@ func TestDisclosureProofNonceIsChecked(t *testing.T) {
 // TestCreateDisclosureProofRejectsEmptyNonce pins that an absent nonce is an
 // error at construction rather than being defaulted to something constant.
 func TestCreateDisclosureProofRejectsEmptyNonce(t *testing.T) {
-	cred := issueTestCredential(t, 8)
+	cred, _ := issueTestCredential(t, 8)
 
 	cd, err := cred.CreateDisclosure([]int{2})
 	if err != nil {
@@ -130,13 +132,14 @@ func TestCreateDisclosureProofRejectsEmptyNonce(t *testing.T) {
 // parses the proof it received, so a nonce dropped by (un)marshalling would make
 // every session fail to verify.
 func TestDisclosureProofNonceSurvivesRoundTrip(t *testing.T) {
-	cred := issueTestCredential(t, 8)
+	cred, pk := issueTestCredential(t, 8)
 
 	cd, err := cred.CreateDisclosure([]int{2})
 	if err != nil {
 		t.Fatalf("CreateDisclosure: %v", err)
 	}
 
+	keys := []gabikeys.PublicKey{pk}
 	nonce := freshNonce(t)
 	dp, err := CreateDisclosureProof([]Credential{cred}, []CredentialDisclosure{cd}, nonce)
 	if err != nil {
@@ -155,10 +158,10 @@ func TestDisclosureProofNonceSurvivesRoundTrip(t *testing.T) {
 	if got := parsed.Nonce(); !bytes.Equal(got, nonce) {
 		t.Fatalf("nonce lost in round-trip: got %x want %x", got, nonce)
 	}
-	if !parsed.Verify(nonce) {
+	if !parsed.Verify(keys, nonce) {
 		t.Fatal("round-tripped proof rejected under its own nonce")
 	}
-	if parsed.Verify(freshNonce(t)) {
+	if parsed.Verify(keys, freshNonce(t)) {
 		t.Fatal("round-tripped proof accepted under a different nonce")
 	}
 }

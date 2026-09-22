@@ -9,6 +9,7 @@ import (
 
 	"github.com/AVecsi/pq-gabi/attribute"
 	"github.com/AVecsi/pq-gabi/credtypes"
+	"github.com/AVecsi/pq-gabi/gabikeys"
 	"github.com/go-errors/errors"
 
 	"github.com/AVecsi/lazer"
@@ -192,8 +193,22 @@ func (d *lazerCredentialDisclosure) SignatureProof() credtypes.SignatureProof { 
 
 // --- credtypes.SignatureProof ---
 
-func (p *lazerSignatureProof) Verify() bool {
-	verifier := lazer.AnonVerifierInit(p.Pk, p.Tier)
+// Verify checks the proof against the issuer public key the verifier trusts.
+//
+// The proof carries a copy of the issuer key because lazer's verifier needs the
+// Falcon-512 blob, but that copy is chosen by the prover and so proves nothing
+// on its own. The trusted key passed in here is what decides: if the proof's
+// own key does not match it, the credential was issued by somebody else and
+// this is a verification failure.
+func (p *lazerSignatureProof) Verify(pk gabikeys.PublicKey) bool {
+	pubK, ok := pk.(*PublicKey)
+	if !ok {
+		return false
+	}
+	if !bytes.Equal(pubK.Pk, p.Pk) {
+		return false
+	}
+	verifier := lazer.AnonVerifierInit(pubK.Pk, p.Tier)
 	defer lazer.AnonVerifierClear(&verifier)
 	return lazer.AnonVerifierVrfy(&verifier, p.MsgPub, p.PubMvec, p.Proof) == 1
 }
@@ -204,11 +219,13 @@ func (p *lazerSignatureProof) Salt() []byte           { return nil } // unused b
 
 // --- credtypes.DisclosureProof ---
 
-// Verify checks every credential disclosure: it rebuilds the expected public
-// message from the claimed disclosed attribute values at their block positions
-// (binding the human-meaningful values to the cryptographic proof), checks it
-// matches the proof's public message, then verifies the lazer proof.
-func (p *lazerDisclosureProof) Verify(nonce []byte) bool {
+// Verify checks that the proof was made for this session, then checks every
+// credential disclosure: it rebuilds the expected public message from the
+// claimed disclosed attribute values at their block positions (binding the
+// human-meaningful values to the cryptographic proof), checks it matches the
+// proof's public message, then verifies the lazer proof against publicKeys[i],
+// the issuer key the verifier trusts for that credential.
+func (p *lazerDisclosureProof) Verify(publicKeys []gabikeys.PublicKey, nonce []byte) bool {
 	// Before any cryptography: this proof must have been made for the session
 	// being verified. Constant-time, and an empty expected nonce always fails,
 	// so a caller that forgot to thread one through cannot accidentally accept
@@ -220,7 +237,10 @@ func (p *lazerDisclosureProof) Verify(nonce []byte) bool {
 		return false
 	}
 
-	for _, cd := range p.CredDisclosures {
+	if len(publicKeys) != len(p.CredDisclosures) {
+		return false
+	}
+	for i, cd := range p.CredDisclosures {
 		sp, ok := cd.SignatureProof().(*lazerSignatureProof)
 		if !ok {
 			return false
@@ -233,17 +253,18 @@ func (p *lazerDisclosureProof) Verify(nonce []byte) bool {
 		}
 		nmsg := nSecret + lazer.AnonTierNpub(sp.Tier)
 		expected := make([]byte, nmsg*blockBytes)
-		for i, idx := range indices {
+		// j, not i: i is the credential index, used below to pick the issuer key.
+		for j, idx := range indices {
 			b, err := blockIndex(idx, cd.NumOfUserAttributes())
 			if err != nil || int(b) >= nmsg {
 				return false
 			}
-			copy(expected[b*blockBytes:(b+1)*blockBytes], attrBlock(attrs[i]))
+			copy(expected[b*blockBytes:(b+1)*blockBytes], attrBlock(attrs[j]))
 		}
 		if !bytes.Equal(expected, sp.MsgPub) {
 			return false
 		}
-		if !sp.Verify() {
+		if !sp.Verify(publicKeys[i]) {
 			return false
 		}
 	}

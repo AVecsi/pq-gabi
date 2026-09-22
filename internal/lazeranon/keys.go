@@ -3,6 +3,7 @@
 package lazeranon
 
 import (
+	"bytes"
 	"encoding/xml"
 	"io"
 	"os"
@@ -12,6 +13,7 @@ import (
 	"github.com/AVecsi/pq-gabi/internal/common"
 
 	"github.com/AVecsi/lazer"
+	"github.com/go-errors/errors"
 )
 
 // PublicKey is the lazer-specific issuer public key: a Falcon-512 public key
@@ -127,6 +129,24 @@ func NewPrivateKeyFromFile(filename string, _ bool) (*PrivateKey, error) {
 		return nil, err
 	}
 	return privk, nil
+}
+
+// KeysCorrespond reports whether sk is the private key belonging to pk. The
+// lazer private key carries the matching public blob alongside the secret one
+// (anoncred_signer_init needs both), so the check is that the two agree.
+func KeysCorrespond(pk gabikeys.PublicKey, sk gabikeys.PrivateKey) (bool, error) {
+	pubk, ok := pk.(*PublicKey)
+	if !ok {
+		return false, errors.New("KeysCorrespond: unsupported public key type")
+	}
+	privk, ok := sk.(*PrivateKey)
+	if !ok {
+		return false, errors.New("KeysCorrespond: unsupported private key type")
+	}
+	if privk.Counter != pubk.Counter {
+		return false, nil
+	}
+	return bytes.Equal(pubk.Pk, privk.Pk), nil
 }
 
 // GenerateKeyPair generates a lazer (Falcon-512) issuer keypair. The seed is

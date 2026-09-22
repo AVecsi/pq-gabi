@@ -13,6 +13,7 @@ var (
 	NewPrivateKeyFromFile = lazeranon.NewPrivateKeyFromFile
 	NewPublicKeyFromFile  = lazeranon.NewPublicKeyFromFile
 	NewPublicKeyFromBytes = lazeranon.NewPublicKeyFromBytes
+	KeysCorrespond        = lazeranon.KeysCorrespond
 )
 
 // Signing.

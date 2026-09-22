@@ -82,6 +82,18 @@ func (p *Poseidon) Sum(b []byte) []byte {
 	return b
 }
 
+// State returns a copy of the full permutation state, all posT elements of it.
+//
+// This exists for one reason: the zkDilithium STARK needs the Poseidon state
+// that results from absorbing an issuer's tr = H(rho||t) as a public input, so
+// that the circuit is bound to a specific issuer key rather than to a
+// compiled-in constant. See PublicKey.ProofInputs in the zkdil package.
+func (p *Poseidon) State() []int {
+	s := make([]int, len(p.s))
+	copy(s, p.s)
+	return s
+}
+
 // Reset resets the Poseidon state
 func (p *Poseidon) Reset() {
 	p.s = make([]int, p.posT)

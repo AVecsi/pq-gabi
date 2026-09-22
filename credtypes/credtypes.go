@@ -1,7 +1,10 @@
 // credtypes/credtypes.go
 package credtypes
 
-import "github.com/AVecsi/pq-gabi/attribute"
+import (
+	"github.com/AVecsi/pq-gabi/attribute"
+	"github.com/AVecsi/pq-gabi/gabikeys"
+)
 
 type Signature interface {
 	Verify() (bool, error)
@@ -9,7 +12,10 @@ type Signature interface {
 }
 
 type SignatureProof interface {
-	Verify() bool
+	// Verify checks the proof against the issuer public key the verifier
+	// trusts. The key is supplied by the caller and never taken from the
+	// proof: a proof made under a different issuer key must fail here.
+	Verify(pk gabikeys.PublicKey) bool
 	ProofBytes() []byte
 	SaltedCredHash() []byte
 	Salt() []byte
@@ -54,10 +60,15 @@ type CredentialDisclosure interface {
 // into the backends' challenge derivation; see PQ_INTEGRATION_PLAN.md §8.2.
 // Treat the current state as correct plumbing, not as replay resistance.
 type DisclosureProof interface {
-	// Verify reports whether the proof is valid for the given session nonce.
-	// It returns false if nonce is empty, if it differs from the nonce the
-	// proof carries, or if the cryptographic checks fail.
-	Verify(nonce []byte) bool
+	// Verify reports whether the proof is valid for the given issuer public
+	// keys and session nonce.
+	//
+	// Each credential disclosure is checked against the public key at the same
+	// position in publicKeys, so len(publicKeys) must equal
+	// len(CredentialDisclosures()). It returns false if that does not hold, if
+	// nonce is empty, if the nonce differs from the one the proof carries, or
+	// if the cryptographic checks fail.
+	Verify(publicKeys []gabikeys.PublicKey, nonce []byte) bool
 	CredentialDisclosures() []CredentialDisclosure
 	AttrProof() []byte
 	// Nonce returns the session nonce this proof was created for.
