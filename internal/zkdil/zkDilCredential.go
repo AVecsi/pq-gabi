@@ -31,6 +31,7 @@ package zkdil
 import "C"
 
 import (
+	"crypto/subtle"
 	"encoding/json"
 	"fmt"
 	"unsafe"
@@ -66,6 +67,11 @@ type zkDilCredentialDisclosure struct {
 type zkDilDisclosureProof struct {
 	AttrProofBytes  []byte                           `json:"attrProof"`
 	CredDisclosures []credtypes.CredentialDisclosure `json:"credentialDisclosures"`
+	// NonceBytes is the verifier's per-session challenge this proof was made
+	// for. Carried so Verify can reject a proof presented to a different
+	// session. NOT an input to prove_attributes yet — see
+	// credtypes.DisclosureProof for the limits of that.
+	NonceBytes []byte `json:"nonce"`
 }
 
 // NewCredential constructs a zkDilCredential.
@@ -138,10 +144,16 @@ func NewCredential(
 }
 
 // CreateDisclosureProof combines multiple credentials and their disclosures
-// into a single zkdil proof.
-func CreateDisclosureProof(credentials []credtypes.Credential, disclosures []credtypes.CredentialDisclosure) (credtypes.DisclosureProof, error) {
+// into a single zkdil proof, bound to the verifier's session nonce.
+func CreateDisclosureProof(credentials []credtypes.Credential, disclosures []credtypes.CredentialDisclosure, nonce []byte) (credtypes.DisclosureProof, error) {
 	if len(credentials) != len(disclosures) {
 		return nil, errors.New("credentials and disclosures count must match")
+	}
+	// Refused rather than defaulted: a zero-length nonce is the same challenge
+	// in every session, so it binds nothing while producing a proof that looks
+	// bound to anything inspecting it.
+	if len(nonce) == 0 {
+		return nil, errors.New("CreateDisclosureProof: empty session nonce")
 	}
 
 	n := len(credentials)
@@ -205,6 +217,7 @@ func CreateDisclosureProof(credentials []credtypes.Credential, disclosures []cre
 	return &zkDilDisclosureProof{
 		AttrProofBytes:  proofBytes,
 		CredDisclosures: disclosures,
+		NonceBytes:      nonce,
 	}, nil
 }
 
@@ -335,7 +348,20 @@ func (d *zkDilCredentialDisclosure) SignatureProof() credtypes.SignatureProof {
 
 // --- gabi.DisclosureProof ---
 
-func (p *zkDilDisclosureProof) Verify() bool {
+func (p *zkDilDisclosureProof) Verify(nonce []byte) bool {
+	// Before any cryptography: this proof must have been made for the session
+	// being verified. Constant-time, and an empty expected nonce always fails,
+	// so a caller that forgot to thread one through cannot accidentally accept
+	// a proof made for some other session.
+	if len(nonce) == 0 {
+		fmt.Println("Disclosure proof verification failed: empty session nonce.")
+		return false
+	}
+	if subtle.ConstantTimeCompare(p.NonceBytes, nonce) != 1 {
+		fmt.Println("Disclosure proof verification failed: session nonce mismatch.")
+		return false
+	}
+
 	for _, credDiscl := range p.CredDisclosures {
 		if !credDiscl.SignatureProof().Verify() {
 			fmt.Println("Signature proof verification failed.")
@@ -398,6 +424,10 @@ func (p *zkDilDisclosureProof) AttrProof() []byte {
 	return p.AttrProofBytes
 }
 
+func (p *zkDilDisclosureProof) Nonce() []byte {
+	return p.NonceBytes
+}
+
 func (p *zkDilDisclosureProof) CredentialDisclosures() []credtypes.CredentialDisclosure {
 	return p.CredDisclosures
 }
@@ -414,12 +444,14 @@ func (p *zkDilDisclosureProof) UnmarshalJSON(data []byte) error {
 	var raw struct {
 		AttrProof             []byte            `json:"attrProof"`
 		CredentialDisclosures []json.RawMessage `json:"credentialDisclosures"`
+		Nonce                 []byte            `json:"nonce"`
 	}
 	if err := json.Unmarshal(data, &raw); err != nil {
 		return err
 	}
 
 	p.AttrProofBytes = raw.AttrProof
+	p.NonceBytes = raw.Nonce
 
 	for _, rawDisc := range raw.CredentialDisclosures {
 		var disc zkDilCredentialDisclosure

@@ -4,6 +4,7 @@ package lazeranon
 
 import (
 	"bytes"
+	"crypto/subtle"
 	"encoding/json"
 
 	"github.com/AVecsi/pq-gabi/attribute"
@@ -35,6 +36,11 @@ type lazerCredentialDisclosure struct {
 // separate cross-credential attribute proof.
 type lazerDisclosureProof struct {
 	CredDisclosures []credtypes.CredentialDisclosure `json:"credentialDisclosures"`
+	// NonceBytes is the verifier's per-session challenge this proof was made
+	// for. Carried so Verify can reject a proof presented to a different
+	// session. NOT an input to AnonUserDisclose yet — see
+	// credtypes.DisclosureProof for the limits of that.
+	NonceBytes []byte `json:"nonce"`
 }
 
 // lazerSignatureProof implements credtypes.SignatureProof. It wraps the lazer
@@ -90,12 +96,25 @@ func NewCredential(
 }
 
 // CreateDisclosureProof bundles the per-credential disclosures (the proofs were
-// already produced in CreateDisclosure).
-func CreateDisclosureProof(credentials []credtypes.Credential, disclosures []credtypes.CredentialDisclosure) (credtypes.DisclosureProof, error) {
+// already produced in CreateDisclosure) and binds them to the verifier's
+// session nonce.
+//
+// Note for whoever completes the cryptographic binding: unlike zkDilithium,
+// lazer produces its proof in Credential.CreateDisclosure, one per credential,
+// and this function only bundles them. So the nonce has to reach
+// CreateDisclosure (whose signature is fixed by credtypes.Credential) rather
+// than this function. Binding it here is not possible.
+func CreateDisclosureProof(credentials []credtypes.Credential, disclosures []credtypes.CredentialDisclosure, nonce []byte) (credtypes.DisclosureProof, error) {
 	if len(credentials) != len(disclosures) {
 		return nil, errors.New("lazeranon: credentials and disclosures count must match")
 	}
-	return &lazerDisclosureProof{CredDisclosures: disclosures}, nil
+	// Refused rather than defaulted: a zero-length nonce is the same challenge
+	// in every session, so it binds nothing while producing a proof that looks
+	// bound to anything inspecting it.
+	if len(nonce) == 0 {
+		return nil, errors.New("lazeranon.CreateDisclosureProof: empty session nonce")
+	}
+	return &lazerDisclosureProof{CredDisclosures: disclosures, NonceBytes: nonce}, nil
 }
 
 // --- credtypes.Credential ---
@@ -163,11 +182,13 @@ func (c *lazerCredential) CreateDisclosure(disclosedAttributeIndices []int) (cre
 
 // --- credtypes.CredentialDisclosure ---
 
-func (d *lazerCredentialDisclosure) DisclosedAttributes() []*attribute.Attribute { return d.DisclosedAttrs }
-func (d *lazerCredentialDisclosure) DisclosedAttributeIndices() []int            { return d.DisclosedAttrIndices }
-func (d *lazerCredentialDisclosure) NumOfAllAttributes() int                     { return d.NumAllAttributes }
-func (d *lazerCredentialDisclosure) NumOfUserAttributes() int                    { return d.NumUserAttributes }
-func (d *lazerCredentialDisclosure) SignatureProof() credtypes.SignatureProof    { return d.SigProof }
+func (d *lazerCredentialDisclosure) DisclosedAttributes() []*attribute.Attribute {
+	return d.DisclosedAttrs
+}
+func (d *lazerCredentialDisclosure) DisclosedAttributeIndices() []int         { return d.DisclosedAttrIndices }
+func (d *lazerCredentialDisclosure) NumOfAllAttributes() int                  { return d.NumAllAttributes }
+func (d *lazerCredentialDisclosure) NumOfUserAttributes() int                 { return d.NumUserAttributes }
+func (d *lazerCredentialDisclosure) SignatureProof() credtypes.SignatureProof { return d.SigProof }
 
 // --- credtypes.SignatureProof ---
 
@@ -187,7 +208,18 @@ func (p *lazerSignatureProof) Salt() []byte           { return nil } // unused b
 // message from the claimed disclosed attribute values at their block positions
 // (binding the human-meaningful values to the cryptographic proof), checks it
 // matches the proof's public message, then verifies the lazer proof.
-func (p *lazerDisclosureProof) Verify() bool {
+func (p *lazerDisclosureProof) Verify(nonce []byte) bool {
+	// Before any cryptography: this proof must have been made for the session
+	// being verified. Constant-time, and an empty expected nonce always fails,
+	// so a caller that forgot to thread one through cannot accidentally accept
+	// a proof made for some other session.
+	if len(nonce) == 0 {
+		return false
+	}
+	if subtle.ConstantTimeCompare(p.NonceBytes, nonce) != 1 {
+		return false
+	}
+
 	for _, cd := range p.CredDisclosures {
 		sp, ok := cd.SignatureProof().(*lazerSignatureProof)
 		if !ok {
@@ -221,6 +253,8 @@ func (p *lazerDisclosureProof) Verify() bool {
 // AttrProof returns nil: lazer has no separate cross-credential attribute proof.
 func (p *lazerDisclosureProof) AttrProof() []byte { return nil }
 
+func (p *lazerDisclosureProof) Nonce() []byte { return p.NonceBytes }
+
 func (p *lazerDisclosureProof) CredentialDisclosures() []credtypes.CredentialDisclosure {
 	return p.CredDisclosures
 }
@@ -238,10 +272,12 @@ func ParseDisclosureProof(data []byte) (credtypes.DisclosureProof, error) {
 func (p *lazerDisclosureProof) UnmarshalJSON(data []byte) error {
 	var raw struct {
 		CredentialDisclosures []json.RawMessage `json:"credentialDisclosures"`
+		Nonce                 []byte            `json:"nonce"`
 	}
 	if err := json.Unmarshal(data, &raw); err != nil {
 		return err
 	}
+	p.NonceBytes = raw.Nonce
 	for _, rawDisc := range raw.CredentialDisclosures {
 		var disc lazerCredentialDisclosure
 		if err := json.Unmarshal(rawDisc, &disc); err != nil {

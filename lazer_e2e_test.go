@@ -10,6 +10,7 @@ package gabi
 // Run: DYLD_LIBRARY_PATH=<lazer repo> go test -tags lazer -run Lazer -v .
 
 import (
+	"bytes"
 	"crypto/rand"
 	"encoding/json"
 	"testing"
@@ -67,11 +68,22 @@ func discloseAndVerify(t *testing.T, cred Credential, indices []int) bool {
 	if err != nil {
 		t.Fatalf("CreateDisclosure: %v", err)
 	}
-	dp, err := CreateDisclosureProof([]Credential{cred}, []CredentialDisclosure{cd})
+	nonce := testNonce(t)
+	dp, err := CreateDisclosureProof([]Credential{cred}, []CredentialDisclosure{cd}, nonce)
 	if err != nil {
 		t.Fatalf("CreateDisclosureProof: %v", err)
 	}
-	return dp.Verify()
+	return dp.Verify(nonce)
+}
+
+// testNonce returns a fresh stand-in for the verifier's per-session challenge.
+func testNonce(t *testing.T) []byte {
+	t.Helper()
+	n := make([]byte, 32)
+	if _, err := rand.Read(n); err != nil {
+		t.Fatalf("rand: %v", err)
+	}
+	return n
 }
 
 func TestLazerEndToEnd(t *testing.T) {
@@ -143,11 +155,72 @@ func TestLazerNegativeControl(t *testing.T) {
 	tampered := makeAttrs(t, 1)[0]
 	cd.DisclosedAttributes()[0] = tampered
 
-	dp, err := CreateDisclosureProof([]Credential{cred}, []CredentialDisclosure{cd})
+	nonce := testNonce(t)
+	dp, err := CreateDisclosureProof([]Credential{cred}, []CredentialDisclosure{cd}, nonce)
 	if err != nil {
 		t.Fatalf("CreateDisclosureProof: %v", err)
 	}
-	if dp.Verify() {
+	if dp.Verify(nonce) {
 		t.Fatal("negative control FAILED: accepted a tampered disclosed attribute")
+	}
+}
+
+// TestLazerNoncePlumbing covers the session-nonce checks: a proof verifies
+// under the nonce it was made for, and is refused under any other nonce or
+// under no nonce at all. This is the transport-level check only -- the nonce is
+// not yet an input to the lazer proof itself, so it does not survive an
+// attacker who edits the nonce field. See credtypes.DisclosureProof.
+func TestLazerNoncePlumbing(t *testing.T) {
+	attrs := makeAttrs(t, 8)
+	cred, _ := issue(t, attrs, 1)
+
+	cd, err := cred.CreateDisclosure([]int{1, 2})
+	if err != nil {
+		t.Fatalf("CreateDisclosure: %v", err)
+	}
+
+	nonce := testNonce(t)
+	dp, err := CreateDisclosureProof([]Credential{cred}, []CredentialDisclosure{cd}, nonce)
+	if err != nil {
+		t.Fatalf("CreateDisclosureProof: %v", err)
+	}
+
+	if !dp.Verify(nonce) {
+		t.Fatal("proof rejected under the nonce it was created for")
+	}
+	if dp.Verify(testNonce(t)) {
+		t.Fatal("proof accepted under a different nonce (replay would succeed)")
+	}
+	if dp.Verify(nil) {
+		t.Fatal("proof accepted with no nonce")
+	}
+	if dp.Verify([]byte{}) {
+		t.Fatal("proof accepted with an empty nonce")
+	}
+
+	// An empty nonce must be refused at construction, not silently defaulted.
+	cd2, err := cred.CreateDisclosure([]int{1})
+	if err != nil {
+		t.Fatalf("CreateDisclosure: %v", err)
+	}
+	if _, err := CreateDisclosureProof([]Credential{cred}, []CredentialDisclosure{cd2}, nil); err == nil {
+		t.Fatal("CreateDisclosureProof accepted an empty nonce")
+	}
+
+	// The nonce must survive the wire round-trip, or a verifier that parses a
+	// proof would see an empty one and refuse every session.
+	bts, err := json.Marshal(dp)
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+	parsed, err := ParseDisclosureProof(bts)
+	if err != nil {
+		t.Fatalf("ParseDisclosureProof: %v", err)
+	}
+	if !bytes.Equal(parsed.Nonce(), nonce) {
+		t.Fatalf("nonce lost in round-trip: got %x want %x", parsed.Nonce(), nonce)
+	}
+	if !parsed.Verify(nonce) {
+		t.Fatal("round-tripped proof rejected under its own nonce")
 	}
 }

@@ -119,9 +119,17 @@ func Test() {
 
 			start = time.Now()
 
+			// Stands in for the verifier's per-session challenge, which in a
+			// real session arrives in the session request.
+			sessionNonce := make([]byte, 32)
+			if _, err := rand.Read(sessionNonce); err != nil {
+				panic(err)
+			}
+
 			disclosureProof, err := CreateDisclosureProof(
 				[]Credential{cred},
 				[]CredentialDisclosure{credDisclosure},
+				sessionNonce,
 			)
 			if err != nil {
 				panic(err)
@@ -167,7 +175,7 @@ func Test() {
 
 			start = time.Now()
 
-			if disclosureProof.Verify() {
+			if disclosureProof.Verify(sessionNonce) {
 				verifyTime := time.Since(start)
 				verifySum += verifyTime
 
