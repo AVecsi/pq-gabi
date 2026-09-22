@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/AVecsi/pq-gabi/big"
+	"github.com/AVecsi/pq-gabi/gabikeys"
 )
 
 func makeAttrs(t *testing.T, n int) []*Attribute {
@@ -31,9 +32,10 @@ func makeAttrs(t *testing.T, n int) []*Attribute {
 	return attrs
 }
 
-// issue runs commit -> issue -> credential, returning the credential and the
-// opening (so callers can also build a reloaded credential).
-func issue(t *testing.T, attrs []*Attribute, userAttrCount int) (Credential, Signature) {
+// issue runs commit -> issue -> credential, returning the credential, its
+// signature (so callers can also build a reloaded credential) and the issuer
+// public key a verifier needs.
+func issue(t *testing.T, attrs []*Attribute, userAttrCount int) (Credential, Signature, gabikeys.PublicKey) {
 	t.Helper()
 
 	// Option C (IRMA-fit): the user commits ONLY the hidden/secret attributes;
@@ -43,9 +45,9 @@ func issue(t *testing.T, attrs []*Attribute, userAttrCount int) (Credential, Sig
 		t.Fatalf("Commit: %v", err)
 	}
 
-	sk, pk, err := GenerateKeyPair(make([]byte, 32), 0, time.Now().AddDate(1, 0, 0))
+	sk, pk, err := GenerateRandomKeyPair(0, time.Now().AddDate(1, 0, 0))
 	if err != nil {
-		t.Fatalf("GenerateKeyPair: %v", err)
+		t.Fatalf("GenerateRandomKeyPair: %v", err)
 	}
 	issuer := NewIssuer(sk, pk, *big.NewInt(1))
 
@@ -58,10 +60,10 @@ func issue(t *testing.T, attrs []*Attribute, userAttrCount int) (Credential, Sig
 	if err != nil {
 		t.Fatalf("NewCredential: %v", err)
 	}
-	return cred, sig
+	return cred, sig, pk
 }
 
-func discloseAndVerify(t *testing.T, cred Credential, indices []int) bool {
+func discloseAndVerify(t *testing.T, cred Credential, pk gabikeys.PublicKey, indices []int) bool {
 	t.Helper()
 	cd, err := cred.CreateDisclosure(indices)
 	if err != nil {
@@ -71,21 +73,30 @@ func discloseAndVerify(t *testing.T, cred Credential, indices []int) bool {
 	if err != nil {
 		t.Fatalf("CreateDisclosureProof: %v", err)
 	}
-	return dp.Verify()
+	return dp.Verify([]gabikeys.PublicKey{pk})
 }
 
 func TestLazerEndToEnd(t *testing.T) {
 	attrs := makeAttrs(t, 8) // attr0 = hidden link secret, attrs1..7 public
-	cred, _ := issue(t, attrs, 1)
+	cred, _, pk := issue(t, attrs, 1)
 
-	if !discloseAndVerify(t, cred, []int{2}) {
+	if !discloseAndVerify(t, cred, pk, []int{2}) {
 		t.Fatal("honest disclosure of attr 2 did NOT verify")
 	}
-	if !discloseAndVerify(t, cred, []int{2, 5}) {
+	if !discloseAndVerify(t, cred, pk, []int{2, 5}) {
 		t.Fatal("honest disclosure of attrs {2,5} did NOT verify")
 	}
-	if !discloseAndVerify(t, cred, []int{}) {
+	if !discloseAndVerify(t, cred, pk, []int{}) {
 		t.Fatal("honest disclosure of nothing did NOT verify")
+	}
+
+	// A different issuer's key must not verify this credential.
+	_, otherPk, err := GenerateRandomKeyPair(0, time.Now().AddDate(1, 0, 0))
+	if err != nil {
+		t.Fatalf("GenerateRandomKeyPair: %v", err)
+	}
+	if discloseAndVerify(t, cred, otherPk, []int{2}) {
+		t.Fatal("disclosure verified under a different issuer public key")
 	}
 }
 
@@ -94,9 +105,9 @@ func TestLazerEndToEnd(t *testing.T) {
 func TestLazerTiers(t *testing.T) {
 	for _, total := range []int{2, 9, 20, 33, 50, 61} { // 1 secret + (total-1) public
 		attrs := makeAttrs(t, total)
-		cred, _ := issue(t, attrs, 1)
+		cred, _, pk := issue(t, attrs, 1)
 		// disclose the last public attribute (largest index) and verify.
-		if !discloseAndVerify(t, cred, []int{total - 1}) {
+		if !discloseAndVerify(t, cred, pk, []int{total - 1}) {
 			t.Fatalf("tier for %d attributes: disclosure did NOT verify", total)
 		}
 		t.Logf("%d attributes (%d public): VERIFIED", total, total-1)
@@ -105,7 +116,7 @@ func TestLazerTiers(t *testing.T) {
 
 func TestLazerReloadFromSignature(t *testing.T) {
 	attrs := makeAttrs(t, 8)
-	cred, sig := issue(t, attrs, 1)
+	cred, sig, pk := issue(t, attrs, 1)
 
 	// Serialize the signature (now carrying the opening) and reload it, as the
 	// client would after restarting and re-reading credential storage.
@@ -124,7 +135,7 @@ func TestLazerReloadFromSignature(t *testing.T) {
 		t.Fatalf("NewCredential (reload): %v", err)
 	}
 
-	if !discloseAndVerify(t, reloaded, []int{3}) {
+	if !discloseAndVerify(t, reloaded, pk, []int{3}) {
 		t.Fatal("disclosure from reloaded credential did NOT verify")
 	}
 	_ = cred
@@ -132,7 +143,7 @@ func TestLazerReloadFromSignature(t *testing.T) {
 
 func TestLazerNegativeControl(t *testing.T) {
 	attrs := makeAttrs(t, 8)
-	cred, _ := issue(t, attrs, 1)
+	cred, _, pk := issue(t, attrs, 1)
 
 	cd, err := cred.CreateDisclosure([]int{4})
 	if err != nil {
@@ -147,7 +158,7 @@ func TestLazerNegativeControl(t *testing.T) {
 	if err != nil {
 		t.Fatalf("CreateDisclosureProof: %v", err)
 	}
-	if dp.Verify() {
+	if dp.Verify([]gabikeys.PublicKey{pk}) {
 		t.Fatal("negative control FAILED: accepted a tampered disclosed attribute")
 	}
 }

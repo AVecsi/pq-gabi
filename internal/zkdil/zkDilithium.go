@@ -45,7 +45,12 @@ import (
 	"github.com/AVecsi/pq-gabi/internal/zkdil/algebra"
 	"github.com/AVecsi/pq-gabi/internal/zkdil/poseidon"
 	"github.com/go-errors/errors"
+	"github.com/sirupsen/logrus"
 )
+
+// log reports conditions that make a proof unverifiable but are not a caller
+// error, such as being handed an issuer public key of the wrong type.
+var log = logrus.StandardLogger()
 
 const POS_T = 35
 const POS_RATE = 24
@@ -147,10 +152,11 @@ func Sign(pk gabikeys.PublicKey, sk gabikeys.PrivateKey, msg []uint32) (credtype
 		return nil, errors.New("Sign: unsupported private key type")
 	}
 
-	// Pack t
-	tPacked := pubK.T.Pack()
-	// Compute tr = H(rho + tPacked, 32)
-	tr := common.H(append(pubK.Rho, tPacked...), 32)
+	// Compute tr = H(rho || pack(t))
+	tr, err := pubK.tr()
+	if err != nil {
+		return nil, err
+	}
 
 	// Sample matrix Ahat
 	Ahat := algebra.SampleMatrix(pubK.Rho)
@@ -222,9 +228,14 @@ func Sign(pk gabikeys.PublicKey, sk gabikeys.PrivateKey, msg []uint32) (credtype
 func (sig *zkDilSignature) Verify() (bool, error) {
 
 	pk := sig.Pk
+	if pk == nil {
+		return false, errors.New("signature carries no public key")
+	}
 
-	tPacked := pk.T.Pack()
-	tr := common.H(append(pk.Rho, tPacked...), 32)
+	tr, err := pk.tr()
+	if err != nil {
+		return false, err
+	}
 
 	// Poseidon hash of message
 	h := poseidon.NewPoseidon([]int{0}, POS_RF, POS_T, POS_RATE, dilcommon.Q)
@@ -303,10 +314,19 @@ func (sig *zkDilSignature) CreateProof() (credtypes.SignatureProof, error) {
 	if err != nil {
 		return nil, err
 	}
-	return expanded.createProof(), nil
+	return expanded.createProof()
 }
 
-func (e *zkDilSignatureExpanded) createProof() credtypes.SignatureProof {
+func (e *zkDilSignatureExpanded) createProof() (credtypes.SignatureProof, error) {
+	if e.sig.Pk == nil {
+		return nil, errors.New("signature carries no public key")
+	}
+	// The circuit is bound to the issuer key the signature was made under.
+	issuer, err := e.sig.Pk.proofInputs()
+	if err != nil {
+		return nil, err
+	}
+
 	cTildeUint32 := dilcommon.IntsToUint32s(e.sig.CTilde)
 
 	// TODO: generate randomly
@@ -328,6 +348,9 @@ func (e *zkDilSignatureExpanded) createProof() credtypes.SignatureProof {
 		(*C.uint32_t)(&saltedHash[0]),
 		(*C.uint32_t)(&comr[0]),
 		(*C.uint32_t)(&salt[0]),
+		(*C.uint32_t)(&issuer.htr[0]),
+		(*C.uint32_t)(&issuer.t[0]),
+		(*C.uint32_t)(&issuer.a[0]),
 		(*C.size_t)(unsafe.Pointer(&length)),
 	)
 
@@ -338,15 +361,43 @@ func (e *zkDilSignatureExpanded) createProof() credtypes.SignatureProof {
 		Proof:      proofBytes,
 		SaltedHash: saltedHash,
 		Salt_:      salt,
-	}
+	}, nil
 }
 
-func (p *signatureProof) Verify() bool {
+// Verify checks the proof against the issuer public key the caller trusts.
+//
+// The key is a parameter rather than something carried inside the proof on
+// purpose: the relying party decides which issuer it accepts, and a proof made
+// under any other key fails here. Passing a key of the wrong type, or one this
+// build cannot derive circuit inputs from, is a verification failure rather
+// than an error, so a malformed key can never be mistaken for a valid proof.
+func (p *signatureProof) Verify(pk gabikeys.PublicKey) bool {
+	pubK, ok := pk.(*PublicKey)
+	if !ok {
+		log.Warn("zkdil: signature proof verification got a non-zkDilithium public key")
+		return false
+	}
+	issuer, err := pubK.proofInputs()
+	if err != nil {
+		log.WithError(err).Warn("zkdil: cannot derive circuit inputs from issuer public key")
+		return false
+	}
+	if len(p.SaltedHash) == 0 || len(p.Salt_) == 0 {
+		log.Warn("zkdil: signature proof is missing its salted hash or salt")
+		return false
+	}
+
+	proofBytes := C.CBytes(p.Proof)
+	defer C.free(proofBytes)
+
 	return C.verify_signature(
-		(*C.uchar)(C.CBytes(p.Proof)),
+		(*C.uchar)(proofBytes),
 		(C.size_t)(len(p.Proof)),
 		(*C.uint32_t)(&p.SaltedHash[0]),
 		(*C.uint32_t)(&p.Salt_[0]),
+		(*C.uint32_t)(&issuer.htr[0]),
+		(*C.uint32_t)(&issuer.t[0]),
+		(*C.uint32_t)(&issuer.a[0]),
 	) == 1
 }
 

@@ -8,6 +8,7 @@ import (
 
 	"github.com/AVecsi/pq-gabi/attribute"
 	"github.com/AVecsi/pq-gabi/credtypes"
+	"github.com/AVecsi/pq-gabi/gabikeys"
 	"github.com/go-errors/errors"
 
 	"github.com/AVecsi/lazer"
@@ -163,16 +164,32 @@ func (c *lazerCredential) CreateDisclosure(disclosedAttributeIndices []int) (cre
 
 // --- credtypes.CredentialDisclosure ---
 
-func (d *lazerCredentialDisclosure) DisclosedAttributes() []*attribute.Attribute { return d.DisclosedAttrs }
-func (d *lazerCredentialDisclosure) DisclosedAttributeIndices() []int            { return d.DisclosedAttrIndices }
-func (d *lazerCredentialDisclosure) NumOfAllAttributes() int                     { return d.NumAllAttributes }
-func (d *lazerCredentialDisclosure) NumOfUserAttributes() int                    { return d.NumUserAttributes }
-func (d *lazerCredentialDisclosure) SignatureProof() credtypes.SignatureProof    { return d.SigProof }
+func (d *lazerCredentialDisclosure) DisclosedAttributes() []*attribute.Attribute {
+	return d.DisclosedAttrs
+}
+func (d *lazerCredentialDisclosure) DisclosedAttributeIndices() []int         { return d.DisclosedAttrIndices }
+func (d *lazerCredentialDisclosure) NumOfAllAttributes() int                  { return d.NumAllAttributes }
+func (d *lazerCredentialDisclosure) NumOfUserAttributes() int                 { return d.NumUserAttributes }
+func (d *lazerCredentialDisclosure) SignatureProof() credtypes.SignatureProof { return d.SigProof }
 
 // --- credtypes.SignatureProof ---
 
-func (p *lazerSignatureProof) Verify() bool {
-	verifier := lazer.AnonVerifierInit(p.Pk, p.Tier)
+// Verify checks the proof against the issuer public key the verifier trusts.
+//
+// The proof carries a copy of the issuer key because lazer's verifier needs the
+// Falcon-512 blob, but that copy is chosen by the prover and so proves nothing
+// on its own. The trusted key passed in here is what decides: if the proof's
+// own key does not match it, the credential was issued by somebody else and
+// this is a verification failure.
+func (p *lazerSignatureProof) Verify(pk gabikeys.PublicKey) bool {
+	pubK, ok := pk.(*PublicKey)
+	if !ok {
+		return false
+	}
+	if !bytes.Equal(pubK.Pk, p.Pk) {
+		return false
+	}
+	verifier := lazer.AnonVerifierInit(pubK.Pk, p.Tier)
 	defer lazer.AnonVerifierClear(&verifier)
 	return lazer.AnonVerifierVrfy(&verifier, p.MsgPub, p.PubMvec, p.Proof) == 1
 }
@@ -187,8 +204,11 @@ func (p *lazerSignatureProof) Salt() []byte           { return nil } // unused b
 // message from the claimed disclosed attribute values at their block positions
 // (binding the human-meaningful values to the cryptographic proof), checks it
 // matches the proof's public message, then verifies the lazer proof.
-func (p *lazerDisclosureProof) Verify() bool {
-	for _, cd := range p.CredDisclosures {
+func (p *lazerDisclosureProof) Verify(publicKeys []gabikeys.PublicKey) bool {
+	if len(publicKeys) != len(p.CredDisclosures) {
+		return false
+	}
+	for i, cd := range p.CredDisclosures {
 		sp, ok := cd.SignatureProof().(*lazerSignatureProof)
 		if !ok {
 			return false
@@ -211,7 +231,7 @@ func (p *lazerDisclosureProof) Verify() bool {
 		if !bytes.Equal(expected, sp.MsgPub) {
 			return false
 		}
-		if !sp.Verify() {
+		if !sp.Verify(publicKeys[i]) {
 			return false
 		}
 	}

@@ -20,6 +20,7 @@ var (
 	NewPrivateKeyFromFile = zkdil.NewPrivateKeyFromFile
 	NewPublicKeyFromFile  = zkdil.NewPublicKeyFromFile
 	NewPublicKeyFromBytes = zkdil.NewPublicKeyFromBytes
+	KeysCorrespond        = zkdil.KeysCorrespond
 )
 
 // Signing.

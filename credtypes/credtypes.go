@@ -1,7 +1,10 @@
 // credtypes/credtypes.go
 package credtypes
 
-import "github.com/AVecsi/pq-gabi/attribute"
+import (
+	"github.com/AVecsi/pq-gabi/attribute"
+	"github.com/AVecsi/pq-gabi/gabikeys"
+)
 
 type Signature interface {
 	Verify() (bool, error)
@@ -9,7 +12,10 @@ type Signature interface {
 }
 
 type SignatureProof interface {
-	Verify() bool
+	// Verify checks the proof against the issuer public key the verifier
+	// trusts. The key is supplied by the caller and never taken from the
+	// proof: a proof made under a different issuer key must fail here.
+	Verify(pk gabikeys.PublicKey) bool
 	ProofBytes() []byte
 	SaltedCredHash() []byte
 	Salt() []byte
@@ -32,7 +38,10 @@ type CredentialDisclosure interface {
 }
 
 type DisclosureProof interface {
-	Verify() bool
+	// Verify checks every credential disclosure against the issuer public key
+	// at the same position in publicKeys, so len(publicKeys) must equal
+	// len(CredentialDisclosures()).
+	Verify(publicKeys []gabikeys.PublicKey) bool
 	CredentialDisclosures() []CredentialDisclosure
 	AttrProof() []byte
 }
