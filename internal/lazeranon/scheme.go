@@ -66,7 +66,7 @@ func (s *lazerSignature) Verify() (bool, error) {
 // CreateProof is unused by the lazer backend: the disclosure proof is produced
 // by Credential.CreateDisclosure (which has the opening, the public attribute
 // values, and the disclosed indices), not from the signature alone.
-func (s *lazerSignature) CreateProof() (credtypes.SignatureProof, error) {
+func (s *lazerSignature) CreateProof(nonce []byte) (credtypes.SignatureProof, error) {
 	return nil, errors.New("lazeranon: CreateProof is not used; disclosure proof is built in CreateDisclosure")
 }
 

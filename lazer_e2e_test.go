@@ -66,11 +66,11 @@ func issue(t *testing.T, attrs []*Attribute, userAttrCount int) (Credential, Sig
 
 func discloseAndVerify(t *testing.T, cred Credential, pk gabikeys.PublicKey, indices []int) bool {
 	t.Helper()
-	cd, err := cred.CreateDisclosure(indices)
+	nonce := testNonce(t)
+	cd, err := cred.CreateDisclosure(indices, nonce)
 	if err != nil {
 		t.Fatalf("CreateDisclosure: %v", err)
 	}
-	nonce := testNonce(t)
 	dp, err := CreateDisclosureProof([]Credential{cred}, []CredentialDisclosure{cd}, nonce)
 	if err != nil {
 		t.Fatalf("CreateDisclosureProof: %v", err)
@@ -157,7 +157,8 @@ func TestLazerNegativeControl(t *testing.T) {
 	attrs := makeAttrs(t, 8)
 	cred, _, pk := issue(t, attrs, 1)
 
-	cd, err := cred.CreateDisclosure([]int{4})
+	nonce := testNonce(t)
+	cd, err := cred.CreateDisclosure([]int{4}, nonce)
 	if err != nil {
 		t.Fatalf("CreateDisclosure: %v", err)
 	}
@@ -166,7 +167,6 @@ func TestLazerNegativeControl(t *testing.T) {
 	tampered := makeAttrs(t, 1)[0]
 	cd.DisclosedAttributes()[0] = tampered
 
-	nonce := testNonce(t)
 	dp, err := CreateDisclosureProof([]Credential{cred}, []CredentialDisclosure{cd}, nonce)
 	if err != nil {
 		t.Fatalf("CreateDisclosureProof: %v", err)
@@ -186,12 +186,12 @@ func TestLazerNoncePlumbing(t *testing.T) {
 	cred, _, pk := issue(t, attrs, 1)
 	keys := []gabikeys.PublicKey{pk}
 
-	cd, err := cred.CreateDisclosure([]int{1, 2})
+	nonce := testNonce(t)
+	cd, err := cred.CreateDisclosure([]int{1, 2}, nonce)
 	if err != nil {
 		t.Fatalf("CreateDisclosure: %v", err)
 	}
 
-	nonce := testNonce(t)
 	dp, err := CreateDisclosureProof([]Credential{cred}, []CredentialDisclosure{cd}, nonce)
 	if err != nil {
 		t.Fatalf("CreateDisclosureProof: %v", err)
@@ -211,7 +211,7 @@ func TestLazerNoncePlumbing(t *testing.T) {
 	}
 
 	// An empty nonce must be refused at construction, not silently defaulted.
-	cd2, err := cred.CreateDisclosure([]int{1})
+	cd2, err := cred.CreateDisclosure([]int{1}, nonce)
 	if err != nil {
 		t.Fatalf("CreateDisclosure: %v", err)
 	}

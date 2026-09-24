@@ -69,7 +69,7 @@ func issueCredential(t *testing.T, sk gabikeys.PrivateKey, pk gabikeys.PublicKey
 // against the same one.
 func discloseProof(t *testing.T, cred Credential, nonce []byte, indices []int) DisclosureProof {
 	t.Helper()
-	cd, err := cred.CreateDisclosure(indices)
+	cd, err := cred.CreateDisclosure(indices, nonce)
 	if err != nil {
 		t.Fatalf("CreateDisclosure: %v", err)
 	}

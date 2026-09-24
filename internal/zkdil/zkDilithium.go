@@ -89,7 +89,8 @@ type zkDilSignatureExpanded struct {
 type signatureProof struct {
 	Proof      []byte   `json:"proof"`
 	SaltedHash []uint32 `json:"saltedHash"`
-	Salt_      []uint32 `json:"salt"`
+
+	salt []uint32
 }
 
 func SampleInBall(h *poseidon.Poseidon) *algebra.Poly {
@@ -315,17 +316,21 @@ func (sig *zkDilSignature) expand() (*zkDilSignatureExpanded, error) {
 	}, nil
 }
 
-func (sig *zkDilSignature) CreateProof() (credtypes.SignatureProof, error) {
+func (sig *zkDilSignature) CreateProof(nonce []byte) (credtypes.SignatureProof, error) {
 	expanded, err := sig.expand()
 	if err != nil {
 		return nil, err
 	}
-	return expanded.createProof()
+	return expanded.createProof(nonce)
 }
 
-func (e *zkDilSignatureExpanded) createProof() (credtypes.SignatureProof, error) {
+func (e *zkDilSignatureExpanded) createProof(nonce []byte) (credtypes.SignatureProof, error) {
 	if e.sig.Pk == nil {
 		return nil, errors.New("signature carries no public key")
+	}
+	nonceFes, err := nonceToFes(nonce)
+	if err != nil {
+		return nil, err
 	}
 	// The circuit is bound to the issuer key the signature was made under.
 	issuer, err := e.sig.Pk.proofInputs()
@@ -335,12 +340,12 @@ func (e *zkDilSignatureExpanded) createProof() (credtypes.SignatureProof, error)
 
 	cTildeUint32 := dilcommon.IntsToUint32s(e.sig.CTilde)
 
-	// TODO: generate randomly
-	salt := []uint32{1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1}
+	salt, err := generateSalt()
+	if err != nil {
+		return nil, err
+	}
 
-	h := poseidon.NewPoseidon(nil, POS_RF, POS_T, POS_RATE, dilcommon.Q)
-	h.WriteUint32(append(e.sig.Msg, salt...))
-	saltedHash := h.ReadUint32(DIGEST_SIZE)
+	saltedHash := compress(compress(e.sig.Msg, salt), nonceFes)
 
 	comr := make([]uint32, DIGEST_SIZE)
 	length := 0
@@ -354,6 +359,7 @@ func (e *zkDilSignatureExpanded) createProof() (credtypes.SignatureProof, error)
 		(*C.uint32_t)(&saltedHash[0]),
 		(*C.uint32_t)(&comr[0]),
 		(*C.uint32_t)(&salt[0]),
+		(*C.uint32_t)(&nonceFes[0]),
 		(*C.uint32_t)(&issuer.htr[0]),
 		(*C.uint32_t)(&issuer.t[0]),
 		(*C.uint32_t)(&issuer.a[0]),
@@ -366,7 +372,7 @@ func (e *zkDilSignatureExpanded) createProof() (credtypes.SignatureProof, error)
 	return &signatureProof{
 		Proof:      proofBytes,
 		SaltedHash: saltedHash,
-		Salt_:      salt,
+		salt:       salt,
 	}, nil
 }
 
@@ -377,7 +383,7 @@ func (e *zkDilSignatureExpanded) createProof() (credtypes.SignatureProof, error)
 // under any other key fails here. Passing a key of the wrong type, or one this
 // build cannot derive circuit inputs from, is a verification failure rather
 // than an error, so a malformed key can never be mistaken for a valid proof.
-func (p *signatureProof) Verify(pk gabikeys.PublicKey) bool {
+func (p *signatureProof) Verify(pk gabikeys.PublicKey, nonce []byte) bool {
 	pubK, ok := pk.(*PublicKey)
 	if !ok {
 		log.Warn("zkdil: signature proof verification got a non-zkDilithium public key")
@@ -388,8 +394,13 @@ func (p *signatureProof) Verify(pk gabikeys.PublicKey) bool {
 		log.WithError(err).Warn("zkdil: cannot derive circuit inputs from issuer public key")
 		return false
 	}
-	if len(p.SaltedHash) == 0 || len(p.Salt_) == 0 {
-		log.Warn("zkdil: signature proof is missing its salted hash or salt")
+	if len(p.SaltedHash) == 0 {
+		log.Warn("zkdil: signature proof is missing its salted hash")
+		return false
+	}
+	nonceFes, err := nonceToFes(nonce)
+	if err != nil {
+		log.WithError(err).Warn("zkdil: bad session nonce")
 		return false
 	}
 
@@ -400,7 +411,7 @@ func (p *signatureProof) Verify(pk gabikeys.PublicKey) bool {
 		(*C.uchar)(proofBytes),
 		(C.size_t)(len(p.Proof)),
 		(*C.uint32_t)(&p.SaltedHash[0]),
-		(*C.uint32_t)(&p.Salt_[0]),
+		(*C.uint32_t)(&nonceFes[0]),
 		(*C.uint32_t)(&issuer.htr[0]),
 		(*C.uint32_t)(&issuer.t[0]),
 		(*C.uint32_t)(&issuer.a[0]),
@@ -409,7 +420,7 @@ func (p *signatureProof) Verify(pk gabikeys.PublicKey) bool {
 
 func (p *signatureProof) ProofBytes() []byte     { return p.Proof }
 func (p *signatureProof) SaltedCredHash() []byte { return fesToBytes(p.SaltedHash) }
-func (p *signatureProof) Salt() []byte           { return fesToBytes(p.Salt_) }
+func (p *signatureProof) Salt() []byte           { return fesToBytes(p.salt) }
 
 // fesToBytes / bytesToFes losslessly convert between the zkDilithium digest
 // representation (field elements < Q < 2^32) and the scheme-agnostic []byte the

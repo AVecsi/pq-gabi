@@ -150,6 +150,10 @@ func CreateDisclosureProof(credentials []credtypes.Credential, disclosures []cre
 	if len(credentials) != len(disclosures) {
 		return nil, errors.New("credentials and disclosures count must match")
 	}
+	nonceFes, err := nonceToFes(nonce)
+	if err != nil {
+		return nil, err
+	}
 	// Refused rather than defaulted: a zero-length nonce is the same challenge
 	// in every session, so it binds nothing while producing a proof that looks
 	// bound to anything inspecting it.
@@ -211,7 +215,7 @@ func CreateDisclosureProof(credentials []credtypes.Credential, disclosures []cre
 	}
 
 	var proofLen C.size_t
-	proof := C.prove_attributes(cCredsPtr, C.size_t(len(cCreds)), &proofLen)
+	proof := C.prove_attributes(cCredsPtr, C.size_t(len(cCreds)), (*C.uint32_t)(&nonceFes[0]), &proofLen)
 
 	proofBytes := C.GoBytes(unsafe.Pointer(proof), C.int(proofLen))
 	C.free_proof((*C.uint8_t)(proof), proofLen)
@@ -285,8 +289,8 @@ func (c *zkDilCredential) UpdateAttributes(keepCount int, attrs []*attribute.Att
 }
 
 // TODO for now this will create object with the modified stuff, later maybe have to modify
-func (c *zkDilCredential) CreateDisclosure(disclosedAttributeIndices []int) (credtypes.CredentialDisclosure, error) {
-	signatureProof, err := c.signature.CreateProof()
+func (c *zkDilCredential) CreateDisclosure(disclosedAttributeIndices []int, nonce []byte) (credtypes.CredentialDisclosure, error) {
+	signatureProof, err := c.signature.CreateProof(nonce)
 	if err != nil {
 		return nil, err
 	}
@@ -367,6 +371,11 @@ func (p *zkDilDisclosureProof) Verify(publicKeys []gabikeys.PublicKey, nonce []b
 		fmt.Println("Disclosure proof verification failed: session nonce mismatch.")
 		return false
 	}
+	nonceFes, err := nonceToFes(nonce)
+	if err != nil {
+		log.WithError(err).Warn("zkdil: bad session nonce")
+		return false
+	}
 
 	if len(publicKeys) != len(p.CredDisclosures) {
 		log.Warnf("zkdil: got %d issuer public keys for %d credential disclosures", len(publicKeys), len(p.CredDisclosures))
@@ -379,7 +388,7 @@ func (p *zkDilDisclosureProof) Verify(publicKeys []gabikeys.PublicKey, nonce []b
 			log.Warn("zkdil: credential disclosure has no signature proof")
 			return false
 		}
-		if !sigProof.Verify(publicKeys[i]) {
+		if !sigProof.Verify(publicKeys[i], nonce) {
 			fmt.Println("Signature proof verification failed.")
 			return false
 		}
@@ -433,6 +442,7 @@ func (p *zkDilDisclosureProof) Verify(publicKeys []gabikeys.PublicKey, nonce []b
 		C.size_t(len(p.AttrProofBytes)),
 		cDisclPtr,
 		C.size_t(n),
+		(*C.uint32_t)(&nonceFes[0]),
 	) == 1
 }
 

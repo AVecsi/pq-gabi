@@ -39,8 +39,13 @@ type lazerDisclosureProof struct {
 	CredDisclosures []credtypes.CredentialDisclosure `json:"credentialDisclosures"`
 	// NonceBytes is the verifier's per-session challenge this proof was made
 	// for. Carried so Verify can reject a proof presented to a different
-	// session. NOT an input to AnonUserDisclose yet — see
-	// credtypes.DisclosureProof for the limits of that.
+	// session.
+	//
+	// SECURITY — NOT YET COMPLETE for this backend. AnonUserDisclose takes no
+	// nonce, and the LNP transcript is seeded by the ppseed lin_prover_init is
+	// given, which anoncred.c derives from a fixed domain byte. So the nonce is
+	// only carried and compared here: an attacker who edits this field has the
+	// proof accepted. zkDilithium binds it properly; lazer does not yet.
 	NonceBytes []byte `json:"nonce"`
 }
 
@@ -135,7 +140,10 @@ func (c *lazerCredential) UpdateAttributes(keepCount int, attrs []*attribute.Att
 
 // CreateDisclosure produces the lazer disclosure proof for the given attribute
 // indices (which must be issuer attributes; the secret cannot be disclosed).
-func (c *lazerCredential) CreateDisclosure(disclosedAttributeIndices []int) (credtypes.CredentialDisclosure, error) {
+func (c *lazerCredential) CreateDisclosure(disclosedAttributeIndices []int, nonce []byte) (credtypes.CredentialDisclosure, error) {
+	if len(nonce) == 0 {
+		return nil, errors.New("lazeranon.CreateDisclosure: empty session nonce")
+	}
 	tier := lazer.AnonTierForNpub(c.attrCount - c.userAttrCount)
 	if tier < 0 {
 		return nil, errors.Errorf("lazeranon.CreateDisclosure: %d issuer attributes exceeds the %d-attribute cap", c.attrCount-c.userAttrCount, lazer.AnonNpubMax)
@@ -200,7 +208,7 @@ func (d *lazerCredentialDisclosure) SignatureProof() credtypes.SignatureProof { 
 // on its own. The trusted key passed in here is what decides: if the proof's
 // own key does not match it, the credential was issued by somebody else and
 // this is a verification failure.
-func (p *lazerSignatureProof) Verify(pk gabikeys.PublicKey) bool {
+func (p *lazerSignatureProof) Verify(pk gabikeys.PublicKey, nonce []byte) bool {
 	pubK, ok := pk.(*PublicKey)
 	if !ok {
 		return false
@@ -264,7 +272,7 @@ func (p *lazerDisclosureProof) Verify(publicKeys []gabikeys.PublicKey, nonce []b
 		if !bytes.Equal(expected, sp.MsgPub) {
 			return false
 		}
-		if !sp.Verify(publicKeys[i]) {
+		if !sp.Verify(publicKeys[i], nonce) {
 			return false
 		}
 	}

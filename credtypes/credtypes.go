@@ -8,21 +8,21 @@ import (
 
 type Signature interface {
 	Verify() (bool, error)
-	CreateProof() (SignatureProof, error)
+	CreateProof(nonce []byte) (SignatureProof, error)
 }
 
 type SignatureProof interface {
 	// Verify checks the proof against the issuer public key the verifier
 	// trusts. The key is supplied by the caller and never taken from the
 	// proof: a proof made under a different issuer key must fail here.
-	Verify(pk gabikeys.PublicKey) bool
+	Verify(pk gabikeys.PublicKey, nonce []byte) bool
 	ProofBytes() []byte
 	SaltedCredHash() []byte
 	Salt() []byte
 }
 
 type Credential interface {
-	CreateDisclosure(disclosedAttributeIndices []int) (CredentialDisclosure, error)
+	CreateDisclosure(disclosedAttributeIndices []int, nonce []byte) (CredentialDisclosure, error)
 	Signature() Signature
 	Attributes() []*attribute.Attribute
 	UserAttrCount() int
@@ -52,13 +52,10 @@ type CredentialDisclosure interface {
 // challenge is identical for every session and so binds nothing while looking
 // exactly like a proof that is bound.
 //
-// SECURITY — NOT YET COMPLETE: the nonce is currently only *carried* by the
-// proof and compared on verification. It is not yet an input to either
-// backend's proof. That stops a proof being replayed verbatim into another
-// session, but not an active attacker, who can edit the nonce field of a
-// captured proof and have it accepted. Closing this requires feeding the nonce
-// into the backends' challenge derivation; see PQ_INTEGRATION_PLAN.md §8.2.
-// Treat the current state as correct plumbing, not as replay resistance.
+// The zkDilithium backend binds the nonce cryptographically: it is a public
+// input of both circuits, so it is covered by the Fiat-Shamir transcript and a
+// proof made for one session cannot be made to verify in another. The lazer
+// backend only carries and compares it; see lazerDisclosureProof.NonceBytes.
 type DisclosureProof interface {
 	// Verify reports whether the proof is valid for the given issuer public
 	// keys and session nonce.
