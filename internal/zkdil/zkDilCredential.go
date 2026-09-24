@@ -212,6 +212,7 @@ func CreateDisclosureProof(credentials []credtypes.Credential, disclosures []cre
 
 	var proofLen C.size_t
 	proof := C.prove_attributes(cCredsPtr, C.size_t(len(cCreds)), &proofLen)
+
 	proofBytes := C.GoBytes(unsafe.Pointer(proof), C.int(proofLen))
 	C.free_proof((*C.uint8_t)(proof), proofLen)
 

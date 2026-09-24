@@ -38,12 +38,20 @@ fetch-rust-lib: | $(ZK_DIR)
 
 # ── mobile targets ──────────────────────────────────────────────────────────
 
+# --features concurrent, like every other target: without it the prover runs
+# single-threaded and an iPhone is several times slower than the equivalent
+# Android for no visible reason.
+#
+# The device lib goes to lib/ios/, which is where the "#cgo ios,arm64" LDFLAGS
+# look. Copying it to lib/ instead put it where the host build expects its own
+# library, so building for iOS overwrote the macOS one.
 build-ios: | $(ZK_DIR)
-	@cd $(ZK_DIR) && cargo build --release \
+	@cd $(ZK_DIR) && cargo build --release --features concurrent \
 		--target aarch64-apple-ios \
 		--target x86_64-apple-ios
-	@mkdir -p lib/ios
-	@cp $(ZK_DIR)/target/aarch64-apple-ios/release/libzk_dilithium.a lib/
+	@mkdir -p lib/ios lib/ios-sim
+	@cp $(ZK_DIR)/target/aarch64-apple-ios/release/libzk_dilithium.a lib/ios/
+	@cp $(ZK_DIR)/target/x86_64-apple-ios/release/libzk_dilithium.a lib/ios-sim/
 	@cp $(ZK_DIR)/zkDilithiumProof.h lib/
 
 # Detect OS and set NDK toolchain path accordingly

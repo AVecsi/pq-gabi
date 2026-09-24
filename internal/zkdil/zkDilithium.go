@@ -31,6 +31,7 @@ package zkdil
 import "C"
 
 import (
+	"crypto/rand"
 	"encoding/binary"
 	"encoding/json"
 	"fmt"
@@ -64,6 +65,11 @@ const CSIZE = 12 // number of field elements to use for c tilde
 const MUSIZE = 24
 
 const DIGEST_SIZE = 12
+
+// saltLength is the fixed width in bytes of the issuance commitment's salt.
+// Every other value that reaches UnpackFes22Bit is a SHA-256 attribute digest,
+// which is always this wide, so the salt matches it.
+const saltLength = 32
 
 type zkDilSignature struct {
 	Pk           *PublicKey   `json:"pk"`
@@ -285,7 +291,6 @@ func (sig *zkDilSignature) Verify() (bool, error) {
 }
 
 func (sig *zkDilSignature) expand() (*zkDilSignatureExpanded, error) {
-
 	pk := sig.Pk
 
 	Ahat := algebra.SampleMatrix(pk.Rho)
@@ -293,11 +298,12 @@ func (sig *zkDilSignature) expand() (*zkDilSignatureExpanded, error) {
 	c := SampleInBall(poseidon.NewPoseidon(
 		append([]int{2}, sig.CTilde...), POS_RF, POS_T, POS_RATE, dilcommon.Q,
 	))
-
 	if c == nil {
 		return nil, errors.New("invalid signature: failed to sample challenge")
 	}
 
+	// Schoolbook rather than NTT, and single-threaded: this is the dominant
+	// cost of expand.
 	Azq, Azr := Ahat.SchoolbookMulDebug(sig.Z)
 	Tq, Tr := pk.T.SchoolbookScalarMulDebug(c)
 
@@ -455,13 +461,14 @@ func CombineHiddenPublic(hiddenAttrsHash []byte, publicAttributes []*attribute.A
 	return h.ReadUint32(12)
 }
 
+// GenerateSalt returns the issuance commitment's opening: saltLength bytes of
+// randomness.
 func GenerateSalt() ([]byte, error) {
-	salt, err := common.RandomBigInt(256)
-	if err != nil {
+	salt := make([]byte, saltLength)
+	if _, err := rand.Read(salt); err != nil {
 		return nil, err
 	}
-
-	return salt.Bytes(), nil
+	return salt, nil
 }
 
 // Commit produces the issuance commitment to the hidden attributes (e.g. the
