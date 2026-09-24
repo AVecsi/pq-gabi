@@ -1,8 +1,8 @@
-//go:build !lazer
+//go:build !pq_lazer
 
 // Package scheme is the compile-time-selected cryptographic backend that sits
 // behind the public gabi API. The active backend is chosen by build tag: the
-// default (no tag) is zkDilithium; building with -tags lazer selects the lazer
+// default (no tag) is zkDilithium; building with -tags pq_lazer selects the lazer
 // anoncred backend instead. The gabi/issuer wrappers call scheme.* so that
 // their exported signatures stay backend-independent and the protocol layer
 // (pq-irmago) never needs to know which scheme is compiled in.

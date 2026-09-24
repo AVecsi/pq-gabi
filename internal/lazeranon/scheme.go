@@ -1,8 +1,8 @@
-//go:build lazer
+//go:build pq_lazer
 
 // Package lazeranon is the lazer (Falcon-512 / LNP) anonymous-credentials
 // backend behind the gabi scheme contract. It is selected by building with
-// -tags lazer; the default build uses zkDilithium.
+// -tags pq_lazer; the default build uses zkDilithium.
 //
 // Model (Option C, IRMA-faithful): the message is split into the user's secret
 // (the first lazer.AnonNumSecret blocks, = the hidden/link attribute) and the

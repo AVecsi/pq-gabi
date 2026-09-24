@@ -1,13 +1,13 @@
-//go:build lazer
+//go:build pq_lazer
 
 package gabi
 
 // End-to-end test of the lazer backend through the gabi scheme API. Built only
-// with -tags lazer. Drives the fully-blind model (all attributes committed at
+// with -tags pq_lazer. Drives the fully-blind model (all attributes committed at
 // Commit time) and covers both a fresh issuance and a reload from a serialized
 // signature (exercising the opening that L2 persists).
 //
-// Run: DYLD_LIBRARY_PATH=<lazer repo> go test -tags lazer -run Lazer -v .
+// Run: DYLD_LIBRARY_PATH=<lazer repo> go test -tags pq_lazer -run Lazer -v .
 
 import (
 	"bytes"

@@ -1,7 +1,7 @@
-//go:build lazer
+//go:build pq_lazer
 
 // This is the lazer (Falcon-512 / LNP anonymous credentials) binding of the
-// scheme contract, selected by building with -tags lazer. See scheme_zkdil.go
+// scheme contract, selected by building with -tags pq_lazer. See scheme_zkdil.go
 // for the default (zkDilithium) binding and the contract documentation.
 package scheme
 

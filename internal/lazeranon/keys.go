@@ -1,4 +1,4 @@
-//go:build lazer
+//go:build pq_lazer
 
 package lazeranon
 

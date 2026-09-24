@@ -2,30 +2,32 @@ package zkdil
 
 /*
 // ── Android ────────────────────────────────────────────────────────────────
-#cgo android,arm     LDFLAGS: -L../../lib/armeabi-v7a  -lzk_dilithium -lm
-#cgo android,arm64   LDFLAGS: -L../../lib/arm64-v8a    -lzk_dilithium -lm
-#cgo android,386     LDFLAGS: -L../../lib/x86           -lzk_dilithium -lm
-#cgo android,amd64   LDFLAGS: -L../../lib/x86_64        -lzk_dilithium -lm
+#cgo android,arm    LDFLAGS: -L${SRCDIR}/../../lib/armeabi-v7a  -lzk_dilithium -lm
+#cgo android,arm64  LDFLAGS: -L${SRCDIR}/../../lib/arm64-v8a    -lzk_dilithium -lm
+#cgo android,386    LDFLAGS: -L${SRCDIR}/../../lib/x86          -lzk_dilithium -lm
+#cgo android,amd64  LDFLAGS: -L${SRCDIR}/../../lib/x86_64       -lzk_dilithium -lm
 
 // ── iOS ────────────────────────────────────────────────────────────────────
-#cgo ios,arm64       LDFLAGS: -L../../lib/ios           -lzk_dilithium
+#cgo ios,arm64      LDFLAGS: -L${SRCDIR}/../../lib/ios          -lzk_dilithium
 
 // ── macOS ──────────────────────────────────────────────────────────────────
-#cgo darwin,arm64    LDFLAGS: -L../../lib               -lzk_dilithium
-#cgo darwin,amd64    LDFLAGS: -L../../lib               -lzk_dilithium
+#cgo darwin,arm64   LDFLAGS: -L${SRCDIR}/../../lib/darwin_arm64 -lzk_dilithium
+#cgo darwin,amd64   LDFLAGS: -L${SRCDIR}/../../lib/darwin_amd64 -lzk_dilithium
 
 // ── Linux ──────────────────────────────────────────────────────────────────
-#cgo linux,amd64     LDFLAGS: -L../../lib               -lzk_dilithium -lm
-#cgo linux,arm64     LDFLAGS: -L../../lib               -lzk_dilithium -lm
-#cgo linux,arm       LDFLAGS: -L../../lib               -lzk_dilithium -lm
-#cgo linux,386       LDFLAGS: -L../../lib               -lzk_dilithium -lm
+#cgo linux,amd64    LDFLAGS: -L${SRCDIR}/../../lib/linux_amd64  -lzk_dilithium -lm
+#cgo linux,arm64    LDFLAGS: -L${SRCDIR}/../../lib/linux_arm64  -lzk_dilithium -lm
+#cgo linux,arm      LDFLAGS: -L${SRCDIR}/../../lib/linux_arm    -lzk_dilithium -lm
+#cgo linux,386      LDFLAGS: -L${SRCDIR}/../../lib/linux_386    -lzk_dilithium -lm
 
 // ── Windows ────────────────────────────────────────────────────────────────
-#cgo windows,amd64   LDFLAGS: -L../../lib               -lzk_dilithium -lm
-#cgo windows,arm64   LDFLAGS: -L../../lib               -lzk_dilithium -lm
-#cgo windows,386     LDFLAGS: -L../../lib               -lzk_dilithium -lm
+#cgo windows,amd64  LDFLAGS: -L${SRCDIR}/../../lib/windows_amd64 -lzk_dilithium -lm
+#cgo windows,arm64  LDFLAGS: -L${SRCDIR}/../../lib/windows_arm64 -lzk_dilithium -lm
+#cgo windows,386    LDFLAGS: -L${SRCDIR}/../../lib/windows_386  -lzk_dilithium -lm
 
-#include "../../lib/zkDilithiumProof.h"
+#cgo CFLAGS: -I${SRCDIR}/../../lib
+
+#include <zkDilithiumProof.h>
 #include <stdlib.h>
 */
 import "C"

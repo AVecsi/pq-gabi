@@ -6,11 +6,15 @@ vendor/
 # Build outputs
 main
 
-# zkDilithium — cloned and built by Makefile, not tracked
-# Exception: the compiled .a and generated .h are committed so consumers
-# can use pq-gabi without needing the Rust toolchain.
+# zkDilithium — the Rust source is cloned and built by the Makefile at the
+# revision pinned in ZK_REV, and is not tracked.
 zkDilithiumProof/
-lib/
+
+# The built archives under lib/<goos>_<goarch>/ ARE tracked, so that consumers
+# can `go get` pq-gabi and run its tests without a Rust toolchain. Regenerate
+# with `make build` (host) or `make build-linux-amd64` / `build-ios` /
+# `build-android`. Only the per-platform build stamp is ignored.
+lib/**/.zk-rev
 
 # macOS
 .DS_Store
