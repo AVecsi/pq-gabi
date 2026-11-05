@@ -1,13 +1,15 @@
-//go:build lazer
+//go:build pq_lazer
 
 package lazeranon
 
 import (
 	"bytes"
+	"crypto/subtle"
 	"encoding/json"
 
 	"github.com/AVecsi/pq-gabi/attribute"
 	"github.com/AVecsi/pq-gabi/credtypes"
+	"github.com/AVecsi/pq-gabi/gabikeys"
 	"github.com/go-errors/errors"
 
 	"github.com/AVecsi/lazer"
@@ -35,6 +37,16 @@ type lazerCredentialDisclosure struct {
 // separate cross-credential attribute proof.
 type lazerDisclosureProof struct {
 	CredDisclosures []credtypes.CredentialDisclosure `json:"credentialDisclosures"`
+	// NonceBytes is the verifier's per-session challenge this proof was made
+	// for. Carried so Verify can reject a proof presented to a different
+	// session.
+	//
+	// SECURITY — NOT YET COMPLETE for this backend. AnonUserDisclose takes no
+	// nonce, and the LNP transcript is seeded by the ppseed lin_prover_init is
+	// given, which anoncred.c derives from a fixed domain byte. So the nonce is
+	// only carried and compared here: an attacker who edits this field has the
+	// proof accepted. zkDilithium binds it properly; lazer does not yet.
+	NonceBytes []byte `json:"nonce"`
 }
 
 // lazerSignatureProof implements credtypes.SignatureProof. It wraps the lazer
@@ -93,12 +105,25 @@ func NewCredential(
 }
 
 // CreateDisclosureProof bundles the per-credential disclosures (the proofs were
-// already produced in CreateDisclosure).
-func CreateDisclosureProof(credentials []credtypes.Credential, disclosures []credtypes.CredentialDisclosure) (credtypes.DisclosureProof, error) {
+// already produced in CreateDisclosure) and binds them to the verifier's
+// session nonce.
+//
+// Note for whoever completes the cryptographic binding: unlike zkDilithium,
+// lazer produces its proof in Credential.CreateDisclosure, one per credential,
+// and this function only bundles them. So the nonce has to reach
+// CreateDisclosure (whose signature is fixed by credtypes.Credential) rather
+// than this function. Binding it here is not possible.
+func CreateDisclosureProof(credentials []credtypes.Credential, disclosures []credtypes.CredentialDisclosure, nonce []byte) (credtypes.DisclosureProof, error) {
 	if len(credentials) != len(disclosures) {
 		return nil, errors.New("lazeranon: credentials and disclosures count must match")
 	}
-	return &lazerDisclosureProof{CredDisclosures: disclosures}, nil
+	// Refused rather than defaulted: a zero-length nonce is the same challenge
+	// in every session, so it binds nothing while producing a proof that looks
+	// bound to anything inspecting it.
+	if len(nonce) == 0 {
+		return nil, errors.New("lazeranon.CreateDisclosureProof: empty session nonce")
+	}
+	return &lazerDisclosureProof{CredDisclosures: disclosures, NonceBytes: nonce}, nil
 }
 
 // --- credtypes.Credential ---
@@ -118,7 +143,10 @@ func (c *lazerCredential) UpdateAttributes(keepCount int, attrs []*attribute.Att
 
 // CreateDisclosure produces the lazer disclosure proof for the given attribute
 // indices (which must be issuer attributes; the secret cannot be disclosed).
-func (c *lazerCredential) CreateDisclosure(disclosedAttributeIndices []int) (credtypes.CredentialDisclosure, error) {
+func (c *lazerCredential) CreateDisclosure(disclosedAttributeIndices []int, nonce []byte) (credtypes.CredentialDisclosure, error) {
+	if len(nonce) == 0 {
+		return nil, errors.New("lazeranon.CreateDisclosure: empty session nonce")
+	}
 	tier := lazer.AnonTierForNpub(issuerBlocks(c.attrCount - c.userAttrCount))
 	if tier < 0 {
 		return nil, errors.Errorf("lazeranon.CreateDisclosure: %d issuer attributes + %d reserved device-key blocks exceeds the %d-block cap", c.attrCount-c.userAttrCount, devKeyBlocks, lazer.AnonNpubMax)
@@ -177,8 +205,22 @@ func (d *lazerCredentialDisclosure) SignatureProof() credtypes.SignatureProof { 
 
 // --- credtypes.SignatureProof ---
 
-func (p *lazerSignatureProof) Verify() bool {
-	verifier := lazer.AnonVerifierInit(p.Pk, p.Tier)
+// Verify checks the proof against the issuer public key the verifier trusts.
+//
+// The proof carries a copy of the issuer key because lazer's verifier needs the
+// Falcon-512 blob, but that copy is chosen by the prover and so proves nothing
+// on its own. The trusted key passed in here is what decides: if the proof's
+// own key does not match it, the credential was issued by somebody else and
+// this is a verification failure.
+func (p *lazerSignatureProof) Verify(pk gabikeys.PublicKey, nonce []byte) bool {
+	pubK, ok := pk.(*PublicKey)
+	if !ok {
+		return false
+	}
+	if !bytes.Equal(pubK.Pk, p.Pk) {
+		return false
+	}
+	verifier := lazer.AnonVerifierInit(pubK.Pk, p.Tier)
 	defer lazer.AnonVerifierClear(&verifier)
 	return lazer.AnonVerifierVrfy(&verifier, p.MsgPub, p.PubMvec, p.Proof) == 1
 }
@@ -189,12 +231,28 @@ func (p *lazerSignatureProof) Salt() []byte           { return nil } // unused b
 
 // --- credtypes.DisclosureProof ---
 
-// Verify checks every credential disclosure: it rebuilds the expected public
-// message from the claimed disclosed attribute values at their block positions
-// (binding the human-meaningful values to the cryptographic proof), checks it
-// matches the proof's public message, then verifies the lazer proof.
-func (p *lazerDisclosureProof) Verify() bool {
-	for _, cd := range p.CredDisclosures {
+// Verify checks that the proof was made for this session, then checks every
+// credential disclosure: it rebuilds the expected public message from the
+// claimed disclosed attribute values at their block positions (binding the
+// human-meaningful values to the cryptographic proof), checks it matches the
+// proof's public message, then verifies the lazer proof against publicKeys[i],
+// the issuer key the verifier trusts for that credential.
+func (p *lazerDisclosureProof) Verify(publicKeys []gabikeys.PublicKey, nonce []byte) bool {
+	// Before any cryptography: this proof must have been made for the session
+	// being verified. Constant-time, and an empty expected nonce always fails,
+	// so a caller that forgot to thread one through cannot accidentally accept
+	// a proof made for some other session.
+	if len(nonce) == 0 {
+		return false
+	}
+	if subtle.ConstantTimeCompare(p.NonceBytes, nonce) != 1 {
+		return false
+	}
+
+	if len(publicKeys) != len(p.CredDisclosures) {
+		return false
+	}
+	for i, cd := range p.CredDisclosures {
 		sp, ok := cd.SignatureProof().(*lazerSignatureProof)
 		if !ok {
 			return false
@@ -207,17 +265,18 @@ func (p *lazerDisclosureProof) Verify() bool {
 		}
 		nmsg := nSecret + lazer.AnonTierNpub(sp.Tier)
 		expected := make([]byte, nmsg*blockBytes)
-		for i, idx := range indices {
+		// j, not i: i is the credential index, used below to pick the issuer key.
+		for j, idx := range indices {
 			b, err := blockIndex(idx, cd.NumOfUserAttributes())
 			if err != nil || int(b) >= nmsg {
 				return false
 			}
-			copy(expected[b*blockBytes:(b+1)*blockBytes], attrBlock(attrs[i]))
+			copy(expected[b*blockBytes:(b+1)*blockBytes], attrBlock(attrs[j]))
 		}
 		if !bytes.Equal(expected, sp.MsgPub) {
 			return false
 		}
-		if !sp.Verify() {
+		if !sp.Verify(publicKeys[i], nonce) {
 			return false
 		}
 	}
@@ -226,6 +285,8 @@ func (p *lazerDisclosureProof) Verify() bool {
 
 // AttrProof returns nil: lazer has no separate cross-credential attribute proof.
 func (p *lazerDisclosureProof) AttrProof() []byte { return nil }
+
+func (p *lazerDisclosureProof) Nonce() []byte { return p.NonceBytes }
 
 func (p *lazerDisclosureProof) CredentialDisclosures() []credtypes.CredentialDisclosure {
 	return p.CredDisclosures
@@ -244,10 +305,12 @@ func ParseDisclosureProof(data []byte) (credtypes.DisclosureProof, error) {
 func (p *lazerDisclosureProof) UnmarshalJSON(data []byte) error {
 	var raw struct {
 		CredentialDisclosures []json.RawMessage `json:"credentialDisclosures"`
+		Nonce                 []byte            `json:"nonce"`
 	}
 	if err := json.Unmarshal(data, &raw); err != nil {
 		return err
 	}
+	p.NonceBytes = raw.Nonce
 	for _, rawDisc := range raw.CredentialDisclosures {
 		var disc lazerCredentialDisclosure
 		if err := json.Unmarshal(rawDisc, &disc); err != nil {

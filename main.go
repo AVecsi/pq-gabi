@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/AVecsi/pq-gabi/big"
+	"github.com/AVecsi/pq-gabi/gabikeys"
 	"github.com/AVecsi/pq-gabi/internal/dilcommon"
 )
 
@@ -75,14 +76,17 @@ func Test() {
 				attributes = append(attributes, attribute)
 			}
 
-			seed := make([]byte, 32)
-
 			commitment, opening, err := Commit([]*Attribute{attributes[0]})
 			if err != nil {
 				panic(err)
 			}
 
-			sk, pk, _ := GenerateKeyPair(seed, 0, time.Now().AddDate(1, 0, 0))
+			// A fresh random issuer key per iteration, which also exercises
+			// that the proof system is not tied to one particular key.
+			sk, pk, err := GenerateRandomKeyPair(0, time.Now().AddDate(1, 0, 0))
+			if err != nil {
+				panic(err)
+			}
 			issuer := NewIssuer(sk, pk, *big.NewInt(1))
 
 			sig, err := issuer.IssueSignature(commitment, attributes[1:])
@@ -97,9 +101,14 @@ func Test() {
 
 			disclosedAttributeIndices := []int{2}
 
+			sessionNonce := make([]byte, 32)
+			if _, err := rand.Read(sessionNonce); err != nil {
+				panic(err)
+			}
+
 			start := time.Now()
 
-			credDisclosure, err := cred.CreateDisclosure(disclosedAttributeIndices)
+			credDisclosure, err := cred.CreateDisclosure(disclosedAttributeIndices, sessionNonce)
 			if err != nil {
 				panic(err)
 			}
@@ -122,6 +131,7 @@ func Test() {
 			disclosureProof, err := CreateDisclosureProof(
 				[]Credential{cred},
 				[]CredentialDisclosure{credDisclosure},
+				sessionNonce,
 			)
 			if err != nil {
 				panic(err)
@@ -167,7 +177,7 @@ func Test() {
 
 			start = time.Now()
 
-			if disclosureProof.Verify() {
+			if disclosureProof.Verify([]gabikeys.PublicKey{pk}, sessionNonce) {
 				verifyTime := time.Since(start)
 				verifySum += verifyTime
 

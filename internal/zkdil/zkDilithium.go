@@ -2,35 +2,38 @@ package zkdil
 
 /*
 // ── Android ────────────────────────────────────────────────────────────────
-#cgo android,arm     LDFLAGS: -L../../lib/armeabi-v7a  -lzk_dilithium -lm
-#cgo android,arm64   LDFLAGS: -L../../lib/arm64-v8a    -lzk_dilithium -lm
-#cgo android,386     LDFLAGS: -L../../lib/x86           -lzk_dilithium -lm
-#cgo android,amd64   LDFLAGS: -L../../lib/x86_64        -lzk_dilithium -lm
+#cgo android,arm    LDFLAGS: -L${SRCDIR}/../../lib/armeabi-v7a  -lzk_dilithium -lm
+#cgo android,arm64  LDFLAGS: -L${SRCDIR}/../../lib/arm64-v8a    -lzk_dilithium -lm
+#cgo android,386    LDFLAGS: -L${SRCDIR}/../../lib/x86          -lzk_dilithium -lm
+#cgo android,amd64  LDFLAGS: -L${SRCDIR}/../../lib/x86_64       -lzk_dilithium -lm
 
 // ── iOS ────────────────────────────────────────────────────────────────────
-#cgo ios,arm64       LDFLAGS: -L../../lib/ios           -lzk_dilithium
+#cgo ios,arm64      LDFLAGS: -L${SRCDIR}/../../lib/ios          -lzk_dilithium
 
 // ── macOS ──────────────────────────────────────────────────────────────────
-#cgo darwin,arm64    LDFLAGS: -L../../lib               -lzk_dilithium
-#cgo darwin,amd64    LDFLAGS: -L../../lib               -lzk_dilithium
+#cgo darwin,arm64   LDFLAGS: -L${SRCDIR}/../../lib/darwin_arm64 -lzk_dilithium
+#cgo darwin,amd64   LDFLAGS: -L${SRCDIR}/../../lib/darwin_amd64 -lzk_dilithium
 
 // ── Linux ──────────────────────────────────────────────────────────────────
-#cgo linux,amd64     LDFLAGS: -L../../lib               -lzk_dilithium -lm
-#cgo linux,arm64     LDFLAGS: -L../../lib               -lzk_dilithium -lm
-#cgo linux,arm       LDFLAGS: -L../../lib               -lzk_dilithium -lm
-#cgo linux,386       LDFLAGS: -L../../lib               -lzk_dilithium -lm
+#cgo linux,amd64    LDFLAGS: -L${SRCDIR}/../../lib/linux_amd64  -lzk_dilithium -lm
+#cgo linux,arm64    LDFLAGS: -L${SRCDIR}/../../lib/linux_arm64  -lzk_dilithium -lm
+#cgo linux,arm      LDFLAGS: -L${SRCDIR}/../../lib/linux_arm    -lzk_dilithium -lm
+#cgo linux,386      LDFLAGS: -L${SRCDIR}/../../lib/linux_386    -lzk_dilithium -lm
 
 // ── Windows ────────────────────────────────────────────────────────────────
-#cgo windows,amd64   LDFLAGS: -L../../lib               -lzk_dilithium -lm
-#cgo windows,arm64   LDFLAGS: -L../../lib               -lzk_dilithium -lm
-#cgo windows,386     LDFLAGS: -L../../lib               -lzk_dilithium -lm
+#cgo windows,amd64  LDFLAGS: -L${SRCDIR}/../../lib/windows_amd64 -lzk_dilithium -lm
+#cgo windows,arm64  LDFLAGS: -L${SRCDIR}/../../lib/windows_arm64 -lzk_dilithium -lm
+#cgo windows,386    LDFLAGS: -L${SRCDIR}/../../lib/windows_386  -lzk_dilithium -lm
 
-#include "../../lib/zkDilithiumProof.h"
+#cgo CFLAGS: -I${SRCDIR}/../../lib
+
+#include <zkDilithiumProof.h>
 #include <stdlib.h>
 */
 import "C"
 
 import (
+	"crypto/rand"
 	"encoding/binary"
 	"encoding/json"
 	"fmt"
@@ -45,7 +48,12 @@ import (
 	"github.com/AVecsi/pq-gabi/internal/zkdil/algebra"
 	"github.com/AVecsi/pq-gabi/internal/zkdil/poseidon"
 	"github.com/go-errors/errors"
+	"github.com/sirupsen/logrus"
 )
+
+// log reports conditions that make a proof unverifiable but are not a caller
+// error, such as being handed an issuer public key of the wrong type.
+var log = logrus.StandardLogger()
 
 const POS_T = 35
 const POS_RATE = 24
@@ -59,6 +67,11 @@ const CSIZE = 12 // number of field elements to use for c tilde
 const MUSIZE = 24
 
 const DIGEST_SIZE = 12
+
+// saltLength is the fixed width in bytes of the issuance commitment's salt.
+// Every other value that reaches UnpackFes22Bit is a SHA-256 attribute digest,
+// which is always this wide, so the salt matches it.
+const saltLength = 32
 
 type zkDilSignature struct {
 	Pk           *PublicKey   `json:"pk"`
@@ -78,7 +91,8 @@ type zkDilSignatureExpanded struct {
 type signatureProof struct {
 	Proof      []byte   `json:"proof"`
 	SaltedHash []uint32 `json:"saltedHash"`
-	Salt_      []uint32 `json:"salt"`
+
+	salt []uint32
 }
 
 func SampleInBall(h *poseidon.Poseidon) *algebra.Poly {
@@ -147,10 +161,11 @@ func Sign(pk gabikeys.PublicKey, sk gabikeys.PrivateKey, msg []uint32) (credtype
 		return nil, errors.New("Sign: unsupported private key type")
 	}
 
-	// Pack t
-	tPacked := pubK.T.Pack()
-	// Compute tr = H(rho + tPacked, 32)
-	tr := common.H(append(pubK.Rho, tPacked...), 32)
+	// Compute tr = H(rho || pack(t))
+	tr, err := pubK.tr()
+	if err != nil {
+		return nil, err
+	}
 
 	// Sample matrix Ahat
 	Ahat := algebra.SampleMatrix(pubK.Rho)
@@ -222,9 +237,14 @@ func Sign(pk gabikeys.PublicKey, sk gabikeys.PrivateKey, msg []uint32) (credtype
 func (sig *zkDilSignature) Verify() (bool, error) {
 
 	pk := sig.Pk
+	if pk == nil {
+		return false, errors.New("signature carries no public key")
+	}
 
-	tPacked := pk.T.Pack()
-	tr := common.H(append(pk.Rho, tPacked...), 32)
+	tr, err := pk.tr()
+	if err != nil {
+		return false, err
+	}
 
 	// Poseidon hash of message
 	h := poseidon.NewPoseidon([]int{0}, POS_RF, POS_T, POS_RATE, dilcommon.Q)
@@ -274,7 +294,6 @@ func (sig *zkDilSignature) Verify() (bool, error) {
 }
 
 func (sig *zkDilSignature) expand() (*zkDilSignatureExpanded, error) {
-
 	pk := sig.Pk
 
 	Ahat := algebra.SampleMatrix(pk.Rho)
@@ -282,11 +301,12 @@ func (sig *zkDilSignature) expand() (*zkDilSignatureExpanded, error) {
 	c := SampleInBall(poseidon.NewPoseidon(
 		append([]int{2}, sig.CTilde...), POS_RF, POS_T, POS_RATE, dilcommon.Q,
 	))
-
 	if c == nil {
 		return nil, errors.New("invalid signature: failed to sample challenge")
 	}
 
+	// Schoolbook rather than NTT, and single-threaded: this is the dominant
+	// cost of expand.
 	Azq, Azr := Ahat.SchoolbookMulDebug(sig.Z)
 	Tq, Tr := pk.T.SchoolbookScalarMulDebug(c)
 
@@ -298,23 +318,36 @@ func (sig *zkDilSignature) expand() (*zkDilSignatureExpanded, error) {
 	}, nil
 }
 
-func (sig *zkDilSignature) CreateProof() (credtypes.SignatureProof, error) {
+func (sig *zkDilSignature) CreateProof(nonce []byte) (credtypes.SignatureProof, error) {
 	expanded, err := sig.expand()
 	if err != nil {
 		return nil, err
 	}
-	return expanded.createProof(), nil
+	return expanded.createProof(nonce)
 }
 
-func (e *zkDilSignatureExpanded) createProof() credtypes.SignatureProof {
+func (e *zkDilSignatureExpanded) createProof(nonce []byte) (credtypes.SignatureProof, error) {
+	if e.sig.Pk == nil {
+		return nil, errors.New("signature carries no public key")
+	}
+	nonceFes, err := nonceToFes(nonce)
+	if err != nil {
+		return nil, err
+	}
+	// The circuit is bound to the issuer key the signature was made under.
+	issuer, err := e.sig.Pk.proofInputs()
+	if err != nil {
+		return nil, err
+	}
+
 	cTildeUint32 := dilcommon.IntsToUint32s(e.sig.CTilde)
 
-	// TODO: generate randomly
-	salt := []uint32{1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1}
+	salt, err := generateSalt()
+	if err != nil {
+		return nil, err
+	}
 
-	h := poseidon.NewPoseidon(nil, POS_RF, POS_T, POS_RATE, dilcommon.Q)
-	h.WriteUint32(append(e.sig.Msg, salt...))
-	saltedHash := h.ReadUint32(DIGEST_SIZE)
+	saltedHash := compress(compress(e.sig.Msg, salt), nonceFes)
 
 	comr := make([]uint32, DIGEST_SIZE)
 	length := 0
@@ -328,6 +361,10 @@ func (e *zkDilSignatureExpanded) createProof() credtypes.SignatureProof {
 		(*C.uint32_t)(&saltedHash[0]),
 		(*C.uint32_t)(&comr[0]),
 		(*C.uint32_t)(&salt[0]),
+		(*C.uint32_t)(&nonceFes[0]),
+		(*C.uint32_t)(&issuer.htr[0]),
+		(*C.uint32_t)(&issuer.t[0]),
+		(*C.uint32_t)(&issuer.a[0]),
 		(*C.size_t)(unsafe.Pointer(&length)),
 	)
 
@@ -337,22 +374,55 @@ func (e *zkDilSignatureExpanded) createProof() credtypes.SignatureProof {
 	return &signatureProof{
 		Proof:      proofBytes,
 		SaltedHash: saltedHash,
-		Salt_:      salt,
-	}
+		salt:       salt,
+	}, nil
 }
 
-func (p *signatureProof) Verify() bool {
+// Verify checks the proof against the issuer public key the caller trusts.
+//
+// The key is a parameter rather than something carried inside the proof on
+// purpose: the relying party decides which issuer it accepts, and a proof made
+// under any other key fails here. Passing a key of the wrong type, or one this
+// build cannot derive circuit inputs from, is a verification failure rather
+// than an error, so a malformed key can never be mistaken for a valid proof.
+func (p *signatureProof) Verify(pk gabikeys.PublicKey, nonce []byte) bool {
+	pubK, ok := pk.(*PublicKey)
+	if !ok {
+		log.Warn("zkdil: signature proof verification got a non-zkDilithium public key")
+		return false
+	}
+	issuer, err := pubK.proofInputs()
+	if err != nil {
+		log.WithError(err).Warn("zkdil: cannot derive circuit inputs from issuer public key")
+		return false
+	}
+	if len(p.SaltedHash) == 0 {
+		log.Warn("zkdil: signature proof is missing its salted hash")
+		return false
+	}
+	nonceFes, err := nonceToFes(nonce)
+	if err != nil {
+		log.WithError(err).Warn("zkdil: bad session nonce")
+		return false
+	}
+
+	proofBytes := C.CBytes(p.Proof)
+	defer C.free(proofBytes)
+
 	return C.verify_signature(
-		(*C.uchar)(C.CBytes(p.Proof)),
+		(*C.uchar)(proofBytes),
 		(C.size_t)(len(p.Proof)),
 		(*C.uint32_t)(&p.SaltedHash[0]),
-		(*C.uint32_t)(&p.Salt_[0]),
+		(*C.uint32_t)(&nonceFes[0]),
+		(*C.uint32_t)(&issuer.htr[0]),
+		(*C.uint32_t)(&issuer.t[0]),
+		(*C.uint32_t)(&issuer.a[0]),
 	) == 1
 }
 
 func (p *signatureProof) ProofBytes() []byte     { return p.Proof }
 func (p *signatureProof) SaltedCredHash() []byte { return fesToBytes(p.SaltedHash) }
-func (p *signatureProof) Salt() []byte           { return fesToBytes(p.Salt_) }
+func (p *signatureProof) Salt() []byte           { return fesToBytes(p.salt) }
 
 // fesToBytes / bytesToFes losslessly convert between the zkDilithium digest
 // representation (field elements < Q < 2^32) and the scheme-agnostic []byte the
@@ -404,13 +474,14 @@ func CombineHiddenPublic(hiddenAttrsHash []byte, publicAttributes []*attribute.A
 	return h.ReadUint32(12)
 }
 
+// GenerateSalt returns the issuance commitment's opening: saltLength bytes of
+// randomness.
 func GenerateSalt() ([]byte, error) {
-	salt, err := common.RandomBigInt(256)
-	if err != nil {
+	salt := make([]byte, saltLength)
+	if _, err := rand.Read(salt); err != nil {
 		return nil, err
 	}
-
-	return salt.Bytes(), nil
+	return salt, nil
 }
 
 // Commit produces the issuance commitment to the hidden attributes (e.g. the

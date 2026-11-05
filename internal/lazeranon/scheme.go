@@ -1,8 +1,8 @@
-//go:build lazer
+//go:build pq_lazer
 
 // Package lazeranon is the lazer (Falcon-512 / LNP) anonymous-credentials
 // backend behind the gabi scheme contract. It is selected by building with
-// -tags lazer; the default build uses zkDilithium.
+// -tags pq_lazer; the default build uses zkDilithium.
 //
 // Model (Option C, IRMA-faithful): the message is split into the user's secret
 // (the first lazer.AnonNumSecret blocks, = the hidden/link attribute) and the
@@ -106,7 +106,7 @@ func (s *lazerSignature) Verify() (bool, error) {
 // CreateProof is unused by the lazer backend: the disclosure proof is produced
 // by Credential.CreateDisclosure (which has the opening, the public attribute
 // values, and the disclosed indices), not from the signature alone.
-func (s *lazerSignature) CreateProof() (credtypes.SignatureProof, error) {
+func (s *lazerSignature) CreateProof(nonce []byte) (credtypes.SignatureProof, error) {
 	return nil, errors.New("lazeranon: CreateProof is not used; disclosure proof is built in CreateDisclosure")
 }
 

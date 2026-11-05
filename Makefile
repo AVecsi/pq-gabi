@@ -2,92 +2,116 @@ ROOT_DIR := $(dir $(realpath $(lastword $(MAKEFILE_LIST))))
 
 ZK_REPO   := https://github.com/AVecsi/zkdilithium
 ZK_DIR    := zkDilithiumProof
-ZK_LIB    := $(ZK_DIR)/target/release/libzk_dilithium.a
-ZK_HEADER := $(ZK_DIR)/zkDilithiumProof.h
 
-# Branch of ZK_REPO to build. The f23 (FIPS 204 field) work lives on a branch,
-# so cloning the default branch gives the old f23201 field and every proof fails
-# to verify against this module -- the modulus is not carried across the FFI, so
-# a mismatch is silent. Override with `make ZK_BRANCH=master ...`.
-ZK_BRANCH ?= implement-migration-to-f23
+# The zkDilithium revision this wrapper's FFI speaks to. The cgo declarations in
+# internal/zkdil are part of that contract, so a build against any other
+# revision is not a supported combination -- bump this together with them.
+# It also fixes the field: the modulus is not carried across the FFI, so a
+# revision on a different field than internal/dilcommon (f23, Q = 8380417)
+# builds fine and then fails every proof silently.
+ZK_REV    := a8e591fbeb370be1748bdc0ccf240cb2ee1973c2
 
-# Installing the built artifacts. Kept in one place so the desktop and mobile
-# targets cannot drift apart, and so the branch/commit and the field actually
-# built are reported rather than assumed.
-define install_zk_lib
-	@mkdir -p lib
-	@cp $(ZK_DIR)/target/release/libzk_dilithium.a lib/
-	@cp $(ZK_DIR)/zkDilithiumProof.h lib/
-	@echo "installed libzk_dilithium.a from $(ZK_BRANCH) @ $$(cd $(ZK_DIR) && git rev-parse --short HEAD)"
-	@echo "header reports M = $$(awk '/^#define M /{print $$3}' lib/zkDilithiumProof.h), must equal dilcommon.Q = $$(awk '/^const Q = /{print $$4}' internal/dilcommon/constants.go)"
-endef
+# What cgo actually links against, and the stamp recording which revision it was
+# built from.
+# Every platform gets its own directory, because the cgo LDFLAGS for each one
+# point at lib/$(GOOS)_$(GOARCH) and they used to collide in a single lib/.
+GOOS      := $(shell go env GOOS)
+GOARCH    := $(shell go env GOARCH)
+HOST_DIR  := lib/$(GOOS)_$(GOARCH)
 
-.PHONY: build run test-go test-rust clean clean-all fetch-rust-lib build-ios build-android check-arch
+ZK_LIB    := $(HOST_DIR)/libzk_dilithium.a
+ZK_HEADER := lib/zkDilithiumProof.h
+ZK_STAMP  := $(HOST_DIR)/.zk-rev
+
+# Cross-built with cargo-zigbuild so it links against an old glibc and runs on
+# any CI image. Needs: brew install zig && cargo install cargo-zigbuild &&
+# rustup target add x86_64-unknown-linux-gnu
+LINUX_AMD64_TARGET := x86_64-unknown-linux-gnu.2.17
+
+# Rebuild the lib when the Rust changes, not only when it is missing. Evaluated
+# at parse time, so it is empty before the first clone -- harmless, because then
+# the target does not exist either.
+ZK_SRC := $(wildcard $(ZK_DIR)/Cargo.toml $(ZK_DIR)/Cargo.lock $(ZK_DIR)/build.rs $(ZK_DIR)/cbindgen.toml) \
+          $(shell find $(ZK_DIR)/src -name '*.rs' 2>/dev/null)
+
+.PHONY: build run test-go test-rust test-lazer build-lazer build-linux-amd64 clean clean-all zk-sync zk-check fetch-rust-lib build-ios build-android
 
 # ── top-level ───────────────────────────────────────────────────────────────
 
-build: check-arch $(ZK_LIB) $(ZK_HEADER)
+build: $(ZK_LIB)
 	go build
-
-# cargo builds libzk_dilithium.a for the host architecture only, so a Go toolchain
-# with a different GOARCH cannot link it. That happens easily on an Apple Silicon
-# Mac with both an arm64 (homebrew) and an amd64 (/usr/local/go) Go installed: the
-# amd64 one discards every member of the archive and fails with "running clang
-# failed", preceded by hundreds of "found architecture 'arm64', required
-# architecture 'x86_64'" warnings. Catch it in one line instead.
-# An amd64 Go here would also run the proofs under Rosetta, so any timings taken
-# with it are meaningless even when it does link.
-check-arch:
-	@lib_arch=$$(lipo -info lib/libzk_dilithium.a 2>/dev/null | sed 's/.*architecture: *//'); \
-	go_arch=$$(go env GOARCH); \
-	case "$$go_arch" in amd64) want=x86_64 ;; *) want=$$go_arch ;; esac; \
-	if [ -n "$$lib_arch" ] && [ "$$lib_arch" != "$$want" ]; then \
-		echo "ERROR: lib/libzk_dilithium.a is $$lib_arch, but go targets $$go_arch ($$want)."; \
-		echo "       go in PATH: $$(command -v go) -- $$(go version)"; \
-		echo "       Use a $$lib_arch Go toolchain, e.g.:"; \
-		echo "           PATH=/opt/homebrew/bin:\$$PATH make $(MAKECMDGOALS)"; \
-		echo "       or rebuild the library for $$want:"; \
-		echo "           cd $(ZK_DIR) && cargo build --release --features concurrent --target $$want-apple-darwin"; \
-		exit 1; \
-	fi
 
 run: build
 	go test
 
 # ── rust lib ────────────────────────────────────────────────────────────────
 
+# A fresh clone lands on ZK_REV; there is no local work to lose.
 $(ZK_DIR):
 	@if [ ! -f $(ZK_DIR)/Cargo.toml ]; then \
-		rm -rf $(ZK_DIR) && git clone --branch $(ZK_BRANCH) $(ZK_REPO) $(ZK_DIR); \
+		rm -rf $(ZK_DIR) && git clone $(ZK_REPO) $(ZK_DIR) && \
+		cd $(ZK_DIR) && git checkout --quiet --detach $(ZK_REV); \
 	fi
 
-$(ZK_LIB) $(ZK_HEADER): | $(ZK_DIR)
-	@cd $(ZK_DIR) && cargo build --release --features concurrent
-	$(call install_zk_lib)
+# Refuses to build against the wrong circuit rather than moving somebody's
+# checkout out from under them: if you are working in $(ZK_DIR), you decide
+# whether to go back to the pin or to bump it.
+zk-check: | $(ZK_DIR)
+	@have=$$(cd $(ZK_DIR) && git rev-parse HEAD); \
+	if [ "$$have" != "$(ZK_REV)" ]; then \
+		echo "$(ZK_DIR) is at $$have"; \
+		echo "Makefile pins ZK_REV   $(ZK_REV)"; \
+		echo "Run 'make zk-sync' to move the checkout, or bump ZK_REV."; \
+		exit 1; \
+	fi
 
-# Force a fresh fetch and rebuild of the Rust lib.
-# Checks out ZK_BRANCH explicitly: an existing clone is on whatever branch it was
-# created with, which for any checkout made before the f23 migration is master.
-fetch-rust-lib: | $(ZK_DIR)
-	@cd $(ZK_DIR) && git fetch origin && git checkout $(ZK_BRANCH) && git pull --ff-only origin $(ZK_BRANCH)
+zk-sync: | $(ZK_DIR)
+	@cd $(ZK_DIR) && git fetch --quiet origin && git checkout --quiet --detach $(ZK_REV)
 	# winterfell is a git *branch* dependency and Cargo.lock is gitignored, so the
-	# lock is untracked: git checkout/pull never touch it and cargo keeps the commit
+	# lock is untracked: git checkout never touches it and cargo keeps the commit
 	# it first resolved, even after the branch moves. Re-resolve explicitly. Skipping
 	# this pins winterfell to a pre-patch revision whose zk randomizer does not
 	# reject out-of-range draws, which panics with "failed to generate randomness"
 	# over f23 (~0.098% of draws are rejects, and there are millions per proof).
 	@cd $(ZK_DIR) && cargo update -p winterfell
+	@rm -f $(ZK_STAMP)
+
+$(ZK_STAMP): Makefile | $(ZK_DIR)
+	@$(MAKE) --no-print-directory zk-check
+	@mkdir -p $(HOST_DIR)
+	@echo $(ZK_REV) > $@
+
+$(ZK_LIB) $(ZK_HEADER): $(ZK_STAMP) $(ZK_SRC)
 	@cd $(ZK_DIR) && cargo build --release --features concurrent
-	$(call install_zk_lib)
+	@mkdir -p $(HOST_DIR)
+	@cp $(ZK_DIR)/target/release/libzk_dilithium.a $(HOST_DIR)/
+	@cp $(ZK_DIR)/zkDilithiumProof.h lib/
+	@echo "header reports M = $$(awk '/^#define M /{print $$3}' $(ZK_HEADER)), must equal dilcommon.Q = $$(awk '/^const Q = /{print $$4}' internal/dilcommon/constants.go)"
+
+build-linux-amd64: zk-check
+	@cd $(ZK_DIR) && cargo zigbuild --release --features concurrent --target $(LINUX_AMD64_TARGET)
+	@mkdir -p lib/linux_amd64
+	@cp $(ZK_DIR)/target/x86_64-unknown-linux-gnu/release/libzk_dilithium.a lib/linux_amd64/
+	@cp $(ZK_DIR)/zkDilithiumProof.h lib/
+
+fetch-rust-lib: zk-sync $(ZK_LIB)
 
 # ── mobile targets ──────────────────────────────────────────────────────────
 
-build-ios: | $(ZK_DIR)
-	@cd $(ZK_DIR) && cargo build --release \
+# --features concurrent, like every other target: without it the prover runs
+# single-threaded and an iPhone is several times slower than the equivalent
+# Android for no visible reason.
+#
+# The device lib goes to lib/ios/, which is where the "#cgo ios,arm64" LDFLAGS
+# look. Copying it to lib/ instead put it where the host build expects its own
+# library, so building for iOS overwrote the macOS one.
+build-ios: zk-check | $(ZK_DIR)
+	@cd $(ZK_DIR) && cargo build --release --features concurrent \
 		--target aarch64-apple-ios \
 		--target x86_64-apple-ios
-	@mkdir -p lib/ios
+	@mkdir -p lib/ios lib/ios-sim
 	@cp $(ZK_DIR)/target/aarch64-apple-ios/release/libzk_dilithium.a lib/ios/
+	@cp $(ZK_DIR)/target/x86_64-apple-ios/release/libzk_dilithium.a lib/ios-sim/
 	@cp $(ZK_DIR)/zkDilithiumProof.h lib/
 
 # Detect OS and set NDK toolchain path accordingly
@@ -102,7 +126,7 @@ endif
 NDK_VERSION := $(shell ls $(ANDROID_SDK_ROOT)/ndk | sort -V | tail -1)
 NDK_BIN := $(ANDROID_SDK_ROOT)/ndk/$(NDK_VERSION)/toolchains/llvm/prebuilt/$(NDK_HOST)/bin
 
-build-android: | $(ZK_DIR)
+build-android: zk-check | $(ZK_DIR)
 	@export PATH=$(NDK_BIN):$$PATH && \
 	cd $(ZK_DIR) && cargo build --release --features concurrent \
 		--target aarch64-linux-android \
@@ -116,6 +140,19 @@ build-android: | $(ZK_DIR)
 	@cp $(ZK_DIR)/target/x86_64-linux-android/release/libzk_dilithium.a lib/x86_64/
 	@cp $(ZK_DIR)/zkDilithiumProof.h lib/
 
+# ── lazer backend ───────────────────────────────────────────────────────────
+
+# lazer's headers pass unsigned long long* where GMP declares unsigned long*.
+# Clang under Go >= 1.27 rejects that instead of warning, so the -tags pq_lazer
+# build needs it demoted. Upstream issue in lazer, not in this repo.
+LAZER_CFLAGS := -Wno-incompatible-pointer-types
+
+build-lazer: $(ZK_LIB)
+	CGO_CFLAGS="$(LAZER_CFLAGS)" go build -tags pq_lazer ./...
+
+test-lazer: $(ZK_LIB)
+	CGO_CFLAGS="$(LAZER_CFLAGS)" go test -tags pq_lazer -v ./...
+
 # ── tests ───────────────────────────────────────────────────────────────────
 
 test-go: build
@@ -124,14 +161,14 @@ test-go: build
 # --test test is required: the suite is a separate target ([[test]] name = "test",
 # path = "src/test/test.rs" in Cargo.toml). Without it cargo tests the lib target
 # instead and reports "running 0 tests" while exiting 0.
-test-rust: | $(ZK_DIR)
+test-rust: zk-check | $(ZK_DIR)
 	@cd $(ZK_DIR) && cargo test --release --features concurrent --test test -- --nocapture
 
 # ── clean ───────────────────────────────────────────────────────────────────
 
+# Only the build tree; the committed lib/ archives are deliberately kept.
 clean:
 	rm -f main
-	rm -rf lib/
 	rm -rf $(ZK_DIR)/target
 
 clean-all: clean

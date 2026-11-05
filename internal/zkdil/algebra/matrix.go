@@ -49,6 +49,18 @@ func (m *Matrix) SchoolbookMulDebug(vec *Vec) (*Vec, *Vec) {
 	return &Vec{Ps: quotients}, &Vec{Ps: remainders}
 }
 
+// InvNTT applies the inverse NTT to every entry, returning the matrix in the
+// coefficient domain. SampleMatrix yields A in the NTT domain; the polynomial
+// identity test inside the signature proof is stated over the coefficients, so
+// the STARK's public inputs need this form (see PublicKey.proofInputs).
+func (m *Matrix) InvNTT() *Matrix {
+	rows := make([][]*Poly, len(m.Cs))
+	for i, row := range m.Cs {
+		rows[i] = (&Vec{Ps: row}).InvNTT().Ps
+	}
+	return &Matrix{Cs: rows}
+}
+
 func SampleMatrix(rho []byte) *Matrix {
 	rhoCopy := make([]byte, len(rho))
 	copy(rhoCopy, rho)

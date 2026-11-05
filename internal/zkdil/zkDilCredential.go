@@ -2,41 +2,45 @@ package zkdil
 
 /*
 // ── Android ────────────────────────────────────────────────────────────────
-#cgo android,arm     LDFLAGS: -L../../lib/armeabi-v7a  -lzk_dilithium -lm
-#cgo android,arm64   LDFLAGS: -L../../lib/arm64-v8a    -lzk_dilithium -lm
-#cgo android,386     LDFLAGS: -L../../lib/x86           -lzk_dilithium -lm
-#cgo android,amd64   LDFLAGS: -L../../lib/x86_64        -lzk_dilithium -lm
+#cgo android,arm    LDFLAGS: -L${SRCDIR}/../../lib/armeabi-v7a  -lzk_dilithium -lm
+#cgo android,arm64  LDFLAGS: -L${SRCDIR}/../../lib/arm64-v8a    -lzk_dilithium -lm
+#cgo android,386    LDFLAGS: -L${SRCDIR}/../../lib/x86          -lzk_dilithium -lm
+#cgo android,amd64  LDFLAGS: -L${SRCDIR}/../../lib/x86_64       -lzk_dilithium -lm
 
 // ── iOS ────────────────────────────────────────────────────────────────────
-#cgo ios,arm64       LDFLAGS: -L../../lib/ios           -lzk_dilithium
+#cgo ios,arm64      LDFLAGS: -L${SRCDIR}/../../lib/ios          -lzk_dilithium
 
 // ── macOS ──────────────────────────────────────────────────────────────────
-#cgo darwin,arm64    LDFLAGS: -L../../lib               -lzk_dilithium
-#cgo darwin,amd64    LDFLAGS: -L../../lib               -lzk_dilithium
+#cgo darwin,arm64   LDFLAGS: -L${SRCDIR}/../../lib/darwin_arm64 -lzk_dilithium
+#cgo darwin,amd64   LDFLAGS: -L${SRCDIR}/../../lib/darwin_amd64 -lzk_dilithium
 
 // ── Linux ──────────────────────────────────────────────────────────────────
-#cgo linux,amd64     LDFLAGS: -L../../lib               -lzk_dilithium -lm
-#cgo linux,arm64     LDFLAGS: -L../../lib               -lzk_dilithium -lm
-#cgo linux,arm       LDFLAGS: -L../../lib               -lzk_dilithium -lm
-#cgo linux,386       LDFLAGS: -L../../lib               -lzk_dilithium -lm
+#cgo linux,amd64    LDFLAGS: -L${SRCDIR}/../../lib/linux_amd64  -lzk_dilithium -lm
+#cgo linux,arm64    LDFLAGS: -L${SRCDIR}/../../lib/linux_arm64  -lzk_dilithium -lm
+#cgo linux,arm      LDFLAGS: -L${SRCDIR}/../../lib/linux_arm    -lzk_dilithium -lm
+#cgo linux,386      LDFLAGS: -L${SRCDIR}/../../lib/linux_386    -lzk_dilithium -lm
 
 // ── Windows ────────────────────────────────────────────────────────────────
-#cgo windows,amd64   LDFLAGS: -L../../lib               -lzk_dilithium -lm
-#cgo windows,arm64   LDFLAGS: -L../../lib               -lzk_dilithium -lm
-#cgo windows,386     LDFLAGS: -L../../lib               -lzk_dilithium -lm
+#cgo windows,amd64  LDFLAGS: -L${SRCDIR}/../../lib/windows_amd64 -lzk_dilithium -lm
+#cgo windows,arm64  LDFLAGS: -L${SRCDIR}/../../lib/windows_arm64 -lzk_dilithium -lm
+#cgo windows,386    LDFLAGS: -L${SRCDIR}/../../lib/windows_386  -lzk_dilithium -lm
 
-#include "../../lib/zkDilithiumProof.h"
+#cgo CFLAGS: -I${SRCDIR}/../../lib
+
+#include <zkDilithiumProof.h>
 #include <stdlib.h>
 */
 import "C"
 
 import (
+	"crypto/subtle"
 	"encoding/json"
 	"fmt"
 	"unsafe"
 
 	"github.com/AVecsi/pq-gabi/attribute"
 	"github.com/AVecsi/pq-gabi/credtypes"
+	"github.com/AVecsi/pq-gabi/gabikeys"
 	"github.com/AVecsi/pq-gabi/internal/dilcommon"
 	"github.com/go-errors/errors"
 )
@@ -66,6 +70,11 @@ type zkDilCredentialDisclosure struct {
 type zkDilDisclosureProof struct {
 	AttrProofBytes  []byte                           `json:"attrProof"`
 	CredDisclosures []credtypes.CredentialDisclosure `json:"credentialDisclosures"`
+	// NonceBytes is the verifier's per-session challenge this proof was made
+	// for. Carried so Verify can reject a proof presented to a different
+	// session. NOT an input to prove_attributes yet — see
+	// credtypes.DisclosureProof for the limits of that.
+	NonceBytes []byte `json:"nonce"`
 }
 
 // NewCredential constructs a zkDilCredential.
@@ -138,10 +147,20 @@ func NewCredential(
 }
 
 // CreateDisclosureProof combines multiple credentials and their disclosures
-// into a single zkdil proof.
-func CreateDisclosureProof(credentials []credtypes.Credential, disclosures []credtypes.CredentialDisclosure) (credtypes.DisclosureProof, error) {
+// into a single zkdil proof, bound to the verifier's session nonce.
+func CreateDisclosureProof(credentials []credtypes.Credential, disclosures []credtypes.CredentialDisclosure, nonce []byte) (credtypes.DisclosureProof, error) {
 	if len(credentials) != len(disclosures) {
 		return nil, errors.New("credentials and disclosures count must match")
+	}
+	nonceFes, err := nonceToFes(nonce)
+	if err != nil {
+		return nil, err
+	}
+	// Refused rather than defaulted: a zero-length nonce is the same challenge
+	// in every session, so it binds nothing while producing a proof that looks
+	// bound to anything inspecting it.
+	if len(nonce) == 0 {
+		return nil, errors.New("CreateDisclosureProof: empty session nonce")
 	}
 
 	n := len(credentials)
@@ -198,13 +217,15 @@ func CreateDisclosureProof(credentials []credtypes.Credential, disclosures []cre
 	}
 
 	var proofLen C.size_t
-	proof := C.prove_attributes(cCredsPtr, C.size_t(len(cCreds)), &proofLen)
+	proof := C.prove_attributes(cCredsPtr, C.size_t(len(cCreds)), (*C.uint32_t)(&nonceFes[0]), &proofLen)
+
 	proofBytes := C.GoBytes(unsafe.Pointer(proof), C.int(proofLen))
 	C.free_proof((*C.uint8_t)(proof), proofLen)
 
 	return &zkDilDisclosureProof{
 		AttrProofBytes:  proofBytes,
 		CredDisclosures: disclosures,
+		NonceBytes:      nonce,
 	}, nil
 }
 
@@ -270,8 +291,8 @@ func (c *zkDilCredential) UpdateAttributes(keepCount int, attrs []*attribute.Att
 }
 
 // TODO for now this will create object with the modified stuff, later maybe have to modify
-func (c *zkDilCredential) CreateDisclosure(disclosedAttributeIndices []int) (credtypes.CredentialDisclosure, error) {
-	signatureProof, err := c.signature.CreateProof()
+func (c *zkDilCredential) CreateDisclosure(disclosedAttributeIndices []int, nonce []byte) (credtypes.CredentialDisclosure, error) {
+	signatureProof, err := c.signature.CreateProof(nonce)
 	if err != nil {
 		return nil, err
 	}
@@ -335,9 +356,41 @@ func (d *zkDilCredentialDisclosure) SignatureProof() credtypes.SignatureProof {
 
 // --- gabi.DisclosureProof ---
 
-func (p *zkDilDisclosureProof) Verify() bool {
-	for _, credDiscl := range p.CredDisclosures {
-		if !credDiscl.SignatureProof().Verify() {
+// Verify checks that the proof was made for this session, then checks each
+// credential's signature proof against publicKeys[i] — the issuer key the
+// verifier trusts for that credential — and finally the single attribute proof
+// covering all of them.
+func (p *zkDilDisclosureProof) Verify(publicKeys []gabikeys.PublicKey, nonce []byte) bool {
+	// Before any cryptography: this proof must have been made for the session
+	// being verified. Constant-time, and an empty expected nonce always fails,
+	// so a caller that forgot to thread one through cannot accidentally accept
+	// a proof made for some other session.
+	if len(nonce) == 0 {
+		fmt.Println("Disclosure proof verification failed: empty session nonce.")
+		return false
+	}
+	if subtle.ConstantTimeCompare(p.NonceBytes, nonce) != 1 {
+		fmt.Println("Disclosure proof verification failed: session nonce mismatch.")
+		return false
+	}
+	nonceFes, err := nonceToFes(nonce)
+	if err != nil {
+		log.WithError(err).Warn("zkdil: bad session nonce")
+		return false
+	}
+
+	if len(publicKeys) != len(p.CredDisclosures) {
+		log.Warnf("zkdil: got %d issuer public keys for %d credential disclosures", len(publicKeys), len(p.CredDisclosures))
+		return false
+	}
+
+	for i, credDiscl := range p.CredDisclosures {
+		sigProof := credDiscl.SignatureProof()
+		if sigProof == nil {
+			log.Warn("zkdil: credential disclosure has no signature proof")
+			return false
+		}
+		if !sigProof.Verify(publicKeys[i], nonce) {
 			fmt.Println("Signature proof verification failed.")
 			return false
 		}
@@ -391,11 +444,16 @@ func (p *zkDilDisclosureProof) Verify() bool {
 		C.size_t(len(p.AttrProofBytes)),
 		cDisclPtr,
 		C.size_t(n),
+		(*C.uint32_t)(&nonceFes[0]),
 	) == 1
 }
 
 func (p *zkDilDisclosureProof) AttrProof() []byte {
 	return p.AttrProofBytes
+}
+
+func (p *zkDilDisclosureProof) Nonce() []byte {
+	return p.NonceBytes
 }
 
 func (p *zkDilDisclosureProof) CredentialDisclosures() []credtypes.CredentialDisclosure {
@@ -414,12 +472,14 @@ func (p *zkDilDisclosureProof) UnmarshalJSON(data []byte) error {
 	var raw struct {
 		AttrProof             []byte            `json:"attrProof"`
 		CredentialDisclosures []json.RawMessage `json:"credentialDisclosures"`
+		Nonce                 []byte            `json:"nonce"`
 	}
 	if err := json.Unmarshal(data, &raw); err != nil {
 		return err
 	}
 
 	p.AttrProofBytes = raw.AttrProof
+	p.NonceBytes = raw.Nonce
 
 	for _, rawDisc := range raw.CredentialDisclosures {
 		var disc zkDilCredentialDisclosure
