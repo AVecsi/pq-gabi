@@ -9,7 +9,7 @@ ZK_DIR    := zkDilithiumProof
 # It also fixes the field: the modulus is not carried across the FFI, so a
 # revision on a different field than internal/dilcommon (f23, Q = 8380417)
 # builds fine and then fails every proof silently.
-ZK_REV    := a8e591fbeb370be1748bdc0ccf240cb2ee1973c2
+ZK_REV    := 593fddc5dcee2fbd800d4aa722554a90f735cd8d
 
 # What cgo actually links against, and the stamp recording which revision it was
 # built from.

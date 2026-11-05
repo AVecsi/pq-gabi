@@ -9,6 +9,21 @@
 #include <stdint.h>
 #include <stdlib.h>
 
+/**
+ * Prime modulus of [`BaseElement`]. Every module that needs it should take it from here.
+ */
+#define M 8380417
+
+/**
+ * `(M - 1) / 88`, Dilithium2's low-order rounding parameter.
+ */
+#define GAMMA2 95232
+
+/**
+ * `2^17`, Dilithium2's mask bound.
+ */
+#define GAMMA1 131072
+
 #define N 256
 
 #define K 4
